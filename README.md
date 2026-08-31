@@ -2,6 +2,8 @@
 
 A client-side report builder for writing and exporting professional security / penetration testing assessment reports — no build step, no backend, no account, no data leaving your browser.
 
+**🔗 Live demo: [jozeta.github.io/rapportgenerator/rapportgenerator.html](https://jozeta.github.io/rapportgenerator/rapportgenerator.html)** — hosted on GitHub Pages, so it's served over `https://` and fully functional (the `library.json`/`report-defaults.json`/`settings.json` fetches that fail under `file://` work fine there).
+
 The app itself — the editor, the risk matrix, the PDF export — is a single HTML file, `rapportgenerator.html`, with no separate CSS/JS files and no build step. Three optional JSON files sitting next to it — `library.json` (the vulnerability template library), `report-defaults.json` (the report's default boilerplate text), and `settings.json` (firm-wide defaults) — extend it further — see [How it works](#how-it-works) and [Firm-wide settings](#firm-wide-settings) below — but the app runs and remains useful with just the HTML file on its own.
 
 ## Why
