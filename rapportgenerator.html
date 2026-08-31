@@ -1,0 +1,2907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Security Assessment Reporter</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --headline-color: #333333; }
+
+        body { background-color: var(--bg); font-family: 'Segoe UI', system-ui, sans-serif; color: #333; line-height: 1.6; font-size: 0.9rem; }
+        h1 { font-size: 2.1rem; color: var(--headline-color); }
+        h2 { font-size: 1.5rem; border-bottom: 2px solid var(--primary); padding-bottom: 5px; margin-top: 25px; color: var(--headline-color); }
+        h3 { font-size: 1.2rem; color: var(--headline-color); }
+
+        /* UI Sidebar */
+        .sidebar { background: white; border-right: 1px solid #dee2e6; height: 100vh; overflow-y: auto; position: sticky; top: 0; padding: 25px; z-index: 1001; }
+        body.sidebar-collapsed .sidebar { display: none; }
+        body.sidebar-collapsed .report-col { flex: 0 0 100%; max-width: 100%; }
+
+        /* Monochrome Icon-Only Action Buttons (Bootstrap Icons, no button chrome) */
+        .icon-btn { background: none; border: 1px solid transparent; color: #333; cursor: pointer; padding: 8px; font-size: 1.15rem; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; transition: background 0.15s, border-color 0.15s; line-height: 1; }
+        .icon-btn:hover { background: #f1f1f1; border-color: #dee2e6; }
+
+        /* In-Page Modal System (replaces native confirm()/alert()) */
+        .app-modal-overlay { position: fixed; inset: 0; background: rgba(15,23,32,0.55); z-index: 6000; display: none; align-items: center; justify-content: center; padding: 20px; }
+        .app-modal-box { background: #fff; border-radius: 10px; padding: 22px 24px; max-width: 420px; width: 100%; box-shadow: 0 12px 40px rgba(0,0,0,0.3); }
+        .app-modal-box.app-modal-wide { max-width: 640px; max-height: 88vh; overflow-y: auto; }
+        .app-modal-message { font-size: 0.88rem; color: #333; white-space: pre-wrap; margin-bottom: 18px; line-height: 1.5; }
+        .app-modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+        .app-modal-box h5 { font-size: 1rem; font-weight: 700; }
+
+        /* Collapsible Sidebar Groups */
+        .sidebar-group-toggle { display: flex; justify-content: space-between; align-items: center; width: 100%; background: none; border: none; padding: 2px 0; cursor: pointer; text-align: left; }
+        .sidebar-group-toggle h5 { margin-bottom: 0; }
+        .sidebar-group-toggle .toggle-caret { transition: transform 0.2s; color: #999; font-size: 0.75rem; flex-shrink: 0; margin-left: 8px; }
+        .sidebar-group.collapsed .toggle-caret { transform: rotate(-90deg); }
+        .sidebar-group.collapsed .sidebar-group-body { display: none; }
+        .sidebar-group-body { margin-top: 10px; }
+
+        /* Pre-Export Checklist Panel */
+        .checklist-panel { border: 1px solid #dee2e6; border-radius: 8px; padding: 12px 14px; background: #fcfcfc; }
+        .checklist-title { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #495057; margin-bottom: 8px; }
+        .checklist-item { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; padding: 3px 0; }
+        .checklist-icon { flex-shrink: 0; color: #856404; }
+        .checklist-item .checklist-label { flex-grow: 1; color: #856404; }
+        .checklist-item.checklist-ok .checklist-label { color: #198754; }
+        .checklist-item.checklist-ok .checklist-icon { color: #198754; }
+        .checklist-count { font-weight: 700; color: #856404; background: #fff3cd; padding: 1px 7px; border-radius: 10px; font-size: 0.7rem; }
+        .checklist-total-badge { font-weight: 700; font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; }
+        .checklist-total-badge.has-issues { color: #856404; background: #fff3cd; }
+        .checklist-total-badge.all-clear { color: #155724; background: #d4edda; }
+
+        /* External File Load Warning Banner (library.json, etc. failing to fetch) */
+        .ext-file-warning { display: flex; align-items: flex-start; gap: 8px; background: #fff3cd; border: 1px solid #ffe69c; color: #856404; border-radius: 6px; padding: 8px 10px; font-size: 0.75rem; line-height: 1.4; margin-bottom: 12px; }
+        .ext-file-warning span { flex-grow: 1; }
+        .ext-file-warning button { background: none; border: none; color: #856404; font-weight: bold; cursor: pointer; padding: 0 2px; flex-shrink: 0; line-height: 1; }
+
+        /* Empty-State Placeholders */
+        .findings-empty-state { border: 1px dashed #ced4da; border-radius: 8px; padding: 18px; text-align: center; color: #999; font-size: 0.85rem; font-style: italic; }
+        .library-empty-state { padding: 14px 8px; text-align: center; color: #999; font-size: 0.8rem; font-style: italic; }
+
+        /* Floating Contextual Toolbar */
+        .editor-toolbar {
+            position: absolute;
+            background: #fff;
+            border: 1px solid #ced4da;
+            padding: 6px;
+            z-index: 2000;
+            display: none;
+            gap: 5px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border-radius: 8px;
+            align-items: center;
+        }
+
+        /* Custom DOM Color Swatches */
+        .color-tray {
+            display: none;
+            gap: 4px;
+            position: absolute;
+            top: 44px;
+            left: 240px;
+            background: white;
+            border: 1px solid #ced4da;
+            padding: 6px;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 2001;
+        }
+        .color-swatch {
+            width: 22px;
+            height: 22px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 1px solid rgba(0,0,0,0.15);
+            transition: transform 0.1s;
+        }
+        .color-swatch:hover {
+            transform: scale(1.15);
+            border-color: #555;
+        }
+
+        /* Library Result List */
+        #libraryResults { max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 6px; background: #fff; }
+        .library-item { cursor: pointer; padding: 8px 12px; border-bottom: 1px solid #f1f1f1; transition: background 0.2s; font-size: 0.85rem; text-align: left; width: 100%; background: none; border: none; display: block; }
+        .library-item:hover { background-color: #e9f5ff; color: var(--accent); }
+
+        /* Report Paper Layout Grid */
+        .report-paper { background: white; box-shadow: 0 0 30px rgba(0,0,0,0.1); min-height: 29.7cm; padding: 2.2cm; margin: 30px auto; max-width: 950px; border-radius: 2px; position: relative; }
+        .report-logo { max-height: 160px; max-width: 80%; margin-bottom: 20px; display: block; cursor: pointer; transition: opacity 0.2s; }
+        .report-logo:hover { opacity: 0.8; }
+        .logo-placeholder { height: 130px; width: 80%; max-width: 650px; border: 2px dashed #ccc; display: flex; align-items: center; justify-content: center; color: #999; margin: 0 auto 20px auto; cursor: pointer; border-radius: 6px; transition: 0.2s; user-select: none; }
+        .logo-placeholder:hover { border-color: var(--accent); color: var(--accent); background: #f8fafd; }
+
+        /* Drag and Drop - Sections */
+        .report-block { position: relative; border: 1px solid transparent; transition: 0.2s; padding: 10px; margin-bottom: 10px; border-radius: 8px; }
+        .report-block:hover { border-color: #eee; }
+        .dragging { opacity: 0.4; background: #f9f9f9; border: 1px dashed var(--accent); }
+
+        /* Left-side vertical icon rail: drag, move up/down, page break, delete — all one flex
+           column so they share a single true left-alignment instead of independently-tuned
+           absolute offsets (which is why the scissors icon used to look misaligned). */
+        .block-controls { position: absolute; left: -34px; top: 8px; display: flex; flex-direction: column; align-items: center; gap: 2px; opacity: 0.35; transition: opacity 0.2s; }
+        .report-block:hover .block-controls { opacity: 1; }
+        .block-controls .drag-handle { cursor: grab; color: #ccc; font-size: 18px; user-select: none; line-height: 1; padding: 3px; }
+        .block-control-btn { background: none; border: none; color: #aaa; cursor: pointer; font-size: 13px; padding: 3px; line-height: 1; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; }
+        .block-control-btn:hover { color: #333; background: #f1f1f1; }
+        .block-control-btn.control-danger:hover { color: #e74c3c; background: #fdecea; }
+        .icon-btn.active, .block-control-btn.active { color: #e74c3c; }
+        .icon-btn.active:hover, .block-control-btn.active:hover { color: #c0392b; background: #fdecea; }
+
+        /* Same right-aligned icon row style/size/hover behavior as the section rail, but
+           horizontal, sitting above each finding's title instead of to the left of the block. */
+        .vuln-controls-top { opacity: 0.35; transition: opacity 0.2s; }
+        .vuln-card:hover .vuln-controls-top { opacity: 1; }
+
+        /* Draggable Page-Break Layout Component Styles */
+        .page-break-block { background: #fff; border: 2px dashed #e74c3c !important; padding: 12px; margin: 25px 0 15px 0; border-radius: 8px; text-align: center; position: relative; }
+        .page-break-divider { color: #e74c3c; font-weight: bold; font-size: 0.85rem; letter-spacing: 2px; text-transform: uppercase; user-select: none; }
+
+        /* Drag and Drop - Vulnerabilities */
+        .vuln-card { position: relative; transition: 0.2s; }
+        .vuln-drag-handle { position: absolute; left: -25px; top: 0; cursor: grab; color: #aaa; font-size: 18px; user-select: none; opacity: 0.35; transition: opacity 0.2s; padding: 0 5px; }
+        .vuln-card:hover .vuln-drag-handle { opacity: 1; }
+        .vuln-dragging { opacity: 0.4; background: #f0f7ff; border: 1px dashed var(--accent) !important; }
+
+        /* Editable Areas and Buffer Target Space Padding Adjustments */
+        .editable-section { border: 1px dashed transparent; transition: 0.2s; padding: 6px 20px 6px 8px; border-radius: 6px; min-height: 1.2em; white-space: pre-wrap; }
+        .editable-section:hover { border-color: var(--accent); background: #f0f9ff; cursor: text; }
+        .editable-section:focus { outline: none; border-color: var(--accent); background: #f0f9ff; }
+        .editable-section img { max-width: 100%; height: auto; border-radius: 6px; border: 1px solid #ddd; margin: 12px auto; display: block; }
+
+        /* Asset Token Labels Style Matrix */
+        .asset-badge {
+            font-size: 0.72rem;
+            background-color: #e9ecef;
+            color: #495057;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: SFMono-Regular, Consolas, monospace;
+            display: inline-flex;
+            align-items: center;
+            margin: 2px;
+            border: 1px solid #dee2e6;
+            gap: 4px;
+        }
+        .asset-badge .badge-del { cursor: pointer; color: #dc3545; font-weight: bold; padding: 0 2px; user-select: none; }
+        .asset-badge .badge-del:hover { color: #bd2130; }
+        
+        .btn-add-asset-inline { background: none; border: none; color: #198754; font-weight: bold; font-size: 0.95rem; cursor: pointer; padding: 0 4px; display: inline-flex; align-items: center; }
+        .btn-add-asset-inline:hover { color: #146c43; transform: scale(1.15); }
+
+        /* CWE External Link Badge Design */
+        .cwe-link { color: var(--accent); font-weight: 600; text-decoration: none; border-bottom: 1px dashed var(--accent); }
+        .cwe-link:hover { color: #2980b9; border-bottom-style: solid; }
+
+        /* Much Lighter Quote Block Styling Definition */
+        .editable-section blockquote {
+            border-left: 4px solid #dee2e6;
+            background-color: #fcfcfc;
+            padding: 10px 15px;
+            margin: 12px 0;
+            color: #555;
+            font-style: italic;
+            border-radius: 0 6px 6px 0;
+        }
+
+        /* Much Lighter Light-Theme Monospaced Technical Code Block Styling */
+        .editable-section pre {
+            background-color: #fcfcfc;
+            color: #212529;
+            border: 1px solid #dee2e6;
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-family: 'Fira Code', SFMono-Regular, Consolas, Monaco, 'Andale Mono', Menlo, monospace;
+            font-size: 0.85rem;
+            margin: 14px 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            word-break: break-word;
+        }
+
+        /* Handwritten Print Guide Layout Box Block Styles */
+        .client-notes-canvas {
+            border: 1px solid #ced4da;
+            background-color: #fcfdfd;
+            border-radius: 6px;
+            padding: 16px;
+            margin-top: 18px;
+            position: relative;
+        }
+        .cn-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #495057; border-bottom: 1px dashed #ced4da; padding-bottom: 4px; margin-bottom: 12px; }
+        .cn-field-line { font-size: 0.85rem; margin-bottom: 10px; color: #555; display: flex; align-items: flex-end; }
+        .cn-field-fill { flex-grow: 1; border-bottom: 1px solid #adb5bd; margin-left: 8px; height: 1.4rem; }
+        
+        .cn-notes-wrapper { margin-top: 14px; }
+        .cn-notes-ruled-line { border-bottom: 1px dashed #ced4da; height: 1.85rem; width: 100%; }
+
+        /* 5x5 Matrix Layout */
+        .matrix-wrapper { position: relative; width: 340px; margin: 40px auto; padding-left: 40px; }
+        .risk-matrix { border-collapse: separate; border-spacing: 2px; width: 100%; table-layout: fixed; border: 2px solid #333; }
+        .risk-matrix td { 
+            height: 55px; border: 1px solid rgba(0,0,0,0.1); position: relative; padding: 0; vertical-align: middle; text-align: center;
+            print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important;
+        }
+        
+        .m-low  { background-color: #d4edda !important; box-shadow: inset 0 0 0 1000px #d4edda !important; }
+        .m-med  { background-color: #fff3cd !important; box-shadow: inset 0 0 0 1000px #fff3cd !important; }
+        .m-high { background-color: #ffe5d0 !important; box-shadow: inset 0 0 0 1000px #ffe5d0 !important; }
+        .m-crit { background-color: #f8d7da !important; box-shadow: inset 0 0 0 1000px #f8d7da !important; }
+
+        .matrix-axis-y { writing-mode: vertical-rl; transform: rotate(180deg); font-weight: bold; position: absolute; left: 0; top: 50%; transform: translateY(-50%) rotate(180deg); font-size: 0.85rem; color: #555; }
+        .matrix-axis-x { font-weight: bold; text-align: center; padding-top: 10px; font-size: 0.85rem; color: #555; }
+
+        .matrix-legend { font-size: 0.78rem; line-height: 1.4; }
+
+        /* Render finding points as perfectly flat colored circles */
+        .finding-dot { width: 32px; height: 32px; border-radius: 50%; background: var(--primary) !important; color: white !important; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; border: none; box-shadow: none; margin: 2px; print-color-adjust: exact !important; }
+
+        /* Flat Metric Criticality Tags Style Engine Matrix */
+        .crit-badge { font-size: 0.7rem; font-weight: bold; text-transform: uppercase; padding: 4px 10px; border-radius: 4px; display: inline-block; user-select: none; border: none; line-height: 1.2; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
+        .badge-low  { background-color: #d4edda !important; color: #155724 !important; }
+        .badge-med  { background-color: #fff3cd !important; color: #856404 !important; }
+        .badge-high { background-color: #ffe5d0 !important; color: #a14c06 !important; }
+        .badge-crit { background-color: #f8d7da !important; color: #721c24 !important; }
+        .badge-unscored { background-color: #e2e3e5 !important; color: #41464b !important; }
+
+        /* Finding Status / Retest Tracking Badge Set */
+        .status-badge { font-size: 0.7rem; font-weight: bold; text-transform: uppercase; padding: 4px 10px; border-radius: 4px; display: inline-block; user-select: none; border: none; line-height: 1.2; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
+        .status-open          { background-color: #f8d7da !important; color: #721c24 !important; }
+        .status-remediated    { background-color: #d4edda !important; color: #155724 !important; }
+        .status-partial       { background-color: #fff3cd !important; color: #856404 !important; }
+        .status-accepted      { background-color: #cfe2ff !important; color: #084298 !important; }
+        .status-falsepositive { background-color: #e2e3e5 !important; color: #41464b !important; }
+        .status-unset          { background-color: #e2e3e5 !important; color: #41464b !important; }
+
+        /* Dynamic Token Highlighting Structure Styles */
+        .token-company, .token-client, .token-contact-name, .token-contact-email { font-weight: 600; color: inherit; display: inline; }
+
+        /* Sidebar Tooltip Icon (the ⓘ marker itself — the tooltip bubble is a shared, JS-positioned element) */
+        .info-tip { position: relative; display: inline-block; cursor: help; color: var(--accent); margin-left: 4px; font-weight: bold; }
+
+        /* data-tooltip marks any element as having a tooltip; [title] would otherwise show a native
+           tooltip too, so this just flags the trigger — the bubble itself is #globalTooltip below.
+           It's a single shared, position:fixed element appended to <body> (not the sidebar), positioned
+           via JS and clamped to the viewport, specifically so it can never be clipped by the sidebar's
+           own overflow-y:auto scrolling box — a plain CSS ::after tooltip nested inside the sidebar would. */
+        [data-tooltip] { cursor: help; }
+        #globalTooltip {
+            position: fixed; max-width: 320px; width: max-content;
+            background-color: #2c3e50; color: #fff; text-align: left;
+            border-radius: 6px; padding: 8px 12px;
+            font-size: 0.72rem; font-family: system-ui, sans-serif; font-weight: normal; text-transform: none; line-height: 1.5; letter-spacing: normal;
+            white-space: pre-line;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            opacity: 0; transition: opacity 0.15s;
+            z-index: 9000; pointer-events: none;
+        }
+        #globalTooltip.visible { opacity: 1; }
+
+        /* Centers the executive table inside workspace browser and print structures natively */
+        #execSeverityTableContainer table { margin-left: auto !important; margin-right: auto !important; }
+
+        .summary-list { margin-bottom: 30px; padding-left: 0; }
+        .summary-item { font-size: 0.95rem; margin-bottom: 5px; color: #333; }
+        /* Auto-Generated Table of Contents Block */
+        .toc-block { border: 1px solid #dee2e6; border-radius: 8px; padding: 18px 22px; margin-bottom: 30px; background: #fcfcfc; }
+        .toc-block h2 { margin-top: 0; }
+        .toc-entry { padding: 5px 0; font-size: 0.9rem; border-bottom: 1px dotted #eee; }
+        .toc-entry:last-child { border-bottom: none; }
+        .toc-entry a { color: var(--primary); text-decoration: none; font-weight: 500; }
+        .toc-entry a:hover { text-decoration: underline; }
+
+        .print-score-text { display: none; }
+
+        @media print {
+            .no-print, .editor-toolbar, .block-controls, .vuln-drag-handle, .color-tray { display: none !important; }
+
+            /* Print watermark: a repeating SVG background tile (its data URI is generated in JS —
+               see buildWatermarkSvgUrl()/updateWatermarkPreview() — and set as the --watermark-bg
+               custom property), not a position:fixed overlay. position:fixed is only DEFINED to
+               place an element relative to the initial viewport; Chrome's print pagination does
+               not reliably clone it identically onto every physical page — in testing it instead
+               laid out as a single oversized box spanning the whole multi-page flow, so any one
+               printed page only showed a clipped fragment of it. A tiled background, by contrast,
+               repeats across the box's entire painted area the same way regardless of how that
+               area gets sliced into pages, so every page reliably shows the watermark. Tiling in
+               BOTH directions (repeat, not repeat-y) — rather than one tall column repeating only
+               vertically — is what gives dense, guaranteed-visible-within-any-block coverage while
+               keeping each word itself large; cramming multiple small copies into one tall, narrow
+               tile made the text too tiny to read. The 9cm-square tile must match the SVG's own 1:1
+               aspect ratio (500x500, in buildWatermarkSvgUrl) or the word will look stretched. */
+            /* A background only paints within its own element's box, which ends exactly where the
+               last section's content ends, so the watermark stops partway down the final printed
+               page instead of reaching its bottom edge. A padding-bottom to force the box past that
+               point was tried and reverted: rather than filling the remaining space on that same
+               page, Chrome's print pagination left that remainder blank and pushed the entire added
+               padding onto a new, otherwise-empty page — worse than the small gap it was meant to
+               fix. Covering the exact trailing edge of the last page reliably isn't achievable from
+               CSS alone here; the watermark covers every page fully except this last-page tail. */
+            #printableReport.print-watermark-active {
+                background-image: var(--watermark-bg, none);
+                background-repeat: repeat;
+                background-position: top center;
+                background-size: 9cm 9cm;
+            }
+            .report-paper { box-shadow: none; margin: 0; padding: 0; width: 100%; max-width: 100%; border: none; }
+            body { background: white !important; }
+            .report-block { border: none; padding: 0; margin-bottom: 20px; }
+            h2 { border-bottom: 2px solid #333 !important; }
+            
+            .page-break-block { page-break-before: always !important; border: none !important; margin: 0 !important; padding: 0 !important; height: 0 !important; visibility: hidden; }
+            .editable-section { border: none !important; background: transparent !important; padding-right: 8px !important; }
+            .print-score-text { display: inline-block !important; font-weight: bold; }
+
+            /* Keep a finding's title/description/remediation together instead of splitting across a page boundary */
+            .vuln-card { page-break-inside: avoid !important; }
+
+            /* Bootstrap's .card class (which .vuln-card is layered on) sets an opaque white
+               background-color by default — that painted over the watermark tiled on the ancestor
+               #printableReport, the same bug .report-paper itself had before it was moved inside
+               that ancestor. Sub-boxes with their OWN explicit background (the category/CWE info
+               bar's .bg-light, the risk-scoring table, etc.) still legitimately cover the watermark
+               within their own bounds, same as any other boxed UI element in the report. */
+            .vuln-card { background: transparent !important; }
+
+            /* Start report body on a fresh page after the Table of Contents. Padding/margin are
+               re-declared !important because this block also carries .report-block, whose print
+               reset above (padding:0, margin-bottom:20px) would otherwise win on source order. */
+            .toc-block { border: 1px solid #333 !important; background-color: #ffffff !important; page-break-after: always !important; padding: 18px 22px !important; margin-bottom: 30px !important; }
+            .toc-entry a { color: #333 !important; text-decoration: none !important; }
+
+            /* Strip hyperlinked stylings entirely from CWE indicators during prints */
+            .cwe-link { color: #333 !important; border-bottom: none !important; text-decoration: none !important; pointer-events: none !important; cursor: default !important; font-weight: inherit !important; }
+
+            /* Strip the cross tags off asset badges in raw paper allocations */
+            .badge-del { display: none !important; }
+            .asset-badge { background-color: transparent !important; border: none !important; padding: 0 !important; margin: 0 !important; font-size: inherit; font-family: inherit; color: #333 !important; display: inline !important; }
+            .asset-badge:not(:last-child)::after { content: ", "; }
+
+            /* Retain physical client notation areas perfectly framed inside compiled exports */
+            .client-notes-canvas { border: 1px solid #555 !important; background-color: #ffffff !important; padding: 15px !important; margin-top: 20px !important; display: block !important; page-break-inside: avoid !important; }
+            .cn-field-fill { border-bottom: 1px solid #333 !important; }
+            .cn-notes-ruled-line { border-bottom: 1px solid #aaa !important; }
+
+            /* Forces fallback notice text to completely disappear on PDF prints */
+            .print-fallback-hidden { display: none !important; visibility: hidden !important; }
+
+            /* Advanced Metadata Print Engine Realignment */
+            #block-metadata .row { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; width: 100% !important; border: none !important; }
+            #block-metadata .row > div { flex: 1 !important; width: 33.33% !important; background: transparent !important; border: none !important; padding: 0 10px !important; box-shadow: none !important; }
+            #block-metadata .row > div:first-child { padding-left: 0 !important; }
+            
+            #block-metadata .bg-white, #block-metadata .editable-section, #block-metadata .bg-white * { border: none !important; background: transparent !important; background-color: transparent !important; box-shadow: none !important; padding: 0 !important; }
+            
+            #metaFieldsRow { border: none !important; padding: 0 !important; background: transparent !important; background-color: transparent !important; }
+            #metaFieldsRow.bg-light { background-color: #f8f9fa !important; padding: 15px !important; border-radius: 6px !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            
+            #execSeverityTableContainer th, th { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background-color: #f8f9fa !important; }
+
+            /* Locks 5x5 Matrix Grid and Legend Side-by-Side Natively on Print Canvas */
+            #block-summary .row { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; align-items: center !important; width: 100% !important; }
+            #block-summary .row > div { flex: 1 !important; width: 50% !important; max-width: 50% !important; }
+            #block-summary .matrix-wrapper { margin: 10px auto !important; }
+
+            input[type="date"], select { border: none !important; background: transparent !important; background-color: transparent !important; appearance: none !important; -webkit-appearance: none !important; -moz-appearance: none !important; padding: 0 !important; width: 100% !important; font-weight: normal; color: #333; }
+            input[type="date"]::-webkit-calendar-picker-indicator, input[type="date"]::-webkit-inner-spin-button { display: none !important; -webkit-appearance: none !important; margin: 0 !important; }
+            input[type="date"] { -moz-appearance: textfield !important; }
+            select::-ms-expand { display: none !important; }
+
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        }
+    </style>
+</head>
+<body class="sidebar-collapsed">
+
+<div id="globalTooltip" class="no-print"></div>
+<div id="srAnnouncer" class="visually-hidden no-print" aria-live="polite" aria-atomic="true"></div>
+
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar Controls -->
+        <div class="col-md-3 sidebar no-print">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0"><i class="bi bi-tools"></i> Reporting Tools</h4>
+                <button class="no-print" onclick="toggleSidebar()" data-tooltip="Hide the sidebar so the report has more room to breathe while you write" aria-label="Collapse Sidebar" style="background:none; border:none; color:#999; font-size:18px; cursor:pointer; line-height:1; padding:2px 4px;"><i class="bi bi-chevron-double-left"></i></button>
+            </div>
+
+            <div id="externalFileWarnings" class="no-print"></div>
+
+            <!-- Global Actions: planner omitter, find & replace, print -->
+            <div class="d-flex gap-1 mb-3">
+                <button class="icon-btn" onclick="openAddSectionModal()" data-tooltip="Add a custom text section, or another Detailed Findings section, to the report" aria-label="Add New Section"><i class="bi bi-file-earmark-plus"></i></button>
+                <button class="icon-btn" onclick="openAddFindingModal()" data-tooltip="Pick a template from your library, or fill in the fields manually, then append it to the report" aria-label="Add New Finding"><i class="bi bi-bug"></i></button>
+                <button class="icon-btn" id="omitPlannersIcon" onclick="toggleAllActionPlanners()" data-tooltip="Show the Remediation Action Planner on every finding" aria-label="Toggle All Action Planners"><i class="bi bi-clipboard-check"></i></button>
+                <button class="icon-btn" onclick="openFindReplace()" data-tooltip="Search and replace text across the entire report" aria-label="Find & Replace"><i class="bi bi-search"></i></button>
+                <button class="icon-btn" onclick="handlePrint()" data-tooltip="Open the browser print dialog to export this report as a PDF" aria-label="Print / Export PDF"><i class="bi bi-printer"></i></button>
+            </div>
+
+            <div class="form-check form-switch mb-3" style="font-size: 0.85rem;">
+                <input class="form-check-input shadow-none" type="checkbox" id="toggleTOC" onchange="toggleTOC(this)">
+                <label class="form-check-label text-secondary" style="user-select:none;" for="toggleTOC">Include Table of Contents
+                    <span class="info-tip" data-tooltip="Adds an auto-generated, linked Table of Contents block that stays in sync as you add, remove, or reorder sections. It's draggable like any other block.">ⓘ</span>
+                </label>
+            </div>
+
+            <!-- Pre-Export Checklist Panel -->
+            <div class="checklist-panel mb-4 sidebar-group collapsed">
+                <button class="sidebar-group-toggle" onclick="toggleSidebarGroup(this)" data-tooltip="A live QA checklist — guideline panels left, missing scores/status, unconfigured branding, and more">
+                    <div class="checklist-title mb-0"><i class="bi bi-list-check"></i> Pre-Export Checklist</div>
+                    <span class="d-flex align-items-center gap-2">
+                        <span id="checklistTotalBadge" class="checklist-total-badge"></span>
+                        <span class="toggle-caret"><i class="bi bi-chevron-down"></i></span>
+                    </span>
+                </button>
+                <div class="sidebar-group-body">
+                    <div id="checklistBody"></div>
+                </div>
+            </div>
+
+            <div class="d-grid gap-2 mb-4">
+                <label class="form-label small fw-bold text-secondary text-uppercase mb-0" style="font-size:0.65rem;">Save/Load Report</label>
+                <div class="btn-group">
+                    <button class="btn btn-outline-dark btn-sm" onclick="exportReportJson()" data-tooltip="Save the entire current report — findings, text, logo, and settings — to a JSON file"><i class="bi bi-download"></i> Export Report</button>
+                    <button class="btn btn-outline-dark btn-sm" onclick="document.getElementById('importReportFile').click()" data-tooltip="Load a previously exported report JSON file, replacing everything in the editor"><i class="bi bi-upload"></i> Import Report</button>
+                </div>
+                <button class="btn btn-outline-danger btn-sm" onclick="startNewReport()" data-tooltip="Wipe findings, section text, the logo, and all remembered profile details (client, company, contact, dates, classification) — starts completely blank"><i class="bi bi-file-earmark"></i> New Report</button>
+            </div>
+            <input type="file" id="importReportFile" class="d-none" onchange="importReportJson(this)">
+
+            <hr>
+
+            <!-- Assessment Type: picks which report-defaults.json template populates the boilerplate sections -->
+            <div class="mb-3">
+                <label class="form-label small fw-bold text-secondary text-uppercase mb-1" style="font-size:0.65rem;">
+                    Assessment Type
+                    <span class="info-tip" data-tooltip="Swaps the default boilerplate text (Executive Summary, Purpose, Scope, etc.) to match the selected assessment type. Section headlines and order never change.">ⓘ</span>
+                </label>
+                <select id="input-assessment-type" class="form-select form-select-sm" onchange="onAssessmentTypeChange(this)"></select>
+            </div>
+
+            <hr>
+
+            <!-- Target Framework Profile Fields -->
+            <div class="sidebar-group">
+                <button class="sidebar-group-toggle" onclick="toggleSidebarGroup(this)" data-tooltip="Per-report details — currently just who the target client is">
+                    <h5><i class="bi bi-bullseye"></i> Target Profiles</h5>
+                    <span class="toggle-caret"><i class="bi bi-chevron-down"></i></span>
+                </button>
+                <div class="sidebar-group-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-secondary text-uppercase mb-1" style="font-size:0.65rem;">
+                            Client Name
+                            <span class="info-tip" data-tooltip="Updates [CLIENT NAME] tags dynamically throughout the report text. Type [CLIENT NAME] in any section to automatically map it.">ⓘ</span>
+                        </label>
+                        <input type="text" id="input-client-name" class="form-control form-control-sm mb-3" placeholder="Target Client Name" value="[CLIENT NAME]" oninput="syncTokens(); markUnsaved(); persistField('input-client-name');">
+                    </div>
+                </div>
+            </div>
+
+            <hr>
+
+            <!-- Firm-Level Settings: identity, branding, classifications, template library -->
+            <div class="sidebar-group">
+                <button class="sidebar-group-toggle" onclick="toggleSidebarGroup(this)" data-tooltip="Firm-wide defaults: company identity, branding, classifications, and your template library">
+                    <h5><i class="bi bi-gear"></i> Settings</h5>
+                    <span class="toggle-caret"><i class="bi bi-chevron-down"></i></span>
+                </button>
+                <div class="sidebar-group-body">
+                    <div class="mb-3">
+                        <div data-config-field="companyName">
+                            <label class="form-label small fw-bold text-secondary text-uppercase mb-1" style="font-size:0.65rem;">
+                                Assessing Company
+                                <span class="info-tip" data-tooltip="Updates [COMPANY NAME] tags dynamically throughout the report text. Type [COMPANY NAME] in any section to automatically map it.">ⓘ</span>
+                            </label>
+                            <input type="text" id="input-company-name" class="form-control form-control-sm mb-2" placeholder="Your Company Name" value="[COMPANY NAME]" oninput="syncTokens(); markUnsaved(); persistField('input-company-name');">
+                        </div>
+
+                        <div data-config-field="contactName">
+                            <label class="form-label small fw-bold text-secondary text-uppercase mb-1" style="font-size:0.65rem;">
+                                Contact Person
+                                <span class="info-tip" data-tooltip="Updates [CONTACT NAME] tags dynamically throughout the report text. Type [CONTACT NAME] in any section to automatically map it.">ⓘ</span>
+                            </label>
+                            <input type="text" id="input-contact-name" class="form-control form-control-sm mb-2" placeholder="Your Name" oninput="syncTokens(); markUnsaved(); persistField('input-contact-name');">
+                        </div>
+
+                        <div data-config-field="contactEmail">
+                            <label class="form-label small fw-bold text-secondary text-uppercase mb-1" style="font-size:0.65rem;">
+                                Contact Email
+                                <span class="info-tip" data-tooltip="Updates [CONTACT EMAIL] tags dynamically throughout the report text. Type [CONTACT EMAIL] in any section to automatically map it.">ⓘ</span>
+                            </label>
+                            <input type="text" id="input-contact-email" class="form-control form-control-sm mb-3" placeholder="you@company.com" oninput="syncTokens(); markUnsaved(); persistField('input-contact-email');">
+                        </div>
+
+                        <label class="form-label small fw-bold text-secondary text-uppercase mb-1" style="font-size:0.65rem;">
+                            Branding
+                            <span class="info-tip" data-tooltip="Recolors headings, links, and matrix markers throughout the report to match your brand.">ⓘ</span>
+                        </label>
+                        <div class="d-flex flex-wrap gap-3 align-items-center mb-3">
+                            <div class="d-flex align-items-center gap-2">
+                                <input type="color" id="brandPrimaryColor" class="form-control form-control-color form-control-sm p-0" value="#2c3e50" data-tooltip="Underlines, matrix markers, TOC links" oninput="updateBrandColors(); markUnsaved();">
+                                <span class="small text-secondary">Primary</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <input type="color" id="brandAccentColor" class="form-control form-control-color form-control-sm p-0" value="#3498db" data-tooltip="Links and hover states" oninput="updateBrandColors(); markUnsaved();">
+                                <span class="small text-secondary">Accent</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <input type="color" id="brandHeadlineColor" class="form-control form-control-color form-control-sm p-0" value="#333333" data-tooltip="Heading text color (h1/h2/h3)" oninput="updateBrandColors(); markUnsaved();">
+                                <span class="small text-secondary">Headlines</span>
+                            </div>
+                        </div>
+
+                        <label class="form-label small fw-bold text-secondary text-uppercase mb-1" style="font-size:0.65rem;">
+                            Manage Classifications
+                            <span class="info-tip" data-tooltip="Controls the options available in the Assessment Metadata block's Classification dropdown.">ⓘ</span>
+                        </label>
+                        <div id="classificationManageList" class="mb-2"></div>
+                        <div class="d-flex gap-2 mb-3">
+                            <input type="text" id="newClassificationInput" class="form-control form-control-sm" placeholder="New classification..." onkeydown="if(event.key==='Enter'){event.preventDefault();addClassification();}">
+                            <button class="btn btn-outline-success btn-sm" onclick="addClassification()" data-tooltip="Add this classification to the dropdown">+</button>
+                        </div>
+
+                        <label class="form-label small fw-bold text-secondary text-uppercase mb-1 d-block" style="font-size:0.65rem;">
+                            Print Watermark
+                            <span class="info-tip" data-tooltip="Prints a large, faint, diagonal watermark on every page — either the document's Classification or your own custom text.\nRequires \"Background graphics\" to be enabled in the browser's print dialog (usually under \"More settings\") — otherwise the browser skips it entirely, same as it does for any background image or color.">ⓘ</span>
+                        </label>
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input shadow-none" type="checkbox" id="watermarkEnabled" onchange="updateWatermarkPreview(); markUnsaved();">
+                            <label class="form-check-label small text-secondary" style="user-select:none;" for="watermarkEnabled">Enable watermark when printing</label>
+                        </div>
+                        <div id="watermarkOptions" class="mb-3" style="display:none;">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="watermarkMode" id="watermarkModeClassification" value="classification" checked onchange="updateWatermarkPreview(); markUnsaved();">
+                                <label class="form-check-label small" for="watermarkModeClassification">Use document Classification</label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="watermarkMode" id="watermarkModeCustom" value="custom" onchange="updateWatermarkPreview(); markUnsaved();">
+                                <label class="form-check-label small" for="watermarkModeCustom">Custom text</label>
+                            </div>
+                            <input type="text" id="watermarkCustomText" class="form-control form-control-sm" placeholder="e.g. DRAFT" disabled oninput="updateWatermarkPreview(); markUnsaved();">
+                        </div>
+
+                        <label class="form-label small fw-bold text-secondary text-uppercase mb-1 d-block" style="font-size:0.65rem;">Save/Load Your Template Library</label>
+                        <div class="btn-group w-100 mb-3">
+                            <button class="btn btn-outline-dark btn-sm" onclick="exportLibraryJson()" data-tooltip="Save your entire template library — built-in + anything you've added — to a JSON file"><i class="bi bi-download"></i> Export Library</button>
+                            <button class="btn btn-outline-dark btn-sm" onclick="document.getElementById('importLibraryFile').click()" data-tooltip="Replace your current template library with one loaded from a JSON file"><i class="bi bi-upload"></i> Import Library</button>
+                        </div>
+                        <input type="file" id="importLibraryFile" class="d-none" onchange="importLibraryJson(this)">
+
+                        <button class="btn btn-outline-dark btn-sm w-100" onclick="saveSettingsJson()" data-tooltip="Save Assessing Company, Contact info, Branding, Classifications, and Watermark settings to a settings.json file"><i class="bi bi-save"></i> Save Settings</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <button id="sidebarExpandBtn" class="no-print" onclick="toggleSidebar()" title="Expand Sidebar" style="display:flex; position: fixed; top: 16px; left: 16px; z-index: 3000; width: 36px; height: 36px; border-radius: 50%; border: 1px solid #dee2e6; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.15); cursor: pointer; font-size: 15px; align-items: center; justify-content: center;"><i class="bi bi-list"></i></button>
+        <button id="addSectionModalBtn" class="no-print" onclick="openAddSectionModal()" data-tooltip="Add a custom text section, or another Detailed Findings section, to the report" aria-label="Add New Section" style="display:flex; position: fixed; top: 16px; left: 60px; z-index: 3000; width: 36px; height: 36px; border-radius: 50%; border: 1px solid #dee2e6; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.15); cursor: pointer; font-size: 15px; align-items: center; justify-content: center;"><i class="bi bi-file-earmark-plus"></i></button>
+        <button id="addFindingModalBtn" class="no-print" onclick="openAddFindingModal()" data-tooltip="Pick a template from your library, or fill in the fields manually, then append it to the report" aria-label="Add New Finding" style="display:flex; position: fixed; top: 16px; left: 104px; z-index: 3000; width: 36px; height: 36px; border-radius: 50%; border: 1px solid #dee2e6; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.15); cursor: pointer; font-size: 15px; align-items: center; justify-content: center;"><i class="bi bi-bug"></i></button>
+
+        <div class="col-md-9 p-0 report-col">
+            <input type="file" id="logoUploadHidden" class="d-none" accept="image/*" onchange="updateLogo(this)">
+            <input type="file" id="toolbarImageInput" class="d-none" accept="image/*" onchange="insertImageFromToolbar(this)">
+
+            <!-- Contextual Toolbar -->
+            <div id="floatingToolbar" class="editor-toolbar no-print">
+                <button class="btn btn-sm btn-light border" onmousedown="event.preventDefault(); formatDoc('bold')" title="Bold"><i class="bi bi-type-bold"></i></button>
+                <button class="btn btn-sm btn-light border" onmousedown="event.preventDefault(); formatDoc('italic')" title="Italic"><i class="bi bi-type-italic"></i></button>
+                <button class="btn btn-sm btn-light border" onmousedown="event.preventDefault(); formatDoc('strikethrough')" title="Strikethrough"><i class="bi bi-type-strikethrough"></i></button>
+                <div class="vr mx-1"></div>
+
+                <select class="form-select form-select-sm d-inline-block w-auto" onchange="formatDoc('fontSize', this.value); this.selectedIndex=0;" title="Font Size">
+                    <option value="">Size</option>
+                    <option value="2">Small</option><option value="3">Normal</option><option value="5">Large</option><option value="7">X-Large</option>
+                </select>
+                <div class="vr mx-1"></div>
+
+                <button class="btn btn-sm btn-light border" onmousedown="event.preventDefault(); formatDoc('justifyLeft')" title="Align Left"><i class="bi bi-text-left"></i></button>
+                <button class="btn btn-sm btn-light border" onmousedown="event.preventDefault(); formatDoc('justifyCenter')" title="Align Center"><i class="bi bi-text-center"></i></button>
+                <button class="btn btn-sm btn-light border" onmousedown="event.preventDefault(); formatDoc('justifyRight')" title="Align Right"><i class="bi bi-text-right"></i></button>
+                <div class="vr mx-1"></div>
+
+                <button class="btn btn-sm btn-light border" onmousedown="event.preventDefault(); formatDoc('formatBlock', 'blockquote')" title="Wrap in Quote Block"><i class="bi bi-blockquote-left"></i></button>
+                <button class="btn btn-sm btn-light border" onmousedown="event.preventDefault(); formatDoc('formatBlock', 'pre')" title="Wrap in Monospaced Code Box"><i class="bi bi-code-slash"></i></button>
+                <div class="vr mx-1"></div>
+
+                <button class="btn btn-sm btn-light border" onmousedown="event.preventDefault(); toggleColorTray();" title="Text Color"><i class="bi bi-palette"></i></button>
+                <div class="vr mx-1"></div>
+
+                <button class="btn btn-sm btn-light border" onmousedown="event.preventDefault(); document.getElementById('toolbarImageInput').click();" title="Insert Image Box"><i class="bi bi-image"></i></button>
+                <div class="vr mx-1"></div>
+
+                <button class="btn btn-sm btn-light border" onmousedown="event.preventDefault(); formatDoc('insertUnorderedList')" title="Bullet List"><i class="bi bi-list-ul"></i></button>
+                <button class="btn btn-sm btn-light border" onmousedown="event.preventDefault(); formatDoc('insertOrderedList')" title="Numbered List"><i class="bi bi-list-ol"></i></button>
+
+                <div id="colorTray" class="color-tray" onmousedown="event.preventDefault();">
+                    <div class="color-swatch" style="background:#333333;" onmousedown="event.preventDefault(); formatDoc('foreColor', '#333333')" title="Default Dark"></div>
+                    <div class="color-swatch" style="background:#dc3545;" onmousedown="event.preventDefault(); formatDoc('foreColor', '#dc3545')" title="Critical Red"></div>
+                    <div class="color-swatch" style="background:#fd7e14;" onmousedown="event.preventDefault(); formatDoc('foreColor', '#fd7e14')" title="Medium Orange"></div>
+                    <div class="color-swatch" style="background:#198754;" onmousedown="event.preventDefault(); formatDoc('foreColor', '#198754')" title="Low Green"></div>
+                    <div class="color-swatch" style="background:#0d6efd;" onmousedown="event.preventDefault(); formatDoc('foreColor', '#0d6efd')" title="Info Blue"></div>
+                    <div class="color-swatch" style="background:#6f42c1;" onmousedown="event.preventDefault(); formatDoc('foreColor', '#6f42c1')" title="Purple"></div>
+                    <div class="color-swatch" style="background:#2c3e50;" onmousedown="event.preventDefault(); formatDoc('foreColor', '#2c3e50')" title="Navy Theme"></div>
+                </div>
+            </div>
+
+            <div id="printableReport" class="report-paper">
+                <div id="logoContainer" class="text-center" onclick="document.getElementById('logoUploadHidden').click()">
+                    <div class="logo-placeholder no-print">Click to Upload Company Logo
+                        <span class="info-tip" onclick="event.stopPropagation()" data-tooltip="Best practice: PNG or SVG with a transparent background. Displays at up to 160px tall / 80% of the page width, so a wide logo (roughly 3:1 to 4:1 aspect ratio) fits best. Keep the file small (under ~500KB) for fast loading and PDF export.">ⓘ</span>
+                    </div>
+                </div>
+
+                <header class="text-center mb-4">
+                    <!-- Added missing 'editable-section' class block right here -->
+                    <h1 contenteditable="true" class="fw-bold editable-section section-edit">SECURITY ASSESSMENT REPORT</h1>
+                    <p class="text-muted editable-section section-edit" contenteditable="true" id="report-subheadline"><span class="token-client">[CLIENT NAME]</span></p>
+                </header>
+
+                <div id="reportBlocksContainer">
+                    <!-- Auto-Generated Table of Contents Block (content rebuilt by renderTOC(); position is user-draggable like any other block) -->
+                    <div id="tocBlock" class="report-block toc-block" draggable="false" style="display:none;">
+                        <div class="block-controls no-print">
+                            <div class="drag-handle" draggable="true"><i class="bi bi-grip-vertical"></i></div>
+                            <button class="block-control-btn" onclick="moveSectionUp(this)" data-tooltip="Move section up"><i class="bi bi-chevron-up"></i></button>
+                            <button class="block-control-btn" onclick="moveSectionDown(this)" data-tooltip="Move section down"><i class="bi bi-chevron-down"></i></button>
+                        </div>
+                        <h2>Table of Contents</h2>
+                        <div id="tocList"></div>
+                    </div>
+
+                    <!-- Assessment Metadata Block -->
+                    <div class="report-block mb-4" id="block-metadata" draggable="false">
+                        <div class="block-controls no-print">
+                            <div class="drag-handle" draggable="true"><i class="bi bi-grip-vertical"></i></div>
+                            <button class="block-control-btn" onclick="moveSectionUp(this)" data-tooltip="Move section up"><i class="bi bi-chevron-up"></i></button>
+                            <button class="block-control-btn" onclick="moveSectionDown(this)" data-tooltip="Move section down"><i class="bi bi-chevron-down"></i></button>
+                            <button class="block-control-btn" onclick="insertPageBreakAfter(this)" data-tooltip="Insert page break below this block"><i class="bi bi-scissors"></i></button>
+                            <button class="block-control-btn control-danger" onclick="removeSection(this)" data-tooltip="Delete this section"><i class="bi bi-trash"></i></button>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mb-2 no-print">
+                            <span class="text-muted small fw-bold text-uppercase tracking-wider" style="font-size: 0.7rem;">Assessment Metadata</span>
+                            <div class="form-check form-switch mb-0" style="font-size: 0.8rem;">
+                                <input class="form-check-input shadow-none" type="checkbox" id="toggleMetaBg" checked onchange="toggleMetadataBackground(this)">
+                                <label class="form-check-label text-secondary" style="user-select:none;" for="toggleMetaBg">Show Background</label>
+                            </div>
+                        </div>
+                        
+                        <div id="metaFieldsRow" class="row g-3 bg-light p-3 rounded border border-light-subtle mx-0" style="font-size: 0.82rem;">
+                            <div class="col-md-4 col-12">
+                                <label class="text-uppercase text-secondary fw-bold mb-1 d-block" style="font-size: 0.65rem; letter-spacing: 0.5px;">Contact Person</label>
+                                <div class="editable-section bg-white border border-light-subtle rounded py-1 px-2 mb-2" contenteditable="true">[CONTACT NAME]</div>
+
+                                <label class="text-uppercase text-secondary fw-bold mb-1 d-block" style="font-size: 0.65rem; letter-spacing: 0.5px;">Email Address</label>
+                                <div class="editable-section bg-white border border-light-subtle rounded py-1 px-2" contenteditable="true">[CONTACT EMAIL]</div>
+                            </div>
+                            <div class="col-md-4 col-12">
+                                <label class="text-uppercase text-secondary fw-bold mb-1 d-block" style="font-size: 0.65rem; letter-spacing: 0.5px;">Assessment Window</label>
+                                <div class="bg-white border border-light-subtle rounded p-2 d-flex flex-column gap-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="text-muted text-uppercase" style="font-size: 0.6rem; min-width: 35px;">Start:</span>
+                                        <input type="date" id="meta-start-date" class="form-control form-control-sm border-0 p-0 shadow-none" style="background:transparent; font-size: 0.8rem;" onchange="persistField('meta-start-date');">
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="text-muted text-uppercase" style="font-size: 0.6rem; min-width: 35px;">End:</span>
+                                        <input type="date" id="meta-end-date" class="form-control form-control-sm border-0 p-0 shadow-none" style="background:transparent; font-size: 0.8rem;" onchange="persistField('meta-end-date');">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 col-12">
+                                <label class="text-uppercase text-secondary fw-bold mb-1 d-block" style="font-size: 0.65rem; letter-spacing: 0.5px;">Classification</label>
+                                <select id="meta-classification" class="form-select form-select-sm bg-white border border-light-subtle rounded p-2 shadow-none" style="height: auto; font-size: 0.8rem;" onchange="renderChecklist(); updateWatermarkPreview(); persistField('meta-classification');"></select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Executive Summary Block -->
+                    <div class="report-block" id="block-exec-summary" draggable="false">
+                        <div class="block-controls no-print">
+                            <div class="drag-handle" draggable="true"><i class="bi bi-grip-vertical"></i></div>
+                            <button class="block-control-btn" onclick="moveSectionUp(this)" data-tooltip="Move section up"><i class="bi bi-chevron-up"></i></button>
+                            <button class="block-control-btn" onclick="moveSectionDown(this)" data-tooltip="Move section down"><i class="bi bi-chevron-down"></i></button>
+                            <button class="block-control-btn" onclick="insertPageBreakAfter(this)" data-tooltip="Insert page break below this block"><i class="bi bi-scissors"></i></button>
+                            <button class="block-control-btn control-danger" onclick="removeSection(this)" data-tooltip="Delete this section"><i class="bi bi-trash"></i></button>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h2 class="editable-section section-edit flex-grow-1" contenteditable="true">Executive Summary</h2>
+                            <span class="info-tip no-print" data-tooltip="What is important to include here:\n• Know Your Target Audience: Executive leadership, legal departments, and board members read this section first. Maintain a high-level corporate risk perspective, utilizing plain business language rather than deep technical exploit jargon.\n• Focus Intently on Business Impact: Explicitly define what a successful compromise actually implies for [CLIENT NAME] (e.g., loss of client trust, compliance penalties, intellectual property loss), rather than walking through memory offsets or precise execution arrays.\n• Consolidate Findings into High-Level Themes: Avoid discussing single finding IDs. Summarize findings into systemic gaps (e.g., write &quot;outdated patch lifecycle hygiene across legacy segments&quot; instead of &quot;three machines missed an update&quot;).\n• Keep it Dense and Brief: This complete summary layout should ideally fit cleanly on one page, leading smoothly straight down into the centered distribution metrics scorecard below.\n\nWhat is NOT important here:\n• Avoid attaching source code fragments, long command outputs, terminal tool captures, or structural proof-of-concepts; those belong in the Detailed Findings block.\n• Do not list minor informational issues or trivial tracking flags here; keep the text narrative focused on major security impacts.\n• Avoid sounding accusatory or subjective. Maintain an analytical, professional, and advisory tone throughout the entire summary description.">ⓘ</span>
+                        </div>
+                        <div class="editable-section section-edit mb-3" contenteditable="true" id="section-exec"></div>
+
+                        <div id="execSeverityTableContainer" class="mb-2"></div>
+                    </div>
+
+                    <!-- Section: Confidentiality Notice -->
+                    <div class="report-block" draggable="false">
+                        <div class="block-controls no-print">
+                            <div class="drag-handle" draggable="true"><i class="bi bi-grip-vertical"></i></div>
+                            <button class="block-control-btn" onclick="moveSectionUp(this)" data-tooltip="Move section up"><i class="bi bi-chevron-up"></i></button>
+                            <button class="block-control-btn" onclick="moveSectionDown(this)" data-tooltip="Move section down"><i class="bi bi-chevron-down"></i></button>
+                            <button class="block-control-btn" onclick="insertPageBreakAfter(this)" data-tooltip="Insert page break below this block"><i class="bi bi-scissors"></i></button>
+                            <button class="block-control-btn control-danger" onclick="removeSection(this)" data-tooltip="Delete this section"><i class="bi bi-trash"></i></button>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h2 class="editable-section section-edit flex-grow-1" contenteditable="true">Confidentiality Notice</h2>
+                        </div>
+                        <div class="editable-section section-edit" contenteditable="true" id="section-confidentiality"></div>
+                    </div>
+
+                    <!-- Section: Disclaimer -->
+                    <div class="report-block" draggable="false">
+                        <div class="block-controls no-print">
+                            <div class="drag-handle" draggable="true"><i class="bi bi-grip-vertical"></i></div>
+                            <button class="block-control-btn" onclick="moveSectionUp(this)" data-tooltip="Move section up"><i class="bi bi-chevron-up"></i></button>
+                            <button class="block-control-btn" onclick="moveSectionDown(this)" data-tooltip="Move section down"><i class="bi bi-chevron-down"></i></button>
+                            <button class="block-control-btn" onclick="insertPageBreakAfter(this)" data-tooltip="Insert page break below this block"><i class="bi bi-scissors"></i></button>
+                            <button class="block-control-btn control-danger" onclick="removeSection(this)" data-tooltip="Delete this section"><i class="bi bi-trash"></i></button>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h2 class="editable-section section-edit flex-grow-1" contenteditable="true">Disclaimer</h2>
+                        </div>
+                        <div class="editable-section section-edit" contenteditable="true" id="section-disclaimer"></div>
+                    </div>
+
+                    <!-- Section: Purpose -->
+                    <div class="report-block" draggable="false">
+                        <div class="block-controls no-print">
+                            <div class="drag-handle" draggable="true"><i class="bi bi-grip-vertical"></i></div>
+                            <button class="block-control-btn" onclick="moveSectionUp(this)" data-tooltip="Move section up"><i class="bi bi-chevron-up"></i></button>
+                            <button class="block-control-btn" onclick="moveSectionDown(this)" data-tooltip="Move section down"><i class="bi bi-chevron-down"></i></button>
+                            <button class="block-control-btn" onclick="insertPageBreakAfter(this)" data-tooltip="Insert page break below this block"><i class="bi bi-scissors"></i></button>
+                            <button class="block-control-btn control-danger" onclick="removeSection(this)" data-tooltip="Delete this section"><i class="bi bi-trash"></i></button>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h2 class="editable-section section-edit flex-grow-1" contenteditable="true">Purpose</h2>
+                            <span class="info-tip no-print" data-tooltip="What is important to include here:\n• Define the &quot;Why&quot;: Explicitly frame why this project was triggered (e.g., standard annual hygiene verification, post-incident assurance loop, pre-launch verification of a new infrastructure build).\n• Link to Business Drivers: Explicitly note compliance regulations or corporate parameters guiding the engagement boundaries (e.g., ISO/IEC 27001 tracking, SOC 2 alignment, internal trust requirements).\n\nWhat is NOT important here:\n• Do not discuss testing logistics, specific methodologies, tool lists, or vulnerability findings. Keep this block strictly focused on the strategic motivation behind the report's creation.">ⓘ</span>
+                        </div>
+                        <div class="editable-section section-edit" contenteditable="true" id="section-purpose"></div>
+                    </div>
+
+                    <!-- Section: Summary -->
+                    <div class="report-block" draggable="false">
+                        <div class="block-controls no-print">
+                            <div class="drag-handle" draggable="true"><i class="bi bi-grip-vertical"></i></div>
+                            <button class="block-control-btn" onclick="moveSectionUp(this)" data-tooltip="Move section up"><i class="bi bi-chevron-up"></i></button>
+                            <button class="block-control-btn" onclick="moveSectionDown(this)" data-tooltip="Move section down"><i class="bi bi-chevron-down"></i></button>
+                            <button class="block-control-btn" onclick="insertPageBreakAfter(this)" data-tooltip="Insert page break below this block"><i class="bi bi-scissors"></i></button>
+                            <button class="block-control-btn control-danger" onclick="removeSection(this)" data-tooltip="Delete this section"><i class="bi bi-trash"></i></button>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h2 class="editable-section section-edit flex-grow-1" contenteditable="true">Summary</h2>
+                            <span class="info-tip no-print" data-tooltip="What is important to include here:\n• Technical Overview Bridge: This serves as the technical companion to the Executive Summary. Briefly present the high-level health of the network, applications, or infrastructure builds evaluated.\n• Acknowledge Effective Defenses: Highlight functional security practices observed during testing (e.g., prompt host isolation, active firewall limits).\n\nWhat is NOT important here:\n• Do not duplicate the deep, itemized technical logs, code blocks, or mitigation descriptions found in the Detailed Findings block. Avoid long lists of software versions or asset charts.">ⓘ</span>
+                        </div>
+                        <div class="editable-section section-edit" contenteditable="true" id="section-summary"></div>
+                    </div>
+
+                    <!-- Section: Engagement and Scope -->
+                    <div class="report-block" draggable="false" id="block-scope">
+                        <div class="block-controls no-print">
+                            <div class="drag-handle" draggable="true"><i class="bi bi-grip-vertical"></i></div>
+                            <button class="block-control-btn" onclick="moveSectionUp(this)" data-tooltip="Move section up"><i class="bi bi-chevron-up"></i></button>
+                            <button class="block-control-btn" onclick="moveSectionDown(this)" data-tooltip="Move section down"><i class="bi bi-chevron-down"></i></button>
+                            <button class="block-control-btn" onclick="insertPageBreakAfter(this)" data-tooltip="Insert page break below this block"><i class="bi bi-scissors"></i></button>
+                            <button class="block-control-btn control-danger" onclick="removeSection(this)" data-tooltip="Delete this section"><i class="bi bi-trash"></i></button>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h2 class="editable-section section-edit flex-grow-1" contenteditable="true">Engagement and Scope</h2>
+                            <span class="info-tip no-print" data-tooltip="What is important to include here:\n• Absolute Precision: Provide a clean, undisputed statement of all target profiles (e.g., explicit hostnames, IP subnets, target repository branches, or API pathways).\n• Document Explicit Exclusions: Explicitly log out-of-scope layers. This functions as your critical legal and operational safety boundary for the project.\n• Time Constraints: Specify the exact operational timeframe during which testing actions were legally authorized to run.\n\nWhat is NOT important here:\n• Do not provide excessive network structural theory or general corporate definitions. Keep this block strictly focused on factual target parameters.">ⓘ</span>
+                        </div>
+                        <div class="editable-section section-edit" contenteditable="true" id="section-scope"></div>
+                    </div>
+
+                    <!-- Section: Methodology -->
+                    <div class="report-block" draggable="false">
+                        <div class="block-controls no-print">
+                            <div class="drag-handle" draggable="true"><i class="bi bi-grip-vertical"></i></div>
+                            <button class="block-control-btn" onclick="moveSectionUp(this)" data-tooltip="Move section up"><i class="bi bi-chevron-up"></i></button>
+                            <button class="block-control-btn" onclick="moveSectionDown(this)" data-tooltip="Move section down"><i class="bi bi-chevron-down"></i></button>
+                            <button class="block-control-btn" onclick="insertPageBreakAfter(this)" data-tooltip="Insert page break below this block"><i class="bi bi-scissors"></i></button>
+                            <button class="block-control-btn control-danger" onclick="removeSection(this)" data-tooltip="Delete this section"><i class="bi bi-trash"></i></button>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h2 class="editable-section section-edit flex-grow-1" contenteditable="true">Methodology</h2>
+                        </div>
+                        <div class="editable-section section-edit" contenteditable="true" id="section-method"></div>
+
+                        <div class="table-responsive mt-3">
+                            <table class="table table-sm table-bordered border-light-subtle align-middle" style="font-size: 0.8rem;">
+                                <thead class="table-light fw-bold text-uppercase" style="font-size: 0.65rem; letter-spacing: 0.5px;">
+                                    <tr>
+                                        <th style="width: 10%;">Score</th>
+                                        <th style="width: 45%;">Impact Matrix Definitions</th>
+                                        <th style="width: 45%;">Exploitability Structural Criteria</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="fw-bold text-center bg-light">5</td>
+                                        <td contenteditable="true" class="p-2 bg-white rounded-0"><strong>Catastrophic:</strong> Domain administrator takeover, systemic directory breach, arbitrary code execution, or unmitigated exposure of PII data assets.</td>
+                                        <td contenteditable="true" class="p-2 bg-white rounded-0"><strong>Trivial:</strong> Publicly documented exploit paths or active exploit scripts exist. Requires zero specialized skill or structural authorization profiles.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-bold text-center bg-light">4</td>
+                                        <td contenteditable="true" class="p-2 bg-white rounded-0"><strong>Severe:</strong> Targeted leakage of core application segments, access control bypasses across tenants, or localized configuration integrity loss.</td>
+                                        <td contenteditable="true" class="p-2 bg-white rounded-0"><strong>Easy:</strong> Standard security diagnostic tools easily flag and exploit the vulnerability. Normal operational boundaries do not block validation paths.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-bold text-center bg-light">3</td>
+                                        <td contenteditable="true" class="p-2 bg-white rounded-0"><strong>Moderate:</strong> Exposure of local system diagnostic metrics or read permissions covering bounded internal system architecture structures.</td>
+                                        <td contenteditable="true" class="p-2 bg-white rounded-0"><strong>Medium:</strong> Exploitation requires targeted positioning, local environment knowledge, or chaining lower-level flaws together to bypass defenses.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-bold text-center bg-light">2</td>
+                                        <td contenteditable="true" class="p-2 bg-white rounded-0"><strong>Minor:</strong> Redundant configuration issues, missing hardening rules, or minor platform version info dumps that lack single-action impact paths.</td>
+                                        <td contenteditable="true" class="p-2 bg-white rounded-0"><strong>Difficult:</strong> Requires highly specialized exploit scripts, complex physical positioning, targeted session timing conditions, or user interaction.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-bold text-center bg-light">1</td>
+                                        <td contenteditable="true" class="p-2 bg-white rounded-0"><strong>Low:</strong> Cosmetic defects, generic network structural references, or standard system behaviors that offer no distinct compromise vectors.</td>
+                                        <td contenteditable="true" class="p-2 bg-white rounded-0"><strong>Theoretical:</strong> Hypothetical risk vector with no verified real-world exploit script models or functional validation paths under current configurations.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Findings Summary Section -->
+                    <div class="report-block" id="block-summary" draggable="false">
+                        <div class="block-controls no-print">
+                            <div class="drag-handle" draggable="true"><i class="bi bi-grip-vertical"></i></div>
+                            <button class="block-control-btn" onclick="moveSectionUp(this)" data-tooltip="Move section up"><i class="bi bi-chevron-up"></i></button>
+                            <button class="block-control-btn" onclick="moveSectionDown(this)" data-tooltip="Move section down"><i class="bi bi-chevron-down"></i></button>
+                            <button class="block-control-btn" onclick="insertPageBreakAfter(this)" data-tooltip="Insert page break below this block"><i class="bi bi-scissors"></i></button>
+                            <button class="block-control-btn control-danger" onclick="removeSection(this)" data-tooltip="Delete this section"><i class="bi bi-trash"></i></button>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h2 class="editable-section section-edit flex-grow-1" contenteditable="true">Findings Summary</h2>
+                        </div>
+                        <div id="summaryList" class="summary-list mt-3"></div>
+                        <div class="row align-items-center mt-4">
+                            <div class="col-md-6">
+                                <div class="matrix-wrapper">
+                                    <div class="matrix-axis-y">Impact (1-5) →</div>
+                                    <table class="risk-matrix" id="matrix"></table>
+                                    <div class="matrix-axis-x">Exploitability (1-5) →</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="editable-section section-edit matrix-legend" contenteditable="true" id="section-matrix-legend"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Findings Section -->
+                    <div class="report-block details-block" id="block-details" draggable="false">
+                        <div class="block-controls no-print">
+                            <div class="drag-handle" draggable="true"><i class="bi bi-grip-vertical"></i></div>
+                            <button class="block-control-btn" onclick="moveSectionUp(this)" data-tooltip="Move section up"><i class="bi bi-chevron-up"></i></button>
+                            <button class="block-control-btn" onclick="moveSectionDown(this)" data-tooltip="Move section down"><i class="bi bi-chevron-down"></i></button>
+                            <button class="block-control-btn" onclick="insertPageBreakAfter(this)" data-tooltip="Insert page break below this block"><i class="bi bi-scissors"></i></button>
+                            <button class="block-control-btn control-danger" onclick="removeSection(this)" data-tooltip="Delete this section"><i class="bi bi-trash"></i></button>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h2 class="editable-section section-edit flex-grow-1 details-title" contenteditable="true">Detailed Findings</h2>
+                        </div>
+                        <div id="findingsContainer" class="findings-container" style="position: relative; min-height: 50px; padding-left: 20px;"></div>
+                    </div>
+
+                    <!-- Section: Conclusion -->
+                    <div class="report-block" id="block-conclusion" draggable="false">
+                        <div class="block-controls no-print">
+                            <div class="drag-handle" draggable="true"><i class="bi bi-grip-vertical"></i></div>
+                            <button class="block-control-btn" onclick="moveSectionUp(this)" data-tooltip="Move section up"><i class="bi bi-chevron-up"></i></button>
+                            <button class="block-control-btn" onclick="moveSectionDown(this)" data-tooltip="Move section down"><i class="bi bi-chevron-down"></i></button>
+                            <button class="block-control-btn" onclick="insertPageBreakAfter(this)" data-tooltip="Insert page break below this block"><i class="bi bi-scissors"></i></button>
+                            <button class="block-control-btn control-danger" onclick="removeSection(this)" data-tooltip="Delete this section"><i class="bi bi-trash"></i></button>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h2 class="editable-section section-edit flex-grow-1" contenteditable="true">Conclusion</h2>
+                            <span class="info-tip no-print" data-tooltip="What is important to include here:\n• Strategic Path Forward: Frame security as a continuous lifecycle rather than a single project milestone. Emphasize programmatic changes (e.g., developer training, configuration pipelines) over quick patches.\n• Professional Closing: Conclude the document with a clean, formal advisory sign-off statement.\n\nWhat is NOT important here:\n• Never introduce entirely new vulnerability profiles, metrics, or technical bugs in the conclusion block. Keep the summary high-level and forward-looking.">ⓘ</span>
+                        </div>
+                        <div class="editable-section section-edit" contenteditable="true" id="section-conclusion"></div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Generic Confirm/Alert Modal (replaces native confirm()/alert()) -->
+<div id="appModalOverlay" class="app-modal-overlay no-print">
+    <div class="app-modal-box" role="alertdialog" aria-modal="true">
+        <div id="appModalMessage" class="app-modal-message"></div>
+        <div class="app-modal-actions">
+            <button id="appModalCancelBtn" class="btn btn-sm btn-outline-dark" onclick="resolveAppModal(false)">Cancel</button>
+            <button id="appModalOkBtn" class="btn btn-sm btn-primary" onclick="resolveAppModal(true)">OK</button>
+        </div>
+    </div>
+</div>
+
+<!-- Find & Replace Modal -->
+<div id="findReplaceOverlay" class="app-modal-overlay no-print">
+    <div class="app-modal-box" role="dialog" aria-modal="true">
+        <h5 class="mb-3">Find &amp; Replace</h5>
+        <input type="text" id="frFindInput" class="form-control form-control-sm mb-2" placeholder="Find...">
+        <input type="text" id="frReplaceInput" class="form-control form-control-sm mb-2" placeholder="Replace with...">
+        <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="frCaseSensitive">
+            <label class="form-check-label small text-secondary" for="frCaseSensitive">Case sensitive</label>
+        </div>
+        <div class="app-modal-actions">
+            <button class="btn btn-sm btn-outline-dark" onclick="closeFindReplace()">Cancel</button>
+            <button class="btn btn-sm btn-primary" onclick="runFindReplace()">Replace All</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add New Section Modal -->
+<div id="addSectionModalOverlay" class="app-modal-overlay no-print">
+    <div class="app-modal-box" role="dialog" aria-modal="true">
+        <h5 class="mb-3"><i class="bi bi-file-earmark-plus"></i> Add New Section</h5>
+        <div class="mb-3">
+            <input type="text" id="newHeadline" class="form-control form-control-sm mb-2" placeholder="Headline Name">
+            <button class="btn btn-dark btn-sm w-100" onclick="addNewSection()" data-tooltip="Adds a new heading + free-text block, placed just before the Conclusion">+ Add Text Section</button>
+        </div>
+        <hr>
+        <div class="mb-3">
+            <label class="form-label small fw-bold text-secondary text-uppercase mb-2" style="font-size:0.65rem;">Detailed Findings Section</label>
+            <button class="btn btn-outline-dark btn-sm w-100" onclick="addNewDetailsSection()" data-tooltip="Adds another findings group with its own heading — useful for splitting findings by scope or system">+ Add Detailed Findings Section</button>
+        </div>
+        <div class="app-modal-actions">
+            <button class="btn btn-sm btn-outline-dark" onclick="closeAddSectionModal()">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add New Finding Modal -->
+<div id="addFindingModalOverlay" class="app-modal-overlay no-print">
+    <div class="app-modal-box app-modal-wide" role="dialog" aria-modal="true">
+        <h5 class="mb-3"><i class="bi bi-bug"></i> Add New Finding</h5>
+        <div class="mb-3">
+            <input type="text" id="librarySearch" class="form-control form-control-sm mb-2" placeholder="Search templates..." oninput="filterLibrary()">
+
+            <select id="libraryCategoryFilter" class="form-select form-select-sm mb-2" onchange="filterLibrary()">
+                <option value="">All Categories</option>
+                <option value="AD">Active Directory</option>
+                <option value="AI">AI / LLM</option>
+                <option value="API">API</option>
+                <option value="AZURE">Azure</option>
+                <option value="CLOUD">Cloud</option>
+                <option value="CODE">Code</option>
+                <option value="CONTAINER">Container</option>
+                <option value="DATABASE">Database</option>
+                <option value="DEVOPS">DevOps</option>
+                <option value="GOVERNANCE">Governance</option>
+                <option value="INFRA">Infrastructure</option>
+                <option value="INTUNE">Intune</option>
+                <option value="KUBERNETES">Kubernetes</option>
+                <option value="LINUX">Linux</option>
+                <option value="M365">M365</option>
+                <option value="MOBILE">Mobile</option>
+                <option value="NETWORK">Network</option>
+                <option value="OWASP">Web Application</option>
+                <option value="PHYSICAL">Physical</option>
+                <option value="VPN">VPN</option>
+                <option value="WINDOWS">Windows</option>
+                <option value="WIRELESS">Wireless</option>
+                <option value="MACOS">MacOS</option>
+                <option value="EMAIL">E-Mail</option>
+                <option value="ENDPOINT">Endpoint</option>
+                <option value="BACKUP">Backup</option>
+                <option value="MONITORING">Monitoring</option>
+                <option value="SAAS">SaaS</option>
+                <option value="SECRETS">Secrets</option>
+                <option value="IAM">IAM</option>
+            </select>
+
+            <div id="libraryResults" class="mb-3"></div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label small fw-bold">Risk Scoring
+                <span class="info-tip" data-tooltip="Impact × Exploitability determines the severity badge and where the finding plots on the 5×5 risk matrix. Leave blank to mark a finding as not yet scored.">ⓘ</span>
+            </label>
+            <div class="row g-2">
+                <div class="col-6"><select id="vImpact" class="form-select form-select-sm"><option value="" selected>Impact</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option></select></div>
+                <div class="col-6"><select id="vExploit" class="form-select form-select-sm"><option value="" selected>Exploit</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option></select></div>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label small fw-bold">CVSS v3.1 (optional)
+                <span class="info-tip" data-tooltip="This app doesn't calculate CVSS itself — score it on the official FIRST.org calculator, then paste the resulting vector string and base score back here.">ⓘ</span>
+            </label>
+            <div class="row g-2">
+                <div class="col-8"><input type="text" id="vCvssVector" class="form-control form-control-sm" placeholder="e.g. CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"></div>
+                <div class="col-4"><input type="number" id="vCvssScore" class="form-control form-control-sm" placeholder="Score" min="0" max="10" step="0.1"></div>
+            </div>
+            <a href="https://www.first.org/cvss/calculator/3.1" target="_blank" rel="noopener noreferrer" class="small d-inline-block mt-1">Open CVSS v3.1 Calculator <i class="bi bi-box-arrow-up-right"></i></a>
+        </div>
+
+        <input type="text" id="vTitle" class="form-control mb-2" placeholder="Finding Title">
+        <input type="text" id="vCategory" class="form-control mb-2" placeholder="Category (e.g., Web Application)">
+        <input type="text" id="vCWE" class="form-control mb-2" placeholder="CWE ID (e.g. CWE-89)">
+
+        <!-- Asset Tag Mapping Form Selector -->
+        <input type="text" id="vAssets" class="form-control mb-2" placeholder="Affected Assets (split with commas)">
+
+        <textarea id="vDesc" class="form-control mb-2" rows="2" placeholder="General Vulnerability Description"></textarea>
+        <textarea id="vRem" class="form-control mb-2" rows="2" placeholder="Remediation" oninput="lastLoadedRemediation = null;"></textarea>
+        <button class="btn btn-success w-100 shadow-sm mb-2" onclick="addFinding()">Append to Report</button>
+        <button class="btn btn-outline-success w-100 shadow-sm mb-3" onclick="saveAsLibraryTemplate()" data-tooltip="Saves the fields above as a reusable template in your library, instead of (or as well as) appending to the report"><i class="bi bi-save"></i> Save as Library Template</button>
+
+        <div class="app-modal-actions">
+            <button class="btn btn-sm btn-outline-dark" onclick="closeAddFindingModal()">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let findings = [];
+    let currentLogo = "";
+    let lastSavedRange = null;
+    let tocEnabled = false;
+    let lastLoadedRemediation = null;
+    let classifications = ['Public', 'Internal Use Only', 'Confidential', 'Restricted', 'Secret / Proprietary'];
+    let actionPlannersGloballyVisible = false;
+    let hasUnsavedChanges = false;
+
+    function markUnsaved() { hasUnsavedChanges = true; }
+
+    // Announces structural changes (finding/section added, removed, reordered, etc.) to screen
+    // readers via the visually-hidden #srAnnouncer aria-live region — these actions have no other
+    // feedback beyond the visual re-render, so without this a screen reader user gets no signal
+    // that anything happened. Cleared first so back-to-back identical messages still get announced.
+    function announce(message) {
+        const el = document.getElementById('srAnnouncer');
+        if (!el) return;
+        el.textContent = '';
+        setTimeout(() => { el.textContent = message; }, 50);
+    }
+
+    const FINDING_STATUSES = [
+        { value: 'Open', cls: 'status-open' },
+        { value: 'Remediated', cls: 'status-remediated' },
+        { value: 'Partially Remediated', cls: 'status-partial' },
+        { value: 'Accepted Risk', cls: 'status-accepted' },
+        { value: 'False Positive', cls: 'status-falsepositive' }
+    ];
+
+    function escapeHtml(str) {
+        return String(str)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#39;');
+    }
+
+    // In-page modal system: replaces native confirm()/alert() with a styled, non-blocking overlay.
+    // showConfirm() resolves true/false; showAlert() resolves once the user dismisses it.
+    let appModalResolver = null;
+
+    function showAppModal(message, showCancel) {
+        return new Promise((resolve) => {
+            appModalResolver = resolve;
+            document.getElementById('appModalMessage').innerText = message;
+            document.getElementById('appModalCancelBtn').style.display = showCancel ? 'inline-block' : 'none';
+            document.getElementById('appModalOverlay').style.display = 'flex';
+            document.getElementById('appModalOkBtn').focus();
+        });
+    }
+
+    function resolveAppModal(result) {
+        document.getElementById('appModalOverlay').style.display = 'none';
+        if (appModalResolver) { const r = appModalResolver; appModalResolver = null; r(result); }
+    }
+
+    function showConfirm(message) { return showAppModal(message, true); }
+    async function showAlert(message) { await showAppModal(message, false); }
+
+    function showExternalFileWarning(key, message) {
+        const container = document.getElementById('externalFileWarnings');
+        if (!container) return;
+        const id = 'ext-warn-' + key.replace(/[^a-zA-Z0-9]/g, '-');
+        if (document.getElementById(id)) return;
+        const div = document.createElement('div');
+        div.id = id;
+        div.className = 'ext-file-warning';
+        div.innerHTML = `<span>${escapeHtml(message)}</span><button onclick="this.parentElement.remove()" title="Dismiss">×</button>`;
+        container.appendChild(div);
+    }
+
+    // Loads a local image file (settings.json's logo path, or an auto-detected logo.png/jpg) and
+    // converts it to a base64 data URL via canvas, so it round-trips through report JSON export
+    // the same way an uploaded logo does. Resolves null if the file doesn't exist or can't load.
+    function loadImageAsDataUrl(path) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.naturalWidth;
+                    canvas.height = img.naturalHeight;
+                    canvas.getContext('2d').drawImage(img, 0, 0);
+                    resolve(canvas.toDataURL());
+                } catch (err) {
+                    resolve(path); // canvas access blocked — fall back to the raw path, still renders on screen
+                }
+            };
+            img.onerror = () => resolve(null);
+            img.src = path;
+        });
+    }
+
+    // Default boilerplate text for the narrative report sections (Executive Summary, Purpose,
+    // etc.) lives in report-defaults.json rather than hardcoded in this file, so it can be edited
+    // without touching app logic. The file holds one set of section defaults per assessment type
+    // (report-defaults.json's `templates` map); the Assessment Type dropdown above Target Profiles
+    // switches which set is active. Section headlines and order are fixed in the HTML — only the
+    // text inside each section id changes between templates. Values are HTML (may contain
+    // <span class="token-*">, <br>, or a nested <h3>, but never a whole table/widget — those stay in
+    // this file). Applied before convertLiteralTokensToSpans() runs on init, and again per-element
+    // here, so literal [CLIENT NAME]-style placeholders in the loaded text still convert to live tokens.
+    let reportTemplates = {};
+    let currentAssessmentType = '';
+
+    function populateAssessmentTypeSelect() {
+        const select = document.getElementById('input-assessment-type');
+        select.innerHTML = Object.entries(reportTemplates)
+            .map(([key, tpl]) => `<option value="${escapeHtml(key)}">${escapeHtml(tpl.label || key)}</option>`)
+            .join('');
+        select.value = currentAssessmentType;
+    }
+
+    // Fills every section id from the given template, whether or not it already has content —
+    // callers decide when that's appropriate (initial load vs. a user-initiated type switch).
+    function applyAssessmentTemplate(key) {
+        const tpl = reportTemplates[key];
+        if (!tpl) return;
+        for (const [id, html] of Object.entries(tpl.sections)) {
+            const el = document.getElementById(id);
+            if (!el) continue;
+            el.innerHTML = html;
+            convertLiteralTokensToSpans(el);
+        }
+        currentAssessmentType = key;
+    }
+
+    // Used by importReportJson to restore which type was selected without replaying the
+    // overwrite-confirmation flow or touching section text (blocksHtml already carries that).
+    function setAssessmentTypeSilently(key) {
+        if (!reportTemplates[key]) return;
+        currentAssessmentType = key;
+        const select = document.getElementById('input-assessment-type');
+        if (select) select.value = key;
+    }
+
+    async function onAssessmentTypeChange(select) {
+        const nextKey = select.value;
+        if (nextKey === currentAssessmentType) return;
+        const ok = await showConfirm("Switching assessment type replaces the Executive Summary, Purpose, Scope, and other boilerplate section text below with this type's defaults. Findings and per-report details (client name, dates, etc.) are unaffected. Continue?");
+        if (!ok) {
+            select.value = currentAssessmentType;
+            return;
+        }
+        applyAssessmentTemplate(nextKey);
+        markUnsaved();
+        renderChecklist();
+    }
+
+    async function loadReportDefaults() {
+        let defaults;
+        try {
+            const res = await fetch('report-defaults.json');
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            defaults = await res.json();
+        } catch (err) {
+            showExternalFileWarning('report-defaults.json', "Couldn't load the default report text (report-defaults.json). If you opened this file directly (file://), browsers block that — serve this folder over a local web server instead, e.g. `python3 -m http.server`, then reload. The report's boilerplate sections will start blank; you can still type your own text into them.");
+            return;
+        }
+        reportTemplates = defaults.templates || {};
+        currentAssessmentType = (defaults.defaultTemplate && reportTemplates[defaults.defaultTemplate])
+            ? defaults.defaultTemplate
+            : Object.keys(reportTemplates)[0];
+        populateAssessmentTypeSelect();
+        if (!currentAssessmentType) return;
+        const tpl = reportTemplates[currentAssessmentType];
+        for (const [id, html] of Object.entries(tpl.sections)) {
+            const el = document.getElementById(id);
+            if (!el || el.innerHTML.trim() !== '') continue; // don't clobber an already-imported/edited report
+            el.innerHTML = html;
+            convertLiteralTokensToSpans(el);
+        }
+    }
+
+    let configuredLogoPath = '';
+
+    // Per-report identity fields (client/company/contact/dates/classification) are remembered across
+    // sessions via localStorage, so a new report opens pre-filled with whatever was typed last time
+    // instead of the raw placeholders. A field settings.json has locked (see lockField below) is skipped —
+    // the firm-wide config always wins over a stale local value. Saved on user input only (not on
+    // programmatic sets from settings.json/import), so importing someone else's report never
+    // overwrites your own remembered defaults.
+    const PERSIST_PREFIX = 'rapportgen:';
+    const PERSISTED_FIELD_IDS = ['input-client-name', 'input-company-name', 'input-contact-name', 'input-contact-email', 'meta-start-date', 'meta-end-date', 'meta-classification'];
+    const configLockedFieldIds = new Set();
+
+    function persistField(id) {
+        try {
+            const el = document.getElementById(id);
+            if (el) localStorage.setItem(PERSIST_PREFIX + id, el.value);
+        } catch (err) { /* localStorage unavailable (private mode, storage full, etc.) — skip silently */ }
+    }
+
+    function loadPersistedFields() {
+        for (const id of PERSISTED_FIELD_IDS) {
+            if (configLockedFieldIds.has(id)) continue; // settings.json already fixed this field
+            let stored;
+            try { stored = localStorage.getItem(PERSIST_PREFIX + id); } catch (err) { continue; }
+            if (stored === null) continue;
+            const el = document.getElementById(id);
+            if (el) el.value = stored;
+        }
+    }
+
+    // Crash/tab-close recovery: findings, section text, the logo, branding, etc. only ever live in
+    // page memory until an explicit Export Report, so closing the tab or a browser crash before that
+    // would otherwise lose everything since the last export. Periodically snapshot the same payload
+    // Export Report would produce into localStorage (buildReportPayload/applyReportPayload — defined
+    // further down, alongside exportReportJson/importReportJson which share them — are plain function
+    // declarations, so they're hoisted and safe to call from here) so it can be offered back on the
+    // next visit. Only fires while hasUnsavedChanges is true, so a pristine or already-exported report
+    // isn't needlessly rewritten to storage every tick.
+    const AUTOSAVE_KEY = 'rapportgen:autosave';
+    const AUTOSAVE_INTERVAL_MS = 20000;
+
+    function autosaveReport() {
+        try {
+            localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ savedAt: Date.now(), data: buildReportPayload() }));
+        } catch (err) { /* localStorage unavailable (private mode, quota, etc.) — this tick's autosave is skipped */ }
+    }
+
+    function clearAutosave() {
+        try { localStorage.removeItem(AUTOSAVE_KEY); } catch (err) { /* nothing to clear */ }
+    }
+
+    function setupAutosave() {
+        setInterval(() => { if (hasUnsavedChanges) autosaveReport(); }, AUTOSAVE_INTERVAL_MS);
+        window.addEventListener('beforeunload', () => { if (hasUnsavedChanges) autosaveReport(); });
+    }
+
+    // Offered once at startup, after the rest of the page has loaded, so an accepted restore has a
+    // fully-initialized report to apply itself onto.
+    async function maybeRestoreAutosaveDraft() {
+        let raw;
+        try { raw = localStorage.getItem(AUTOSAVE_KEY); } catch (err) { return; }
+        if (!raw) return;
+
+        let snapshot;
+        try { snapshot = JSON.parse(raw); } catch (err) { clearAutosave(); return; }
+        if (!snapshot || !snapshot.data) { clearAutosave(); return; }
+
+        const when = new Date(snapshot.savedAt || Date.now()).toLocaleString();
+        const restore = await showConfirm(`Found an autosaved draft from ${when}, saved automatically because a previous session ended without exporting. Click OK to restore it, or Cancel to discard it and start blank.`);
+        if (!restore) { clearAutosave(); return; }
+
+        try {
+            applyReportPayload(snapshot.data, { markSaved: false });
+        } catch (err) {
+            await showAlert("Couldn't restore the autosaved draft — it appears to be corrupted, so it has been discarded.");
+            clearAutosave();
+        }
+    }
+
+    // Findings, section text, logo, branding, etc. only ever live in page memory/DOM — nothing but
+    // the identity fields above (and the autosave snapshot) is persisted — so wiping those and
+    // reloading is a complete reset to the same blank state a first-ever visit would produce.
+    async function startNewReport() {
+        const ok = await showConfirm("Start a new report? This clears all findings, section text, the logo, and every remembered profile detail (client name, company, contact, dates, classification). This cannot be undone.");
+        if (!ok) return;
+        try {
+            PERSISTED_FIELD_IDS.forEach(id => localStorage.removeItem(PERSIST_PREFIX + id));
+        } catch (err) { /* localStorage unavailable — nothing to clear */ }
+        clearAutosave();
+        hasUnsavedChanges = false; // we already confirmed above; don't also trigger the beforeunload prompt
+        location.reload();
+    }
+
+    async function loadSettings() {
+        let cfg;
+        try {
+            const res = await fetch('settings.json');
+            if (!res.ok) return; // settings.json is optional — a 404 is not an error
+            cfg = await res.json();
+        } catch (err) {
+            return; // optional file: fetch blocked (e.g. file://) or missing — silently skip
+        }
+
+        const lockField = (inputId, rowSelector) => {
+            configLockedFieldIds.add(inputId);
+            const row = document.querySelector(rowSelector);
+            if (row) row.style.display = 'none';
+        };
+
+        if (cfg.companyName) {
+            document.getElementById('input-company-name').value = cfg.companyName;
+            lockField('input-company-name', '[data-config-field="companyName"]');
+        }
+        if (cfg.contactName) {
+            document.getElementById('input-contact-name').value = cfg.contactName;
+            lockField('input-contact-name', '[data-config-field="contactName"]');
+        }
+        if (cfg.contactEmail) {
+            document.getElementById('input-contact-email').value = cfg.contactEmail;
+            lockField('input-contact-email', '[data-config-field="contactEmail"]');
+        }
+        if (cfg.logo) {
+            configuredLogoPath = cfg.logo;
+            const dataUrl = await loadImageAsDataUrl(cfg.logo);
+            if (dataUrl) { currentLogo = dataUrl; renderLogo(); }
+        }
+        if (cfg.branding) {
+            if (cfg.branding.primaryColor) document.getElementById('brandPrimaryColor').value = cfg.branding.primaryColor;
+            if (cfg.branding.accentColor) document.getElementById('brandAccentColor').value = cfg.branding.accentColor;
+            if (cfg.branding.headlineColor) document.getElementById('brandHeadlineColor').value = cfg.branding.headlineColor;
+            updateBrandColors();
+        }
+        if (Array.isArray(cfg.classifications) && cfg.classifications.length > 0) {
+            classifications = cfg.classifications;
+            renderClassificationSelect();
+        }
+        if (cfg.watermark) {
+            document.getElementById('watermarkEnabled').checked = !!cfg.watermark.enabled;
+            const mode = cfg.watermark.mode === 'custom' ? 'custom' : 'classification';
+            const modeInput = document.querySelector(`input[name="watermarkMode"][value="${mode}"]`);
+            if (modeInput) modeInput.checked = true;
+            document.getElementById('watermarkCustomText').value = cfg.watermark.customText || '';
+            updateWatermarkPreview();
+        }
+        syncTokens();
+        renderChecklist();
+    }
+
+    async function loadDefaultLogo() {
+        if (currentLogo) return; // already set via settings.json
+        for (const filename of ['logo.png', 'logo.jpg']) {
+            const dataUrl = await loadImageAsDataUrl(filename);
+            if (dataUrl) { currentLogo = dataUrl; configuredLogoPath = filename; renderLogo(); renderChecklist(); return; }
+        }
+    }
+
+    function saveSettingsJson() {
+        const settings = {
+            companyName: document.getElementById('input-company-name').value,
+            contactName: document.getElementById('input-contact-name').value,
+            contactEmail: document.getElementById('input-contact-email').value,
+            logo: configuredLogoPath,
+            branding: {
+                primaryColor: document.getElementById('brandPrimaryColor').value,
+                accentColor: document.getElementById('brandAccentColor').value,
+                headlineColor: document.getElementById('brandHeadlineColor').value
+            },
+            classifications: classifications,
+            watermark: {
+                enabled: document.getElementById('watermarkEnabled').checked,
+                mode: (document.querySelector('input[name="watermarkMode"]:checked') || {}).value || 'classification',
+                customText: document.getElementById('watermarkCustomText').value
+            }
+        };
+        const blob = new Blob([JSON.stringify(settings, null, 2)], {type: 'application/json'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'settings.json'; a.click();
+    }
+
+    let library = [];
+
+    async function loadLibrary() {
+        try {
+            const res = await fetch('library.json');
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const data = await res.json();
+            if (!Array.isArray(data)) throw new Error('library.json is not an array');
+            library = data;
+        } catch (err) {
+            library = [];
+            showExternalFileWarning('library.json', "Couldn't load the finding template library (library.json). If you opened this file directly (file://), browsers block that — serve this folder over a local web server instead, e.g. \u0060python3 -m http.server\u0060, then reload. You can still add findings manually.");
+        }
+        filterLibrary();
+    }
+
+    function init() {
+        setupStateLockListeners();
+        setupDynamicTokenParsers();
+        createMatrix();
+        renderClassificationSelect();
+        setupContextualToolbar();
+        setupDragAndDrop();
+        setupSelectionListeners();
+        setupKeyboardPrintInterceptors();
+        setupGlobalTooltips();
+        setupUnsavedChangesTracking();
+        setupAutosave();
+        updateWatermarkPreview();
+
+        syncTokens();
+        document.querySelectorAll('.editable-section').forEach(el => convertLiteralTokensToSpans(el));
+        renderAll();
+
+        loadExternalDefaults();
+    }
+
+    // Warns before closing/reloading the tab if there are edits that haven't been exported yet.
+    // Free-text/contenteditable edits and native form controls (finding scores, metadata dates,
+    // classification, etc.) are all inside #reportBlocksContainer, so one delegated listener there
+    // covers them without needing a markUnsaved() call in every single field handler; actions that
+    // mutate state programmatically (add/remove/reorder finding or section, toggles, etc.) call
+    // markUnsaved() explicitly since they don't fire a native input/change event.
+    function setupUnsavedChangesTracking() {
+        const container = document.getElementById('reportBlocksContainer');
+        if (container) {
+            container.addEventListener('input', markUnsaved);
+            container.addEventListener('change', markUnsaved);
+        }
+        window.addEventListener('beforeunload', (e) => {
+            if (!hasUnsavedChanges) return;
+            e.preventDefault();
+            e.returnValue = '';
+        });
+    }
+
+    // settings.json / logo.* must be applied before the library.json warning banner (if any) is
+    // shown, and the logo auto-detect must run after settings.json in case it already set one.
+    // Report defaults load first so the boilerplate sections are populated as early as possible.
+    async function loadExternalDefaults() {
+        await loadReportDefaults();
+        await loadSettings();
+        loadPersistedFields();
+        syncTokens();
+        renderChecklist();
+        await loadDefaultLogo();
+        await loadLibrary();
+        await maybeRestoreAutosaveDraft();
+    }
+
+    function toggleAllActionPlanners() {
+        markUnsaved();
+        actionPlannersGloballyVisible = !actionPlannersGloballyVisible;
+        findings.forEach(f => {
+            if (actionPlannersGloballyVisible) {
+                if (!f.plannerManuallyHidden) f.showPlanner = true;
+            } else {
+                f.showPlanner = false;
+            }
+        });
+        updateActionPlannerToggleIcon();
+        renderAll();
+        announce(actionPlannersGloballyVisible ? 'Action Planners shown on all findings.' : 'Action Planners hidden on all findings.');
+    }
+
+    function updateActionPlannerToggleIcon() {
+        const btn = document.getElementById('omitPlannersIcon');
+        if (!btn) return;
+        btn.classList.toggle('active', actionPlannersGloballyVisible);
+        btn.setAttribute('data-tooltip', actionPlannersGloballyVisible
+            ? 'Hide the Remediation Action Planner on every finding'
+            : 'Show the Remediation Action Planner on every finding');
+    }
+
+    function handlePrint() {
+        window.print();
+    }
+
+    function setupKeyboardPrintInterceptors() {
+        window.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+                e.preventDefault(); handlePrint();
+            }
+        });
+    }
+
+    function setupStateLockListeners() {
+        document.getElementById('reportBlocksContainer').addEventListener('change', (e) => {
+            if (e.target.tagName === 'SELECT') {
+                Array.from(e.target.options).forEach(opt => {
+                    if (opt.value === e.target.value) opt.setAttribute('selected', 'selected');
+                    else opt.removeAttribute('selected');
+                });
+            }
+            if (e.target.tagName === 'INPUT' && e.target.type === 'date') {
+                e.target.setAttribute('value', e.target.value);
+            }
+            renderChecklist();
+        });
+    }
+
+    function setupDynamicTokenParsers() {
+        document.getElementById('printableReport').addEventListener('focusout', (e) => {
+            if (e.target.hasAttribute('contenteditable')) { 
+                convertLiteralTokensToSpans(e.target); 
+                if (e.target.classList.contains('details-title')) {
+                    renderAll();
+                }
+            }
+        });
+    }
+
+    function convertLiteralTokensToSpans(element) {
+        let html = element.innerHTML;
+        const companyVal = document.getElementById('input-company-name').value || "[COMPANY NAME]";
+        const clientVal = document.getElementById('input-client-name').value || "[CLIENT NAME]";
+        const contactNameVal = document.getElementById('input-contact-name').value || "[CONTACT NAME]";
+        const contactEmailVal = document.getElementById('input-contact-email').value || "[CONTACT EMAIL]";
+        let mutated = false;
+
+        if (html.includes('[CLIENT NAME]')) {
+            html = html.replaceAll('[CLIENT NAME]', `<span class="token-client" data-placeholder="[CLIENT NAME]">${clientVal}</span>`);
+            mutated = true;
+        }
+        if (html.includes('[COMPANY NAME]')) {
+            html = html.replaceAll('[COMPANY NAME]', `<span class="token-company" data-placeholder="[COMPANY NAME]">${companyVal}</span>`);
+            mutated = true;
+        }
+        if (html.includes('[CONTACT NAME]')) {
+            html = html.replaceAll('[CONTACT NAME]', `<span class="token-contact-name" data-placeholder="[CONTACT NAME]">${contactNameVal}</span>`);
+            mutated = true;
+        }
+        if (html.includes('[CONTACT EMAIL]')) {
+            html = html.replaceAll('[CONTACT EMAIL]', `<span class="token-contact-email" data-placeholder="[CONTACT EMAIL]">${contactEmailVal}</span>`);
+            mutated = true;
+        }
+        if (mutated) { element.innerHTML = html; }
+    }
+
+    function syncTokens() {
+        const companyVal = document.getElementById('input-company-name').value || "[COMPANY NAME]";
+        const clientVal = document.getElementById('input-client-name').value || "[CLIENT NAME]";
+        const contactNameVal = document.getElementById('input-contact-name').value || "[CONTACT NAME]";
+        const contactEmailVal = document.getElementById('input-contact-email').value || "[CONTACT EMAIL]";
+
+        document.querySelectorAll('.token-company').forEach(el => { el.innerText = companyVal; });
+        document.querySelectorAll('.token-client').forEach(el => { el.innerText = clientVal; });
+        document.querySelectorAll('.token-contact-name').forEach(el => { el.innerText = contactNameVal; });
+        document.querySelectorAll('.token-contact-email').forEach(el => { el.innerText = contactEmailVal; });
+        renderChecklist();
+    }
+
+    function toggleMetadataBackground(checkbox) {
+        const row = document.getElementById('metaFieldsRow');
+        if (row) {
+            if (checkbox.checked) {
+                row.classList.add('bg-light', 'border', 'border-light-subtle');
+                checkbox.setAttribute('checked', 'checked');
+            } else {
+                row.classList.remove('bg-light', 'border', 'border-light-subtle');
+                checkbox.removeAttribute('checked');
+            }
+        }
+    }
+
+    function toggleSidebarGroup(btn) {
+        const group = btn.closest('.sidebar-group');
+        if (group) { group.classList.toggle('collapsed'); }
+    }
+
+    function toggleSidebar() {
+        const collapsed = document.body.classList.toggle('sidebar-collapsed');
+        document.getElementById('sidebarExpandBtn').style.display = collapsed ? 'flex' : 'none';
+        document.getElementById('addSectionModalBtn').style.display = collapsed ? 'flex' : 'none';
+        document.getElementById('addFindingModalBtn').style.display = collapsed ? 'flex' : 'none';
+    }
+
+    function openAddSectionModal() {
+        document.getElementById('addSectionModalOverlay').style.display = 'flex';
+        document.getElementById('newHeadline').focus();
+    }
+
+    function closeAddSectionModal() {
+        document.getElementById('addSectionModalOverlay').style.display = 'none';
+    }
+
+    function openAddFindingModal() {
+        document.getElementById('addFindingModalOverlay').style.display = 'flex';
+        document.getElementById('librarySearch').focus();
+    }
+
+    function closeAddFindingModal() {
+        document.getElementById('addFindingModalOverlay').style.display = 'none';
+    }
+
+    function updateBrandColors() {
+        const primary = document.getElementById('brandPrimaryColor').value;
+        const accent = document.getElementById('brandAccentColor').value;
+        const headline = document.getElementById('brandHeadlineColor').value;
+        document.documentElement.style.setProperty('--primary', primary);
+        document.documentElement.style.setProperty('--accent', accent);
+        document.documentElement.style.setProperty('--headline-color', headline);
+    }
+
+    // Builds a rotated, light grey watermark as a data-URI SVG rather than DOM text, so it can be
+    // used as a repeating CSS background-image tile (see the .print-watermark-active print rule) —
+    // the only technique that reliably shows up on every printed page (position:fixed does not, in
+    // testing; see the comment on that print rule). Density comes from a SQUARE tile repeated in
+    // BOTH directions (background-repeat: repeat, not repeat-y), not from shrinking the font or
+    // stacking multiple small copies in one tile — that made the text too small to read. One
+    // reasonably large word per tile, tiled edge-to-edge both across and down the page, keeps each
+    // instance big while still guaranteeing the pattern shows up within any content block, including
+    // a single finding card. Font size is scaled down for longer text so it still fits the tile.
+    function buildWatermarkSvgUrl(text) {
+        const safeText = escapeHtml(text);
+        const fontSize = Math.max(40, Math.min(90, Math.floor(537 / (text.length * 0.55 + 1))));
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500">`
+            + `<text x="250" y="250" transform="rotate(-45 250 250)" text-anchor="middle" dominant-baseline="middle" `
+            + `font-family="Segoe UI, Arial, sans-serif" font-size="${fontSize}" font-weight="700" `
+            + `letter-spacing="3" fill="#f0f0f0">${safeText}</text></svg>`;
+        return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+    }
+
+    // Keeps the (screen-invisible) print watermark's active/text state in sync with the Settings
+    // panel's controls. Runs on every relevant control change rather than just at print time, so
+    // switching to Classification mode always reflects whatever's currently in the Classification
+    // dropdown, including live edits made after the toggle was turned on.
+    function updateWatermarkPreview() {
+        const enabled = document.getElementById('watermarkEnabled').checked;
+        const optionsDiv = document.getElementById('watermarkOptions');
+        optionsDiv.style.display = enabled ? 'block' : 'none';
+
+        const modeInput = document.querySelector('input[name="watermarkMode"]:checked');
+        const mode = modeInput ? modeInput.value : 'classification';
+        const customInput = document.getElementById('watermarkCustomText');
+        customInput.disabled = (mode !== 'custom');
+
+        let text = '';
+        if (enabled) {
+            if (mode === 'classification') {
+                const classSelect = document.getElementById('meta-classification');
+                text = classSelect ? classSelect.value : '';
+            } else {
+                text = customInput.value.trim();
+            }
+        }
+
+        const reportPaper = document.getElementById('printableReport');
+        const isActive = enabled && text.length > 0;
+        if (isActive) reportPaper.style.setProperty('--watermark-bg', buildWatermarkSvgUrl(text));
+        reportPaper.classList.toggle('print-watermark-active', isActive);
+    }
+
+    function openFindReplace() {
+        document.getElementById('frFindInput').value = '';
+        document.getElementById('frReplaceInput').value = '';
+        document.getElementById('frCaseSensitive').checked = false;
+        document.getElementById('findReplaceOverlay').style.display = 'flex';
+        document.getElementById('frFindInput').focus();
+    }
+
+    function closeFindReplace() {
+        document.getElementById('findReplaceOverlay').style.display = 'none';
+    }
+
+    async function runFindReplace() {
+        const findText = document.getElementById('frFindInput').value;
+        const replaceText = document.getElementById('frReplaceInput').value;
+        const caseSensitive = document.getElementById('frCaseSensitive').checked;
+        if (!findText) { closeFindReplace(); return; }
+
+        const count = findAndReplaceInReport(findText, replaceText, caseSensitive);
+        if (count > 0) markUnsaved();
+        closeFindReplace();
+        await showAlert(count > 0 ? `Replaced ${count} occurrence${count === 1 ? '' : 's'}.` : 'No matches found.');
+    }
+
+    // Walks a live DOM subtree and replaces matches only inside text nodes, never inside
+    // tags/attributes, so a search term that happens to look like markup can't corrupt the HTML.
+    function replaceTextNodesInElement(root, pattern, replaceText, counter) {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+        const textNodes = [];
+        let node;
+        while (node = walker.nextNode()) { textNodes.push(node); }
+        textNodes.forEach(textNode => {
+            // Dynamic tokens (company/client/contact) are controlled by the Target Profiles sidebar
+            // fields and get overwritten by syncTokens() on the very next render, so editing their
+            // displayed text here would silently revert — skip them rather than report a fake match.
+            if (textNode.parentElement && textNode.parentElement.closest('.token-company, .token-client, .token-contact-name, .token-contact-email')) {
+                return;
+            }
+            const matches = textNode.nodeValue.match(pattern);
+            if (matches) {
+                counter.count += matches.length;
+                textNode.nodeValue = textNode.nodeValue.replace(pattern, replaceText);
+            }
+        });
+    }
+
+    function findAndReplaceInReport(findText, replaceText, caseSensitive) {
+        if (!findText) return 0;
+        const flags = caseSensitive ? 'g' : 'gi';
+        const escapedFind = findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const pattern = new RegExp(escapedFind, flags);
+        const counter = { count: 0 };
+
+        const replacePlainText = (str) => {
+            if (typeof str !== 'string' || !str) return str;
+            const matches = str.match(pattern);
+            if (matches) counter.count += matches.length;
+            return str.replace(pattern, replaceText);
+        };
+
+        // HTML-bearing finding fields: parse into a detached element, replace text nodes only, re-serialize.
+        const replaceHtmlText = (htmlString) => {
+            if (typeof htmlString !== 'string' || !htmlString) return htmlString;
+            const container = document.createElement('div');
+            container.innerHTML = htmlString;
+            replaceTextNodesInElement(container, pattern, replaceText, counter);
+            return container.innerHTML;
+        };
+
+        // Finding data is the source of truth for finding cards — renderAll() rebuilds the DOM from it.
+        findings.forEach(f => {
+            f.title = replacePlainText(f.title);
+            f.category = replacePlainText(f.category);
+            f.cwe = replacePlainText(f.cwe);
+            f.description = replaceHtmlText(f.description);
+            f.remediation = replaceHtmlText(f.remediation);
+            if (Array.isArray(f.assets)) {
+                f.assets = f.assets.map(a => replacePlainText(a));
+            }
+        });
+
+        // Static/custom section content (headings, narrative text, metadata fields, matrix legend, etc.)
+        // has no separate JS state — the DOM is the source of truth, so edit it directly.
+        document.querySelectorAll('#printableReport [contenteditable="true"]').forEach(el => {
+            if (el.closest('.findings-container')) return; // handled via the findings array above
+            replaceTextNodesInElement(el, pattern, replaceText, counter);
+        });
+
+        renderAll();
+        return counter.count;
+    }
+
+    // Single shared tooltip element appended to <body>, positioned via getBoundingClientRect and
+    // clamped to the viewport. Needed because a plain CSS ::after tooltip nested inside .sidebar
+    // gets clipped by the sidebar's own overflow-y:auto — this escapes that entirely.
+    function setupGlobalTooltips() {
+        const tip = document.getElementById('globalTooltip');
+        if (!tip) return;
+        let activeTrigger = null;
+
+        const positionTooltip = (trigger) => {
+            const margin = 8;
+            const rect = trigger.getBoundingClientRect();
+            const tipRect = tip.getBoundingClientRect();
+
+            let left = rect.left + (rect.width / 2) - (tipRect.width / 2);
+            left = Math.max(margin, Math.min(left, window.innerWidth - tipRect.width - margin));
+
+            let top = rect.top - tipRect.height - 8;
+            if (top < margin) { top = rect.bottom + 8; } // not enough room above — flip below
+
+            tip.style.left = `${left}px`;
+            tip.style.top = `${top}px`;
+        };
+
+        const showTooltip = (trigger) => {
+            const text = trigger.getAttribute('data-tooltip');
+            if (!text) return;
+            activeTrigger = trigger;
+            // Literal "\n" (backslash-n) in the HTML attribute survives HTML whitespace
+            // normalization, unlike an actual newline character, which would get collapsed
+            // to a space when the attribute is parsed — so multi-line tooltips use this escape.
+            tip.textContent = text.replace(/\\n/g, '\n');
+            tip.classList.add('visible');
+            positionTooltip(trigger);
+        };
+
+        const hideTooltip = () => {
+            activeTrigger = null;
+            tip.classList.remove('visible');
+        };
+
+        document.addEventListener('mouseover', (e) => {
+            const trigger = e.target.closest('[data-tooltip]');
+            if (trigger && trigger !== activeTrigger) { showTooltip(trigger); }
+        });
+        document.addEventListener('mouseout', (e) => {
+            const trigger = e.target.closest('[data-tooltip]');
+            if (trigger && trigger === activeTrigger && !trigger.contains(e.relatedTarget)) { hideTooltip(); }
+        });
+        document.addEventListener('focusin', (e) => {
+            const trigger = e.target.closest('[data-tooltip]');
+            if (trigger) { showTooltip(trigger); }
+        });
+        document.addEventListener('focusout', (e) => {
+            const trigger = e.target.closest('[data-tooltip]');
+            if (trigger && trigger === activeTrigger) { hideTooltip(); }
+        });
+        window.addEventListener('scroll', () => { if (activeTrigger) hideTooltip(); }, true);
+    }
+
+    function setupSelectionListeners() {
+        const trackSelection = (e) => {
+            const sel = window.getSelection();
+            if (sel.rangeCount > 0) {
+                const range = sel.getRangeAt(0);
+                let node = sel.anchorNode;
+                let parent = node && node.nodeType === 3 ? node.parentNode : node;
+                
+                if (parent && typeof parent.closest === 'function' && parent.closest('.section-edit')) {
+                    if (e.type === 'selectionchange' && sel.isCollapsed && lastSavedRange && !lastSavedRange.collapsed) { return; }
+                    lastSavedRange = range.cloneRange();
+                }
+            }
+        };
+        document.addEventListener('mouseup', trackSelection);
+        document.addEventListener('keyup', trackSelection);
+        document.addEventListener('selectionchange', trackSelection);
+    }
+
+    function setupContextualToolbar() {
+        const toolbar = document.getElementById('floatingToolbar');
+        
+        const handleVisibility = (e) => {
+            const editable = e.target.closest('.section-edit');
+            const isToolbar = e.target.closest('.editor-toolbar');
+            
+            if (editable) { positionToolbar(editable); } 
+            else if (!isToolbar && e.target.id !== 'toolbarImageInput' && e.target.id !== 'logoUploadHidden') {
+                toolbar.style.display = 'none'; document.getElementById('colorTray').style.display = 'none';
+            }
+        };
+
+        document.addEventListener('focusin', handleVisibility);
+        document.addEventListener('mouseup', handleVisibility); 
+        document.addEventListener('keyup', handleVisibility);   
+
+        document.addEventListener('mousedown', (e) => {
+            const editable = e.target.closest('.section-edit');
+            const isToolbar = e.target.closest('.editor-toolbar');
+            if (!editable && !isToolbar) {
+                toolbar.style.display = 'none'; document.getElementById('colorTray').style.display = 'none';
+            }
+        });
+    }
+
+    function positionToolbar(element) {
+        const toolbar = document.getElementById('floatingToolbar');
+        const rect = element.getBoundingClientRect();
+        toolbar.style.display = 'flex';
+        toolbar.style.top = `${window.scrollY + rect.top - 55}px`;
+        toolbar.style.left = `${window.scrollX + rect.left}px`;
+    }
+
+    function toggleColorTray() {
+        const tray = document.getElementById('colorTray');
+        tray.style.display = tray.style.display === 'flex' ? 'none' : 'flex';
+    }
+
+    function formatDoc(cmd, val = null) {
+        if (lastSavedRange) {
+            const sel = window.getSelection();
+            let node = lastSavedRange.startContainer; if (node.nodeType === 3) node = node.parentNode;
+            const targetBlock = node.closest('.section-edit');
+            if (targetBlock) { targetBlock.focus(); }
+            sel.removeAllRanges(); sel.addRange(lastSavedRange);
+        }
+        document.execCommand(cmd, false, val);
+    }
+
+    async function insertImageFromToolbar(input) {
+        if (input.files && input.files[0]) {
+            const base64 = await toBase64(input.files[0]);
+            if (lastSavedRange) {
+                const sel = window.getSelection();
+                let node = lastSavedRange.startContainer; if (node.nodeType === 3) node = node.parentNode;
+                const targetBlock = node.closest('.section-edit');
+                
+                if (targetBlock) { targetBlock.focus(); }
+                sel.removeAllRanges(); sel.addRange(lastSavedRange);
+
+                const imgHtml = `<img src="${base64}">`;
+                document.execCommand('insertHTML', false, imgHtml);
+                input.value = ''; document.getElementById('floatingToolbar').style.display = 'none';
+            }
+        }
+    }
+
+    function moveSectionUp(btn) {
+        const block = btn.closest('.report-block');
+        const prev = block.previousElementSibling;
+        if (prev) { block.parentNode.insertBefore(block, prev); markUnsaved(); renderAll(); announce('Section moved up.'); }
+    }
+
+    function moveSectionDown(btn) {
+        const block = btn.closest('.report-block');
+        const next = block.nextElementSibling;
+        if (next) { block.parentNode.insertBefore(next, block); markUnsaved(); renderAll(); announce('Section moved down.'); }
+    }
+
+    async function removeSection(btn) {
+        const targetBlock = btn.closest('.report-block');
+        const isDetails = targetBlock.classList.contains('details-block');
+        if (isDetails && document.querySelectorAll('.details-block').length <= 1) {
+            await showAlert("At least one Detailed Findings section must remain in the report.");
+            return;
+        }
+        const isBreak = targetBlock.classList.contains('page-break-block');
+        const promptText = isBreak ? "Remove this printable page split barrier?" : "Permanently delete this text section?";
+        if (await showConfirm(promptText)) {
+            targetBlock.remove();
+            document.getElementById('floatingToolbar').style.display = 'none';
+            markUnsaved();
+            renderAll();
+            announce(isBreak ? 'Page break removed.' : 'Section deleted.');
+        }
+    }
+
+    function addNewDetailsSection() {
+        const headline = document.getElementById('newHeadline').value || "Detailed Findings";
+        const container = document.getElementById('reportBlocksContainer');
+        const div = document.createElement('div');
+        const uniqueId = 'details-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+        div.className = 'report-block details-block';
+        div.id = uniqueId;
+        div.setAttribute('draggable', 'false');
+        div.innerHTML = `<div class="block-controls no-print">
+                <div class="drag-handle" draggable="true"><i class="bi bi-grip-vertical"></i></div>
+                <button class="block-control-btn" onclick="moveSectionUp(this)" data-tooltip="Move section up"><i class="bi bi-chevron-up"></i></button>
+                <button class="block-control-btn" onclick="moveSectionDown(this)" data-tooltip="Move section down"><i class="bi bi-chevron-down"></i></button>
+                <button class="block-control-btn" onclick="insertPageBreakAfter(this)" data-tooltip="Insert page break below this block"><i class="bi bi-scissors"></i></button>
+                <button class="block-control-btn control-danger" onclick="removeSection(this)" data-tooltip="Delete this section"><i class="bi bi-trash"></i></button>
+            </div>
+            <div class="d-flex justify-content-between align-items-center">
+                <h2 class="editable-section section-edit flex-grow-1 details-title" contenteditable="true">${headline}</h2>
+            </div>
+            <div class="findings-container" style="position: relative; min-height: 50px; padding-left: 20px;"></div>`;
+            
+        const detailBlocks = document.querySelectorAll('.details-block');
+        if (detailBlocks.length > 0) {
+            const lastDetails = detailBlocks[detailBlocks.length - 1];
+            lastDetails.parentNode.insertBefore(div, lastDetails.nextSibling);
+        } else {
+            container.appendChild(div);
+        }
+        
+        setupDragAndDrop();
+        document.getElementById('newHeadline').value = '';
+        markUnsaved();
+        renderAll();
+        announce('Detailed Findings section added.');
+        closeAddSectionModal();
+    }
+
+
+    function addNewSection() {
+        const headline = document.getElementById('newHeadline').value || "New Section";
+        const container = document.getElementById('reportBlocksContainer');
+        const div = document.createElement('div');
+        div.className = 'report-block';
+        div.setAttribute('draggable', 'false');
+        div.innerHTML = `<div class="block-controls no-print">
+                <div class="drag-handle" draggable="true"><i class="bi bi-grip-vertical"></i></div>
+                <button class="block-control-btn" onclick="moveSectionUp(this)" data-tooltip="Move section up"><i class="bi bi-chevron-up"></i></button>
+                <button class="block-control-btn" onclick="moveSectionDown(this)" data-tooltip="Move section down"><i class="bi bi-chevron-down"></i></button>
+                <button class="block-control-btn" onclick="insertPageBreakAfter(this)" data-tooltip="Insert page break below this block"><i class="bi bi-scissors"></i></button>
+                <button class="block-control-btn control-danger" onclick="removeSection(this)" data-tooltip="Delete this section"><i class="bi bi-trash"></i></button>
+            </div>
+            <div class="d-flex justify-content-between align-items-center">
+                <h2 class="editable-section section-edit flex-grow-1" contenteditable="true">${headline}</h2>
+            </div>
+            <div class="editable-section section-edit" contenteditable="true">Enter content here...</div>`;
+        
+        const conclusionBlock = document.getElementById('block-conclusion');
+        if (conclusionBlock) {
+            container.insertBefore(div, conclusionBlock);
+        } else {
+            container.appendChild(div);
+        }
+        setupDragAndDrop();
+        document.getElementById('newHeadline').value = '';
+        if (tocEnabled) renderTOC();
+        markUnsaved();
+        announce('Section added.');
+        closeAddSectionModal();
+    }
+
+    function insertPageBreakAfter(btn) {
+        const currentBlock = btn.closest('.report-block');
+        const div = document.createElement('div');
+        div.className = 'report-block page-break-block';
+        div.setAttribute('draggable', 'false');
+        div.innerHTML = `<div class="block-controls no-print"><div class="drag-handle" draggable="true"><i class="bi bi-grip-vertical"></i></div></div>
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="page-break-divider">--- Forced Print Page Break Boundary ---</div>
+                <button class="btn btn-sm btn-outline-danger no-print ms-2" onclick="removeSection(this)">Remove Break</button>
+            </div>`;
+        currentBlock.parentNode.insertBefore(div, currentBlock.nextSibling);
+        setupDragAndDrop();
+        markUnsaved();
+        announce('Page break inserted.');
+    }
+
+    function setupDragAndDrop() {
+        const container = document.getElementById('reportBlocksContainer');
+        const blocks = container.querySelectorAll('.report-block');
+        
+        blocks.forEach(block => {
+            const handle = block.querySelector('.drag-handle');
+            if (handle) {
+                handle.addEventListener('mousedown', () => { block.setAttribute('draggable', 'true'); });
+                handle.addEventListener('mouseup', () => { block.setAttribute('draggable', 'false'); });
+                handle.addEventListener('dragend', () => { block.setAttribute('draggable', 'false'); });
+            }
+            block.addEventListener('dragstart', (e) => {
+                if (block.getAttribute('draggable') !== 'true') { e.preventDefault(); return; }
+                block.classList.add('dragging');
+            });
+            block.addEventListener('dragend', () => {
+                block.classList.remove('dragging'); block.setAttribute('draggable', 'false');
+                renderAll();
+            });
+        });
+        
+        container.addEventListener('dragover', e => {
+            const draggable = document.querySelector('.dragging'); if (!draggable) return;
+            e.preventDefault();
+            const afterElement = getDragAfterElement(container, e.clientY);
+            if (afterElement == null) { container.appendChild(draggable); }
+            else { container.insertBefore(draggable, afterElement); }
+        });
+
+        syncAriaLabelsFromTooltips();
+    }
+
+    function getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.report-block:not(.dragging)')];
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect(); const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) { return { offset: offset, element: child }; } 
+            else { return closest; }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    function setupVulnDragAndDrop() {
+        const containers = document.querySelectorAll('.findings-container');
+        const cards = document.querySelectorAll('.vuln-card');
+
+        cards.forEach(card => {
+            const handle = card.querySelector('.vuln-drag-handle');
+            if (handle) {
+                handle.addEventListener('mousedown', () => { card.setAttribute('draggable', 'true'); });
+                handle.addEventListener('mouseup', () => { card.setAttribute('draggable', 'false'); });
+                handle.addEventListener('dragend', () => { card.setAttribute('draggable', 'false'); });
+            }
+            card.addEventListener('dragstart', (e) => {
+                if (card.getAttribute('draggable') !== 'true') { e.preventDefault(); return; }
+                e.stopPropagation(); card.classList.add('vuln-dragging');
+            });
+            card.addEventListener('dragend', (e) => {
+                e.stopPropagation(); card.classList.remove('vuln-dragging'); card.setAttribute('draggable', 'false');
+                
+                const reorderedFindings = [];
+                document.querySelectorAll('.findings-container').forEach(container => {
+                    const parentBlock = container.closest('.details-block');
+                    const sectionId = parentBlock ? parentBlock.id : 'block-details';
+                    const containerCards = [...container.querySelectorAll('.vuln-card')];
+                    
+                    containerCards.forEach(c => {
+                        const originalIndex = parseInt(c.getAttribute('data-index'));
+                        const finding = findings[originalIndex];
+                        if (finding) {
+                            finding.sectionId = sectionId;
+                            reorderedFindings.push(finding);
+                        }
+                    });
+                });
+                findings = reorderedFindings;
+                renderAll(); 
+            });
+        });
+
+        containers.forEach(container => {
+            container.addEventListener('dragover', e => {
+                const draggable = document.querySelector('.vuln-dragging'); if (!draggable) return; 
+                e.preventDefault(); e.stopPropagation();
+                const afterElement = getDragAfterVulnElement(container, e.clientY);
+                if (afterElement == null) { container.appendChild(draggable); } 
+                else { container.insertBefore(draggable, afterElement); }
+            });
+        });
+    }
+
+    function getDragAfterVulnElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.vuln-card:not(.vuln-dragging)')];
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect(); const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) { return { offset: offset, element: child }; } 
+            else { return closest; }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    function filterLibrary() {
+        const term = document.getElementById('librarySearch').value.toLowerCase();
+        const selectedCat = document.getElementById('libraryCategoryFilter').value;
+        const fontResults = document.getElementById('libraryResults'); fontResults.innerHTML = '';
+
+        const matches = library.map((v, idx) => ({ v, idx })).filter(({ v }) => {
+            const matchesSearch = v.title.toLowerCase().includes(term) || v.cwe.toLowerCase().includes(term);
+            const matchesCategory = !selectedCat || v.category === selectedCat;
+            return matchesSearch && matchesCategory;
+        });
+
+        if (matches.length === 0) {
+            fontResults.innerHTML = `<div class="library-empty-state">No matching templates found.</div>`;
+            return;
+        }
+
+        matches.forEach(({ v, idx }) => {
+            const btn = document.createElement('button'); btn.className = 'library-item';
+            btn.innerHTML = `<strong>${v.title}</strong> <br><small class="text-secondary">${v.category} | ${v.cwe}</small>`;
+            btn.onclick = () => loadTemplate(idx);
+            fontResults.appendChild(btn);
+        });
+    }
+
+    function loadTemplate(idx) {
+        const v = library[idx];
+        document.getElementById('vTitle').value = v.title;
+        document.getElementById('vCWE').value = v.cwe || "";
+        document.getElementById('vCategory').value = v.category || "";
+        document.getElementById('vDesc').value = v.description;
+        document.getElementById('vRem').value = v.remediation;
+        document.getElementById('vAssets').value = "";
+        lastLoadedRemediation = v.remediation;
+    }
+
+    async function saveAsLibraryTemplate() {
+        const title = document.getElementById('vTitle').value.trim();
+        if (!title) {
+            await showAlert("Enter a Finding Title before saving it as a library template.");
+            return;
+        }
+        library.push({
+            title: title,
+            category: document.getElementById('vCategory').value || 'General',
+            cwe: document.getElementById('vCWE').value || 'N/A',
+            description: document.getElementById('vDesc').value,
+            remediation: document.getElementById('vRem').value
+        });
+        filterLibrary();
+        await showAlert(`"${title}" was added to your template library. Use "Export Library" to save it to library.json so it's there next time.`);
+    }
+
+    function exportLibraryJson() {
+        const blob = new Blob([JSON.stringify(library, null, 2)], {type: 'application/json'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'library.json'; a.click();
+    }
+
+    async function importLibraryJson(input) {
+        if (!input.files || !input.files[0]) return;
+
+        if (!(await showConfirm("Importing will replace your entire current template library (the list you search in \"Add Finding\"). This does not affect the current report. Continue?"))) {
+            input.value = '';
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (!Array.isArray(data)) throw new Error('library JSON must be an array');
+                library = data;
+                filterLibrary();
+            } catch (err) {
+                await showAlert("Import failed: the selected file is not a valid library JSON array.");
+            } finally {
+                input.value = '';
+            }
+        };
+        reader.onerror = async () => {
+            await showAlert("Import failed: could not read the selected file.");
+            input.value = '';
+        };
+        reader.readAsText(input.files[0]);
+    }
+
+    async function addFinding() {
+        const rawAssets = document.getElementById('vAssets').value;
+        const assetsArr = rawAssets ? rawAssets.split(',').map(item => item.trim()).filter(item => item.length > 0) : [];
+
+        const firstSec = document.querySelector('.details-block');
+        const sectionId = firstSec ? firstSec.id : 'block-details';
+
+        const remediationVal = document.getElementById('vRem').value;
+        const remediationIsDefault = lastLoadedRemediation !== null && remediationVal === lastLoadedRemediation;
+        lastLoadedRemediation = null;
+
+        const impactRaw = document.getElementById('vImpact').value;
+        const exploitRaw = document.getElementById('vExploit').value;
+
+        findings.push({
+            title: document.getElementById('vTitle').value || "New Finding",
+            cwe: document.getElementById('vCWE').value || "N/A",
+            category: document.getElementById('vCategory').value || "General",
+            assets: assetsArr,
+            impact: impactRaw ? parseInt(impactRaw) : null,
+            exploit: exploitRaw ? parseInt(exploitRaw) : null,
+            cvssVector: document.getElementById('vCvssVector').value.trim(),
+            cvssScore: document.getElementById('vCvssScore').value.trim(),
+            description: document.getElementById('vDesc').value,
+            remediation: remediationVal,
+            remediationIsDefault: remediationIsDefault,
+            showPlanner: actionPlannersGloballyVisible,
+            plannerManuallyHidden: false,
+            status: '',
+            retestDate: '',
+            sectionId: sectionId
+        });
+        markUnsaved();
+        renderAll();
+        announce('Finding added.');
+        ['vTitle', 'vCWE', 'vCategory', 'vAssets', 'vCvssVector', 'vCvssScore', 'vDesc', 'vRem'].forEach(id => document.getElementById(id).value = '');
+    }
+
+    function updateFindingScore(idx, field, value) {
+        findings[idx][field] = parseInt(value); markUnsaved(); renderAll();
+    }
+
+    function toggleFindingPlanner(idx, stateValue) {
+        findings[idx].showPlanner = stateValue;
+        findings[idx].plannerManuallyHidden = !stateValue;
+        markUnsaved();
+        renderAll();
+        announce(stateValue ? 'Action Planner shown for this finding.' : 'Action Planner hidden for this finding.');
+    }
+
+    function toggleFindingPageBreak(idx) {
+        findings[idx].pageBreakBefore = !findings[idx].pageBreakBefore;
+        markUnsaved();
+        renderAll();
+        announce(findings[idx].pageBreakBefore ? 'Page break added above this finding.' : 'Page break removed from above this finding.');
+    }
+
+    function moveFindingUp(idx) {
+        const f = findings[idx];
+        for (let i = idx - 1; i >= 0; i--) {
+            if (findings[i].sectionId === f.sectionId) {
+                [findings[i], findings[idx]] = [findings[idx], findings[i]];
+                break;
+            }
+        }
+        markUnsaved();
+        renderAll();
+        announce('Finding moved up.');
+    }
+
+    function moveFindingDown(idx) {
+        const f = findings[idx];
+        for (let i = idx + 1; i < findings.length; i++) {
+            if (findings[i].sectionId === f.sectionId) {
+                [findings[i], findings[idx]] = [findings[idx], findings[i]];
+                break;
+            }
+        }
+        markUnsaved();
+        renderAll();
+        announce('Finding moved down.');
+    }
+
+
+    function deleteInlineAsset(vulnIdx, assetIdx) {
+        findings[vulnIdx].assets.splice(assetIdx, 1);
+        markUnsaved();
+        renderAll();
+    }
+
+    function addInlineAsset(vulnIdx) {
+        const name = prompt("Enter asset tracking identification tag:");
+        if (name && name.trim().length > 0) {
+            findings[vulnIdx].assets.push(name.trim());
+            markUnsaved();
+            renderAll();
+        }
+    }
+
+    function editInlineAsset(vulnIdx, assetIdx, currentText) {
+        const name = prompt("Update asset designation reference:", currentText);
+        if (name && name.trim().length > 0) {
+            findings[vulnIdx].assets[assetIdx] = name.trim();
+            markUnsaved();
+            renderAll();
+        }
+    }
+
+    function parseCweLinkBadge(cweValue) {
+        if (!cweValue || cweValue.toUpperCase() === "N/A") return "N/A";
+        const numericMatch = cweValue.match(/\d+/);
+        const safeCwe = escapeHtml(cweValue);
+        if (numericMatch) {
+            return `<a href="https://cwe.mitre.org/data/definitions/${numericMatch[0]}.html" target="_blank" class="cwe-link">${safeCwe}</a>`;
+        }
+        return safeCwe;
+    }
+
+    function renderTOC() {
+        const tocList = document.getElementById('tocList');
+        if (!tocList) return;
+        const headings = document.querySelectorAll('#reportBlocksContainer h2.section-edit');
+        tocList.innerHTML = '';
+        headings.forEach((h, idx) => {
+            h.id = `toc-target-${idx}`;
+            const entry = document.createElement('div');
+            entry.className = 'toc-entry';
+            const link = document.createElement('a');
+            link.href = `#toc-target-${idx}`;
+            link.innerText = h.innerText.trim() || `Section ${idx + 1}`;
+            entry.appendChild(link);
+            tocList.appendChild(entry);
+        });
+    }
+
+    function toggleTOC(checkbox) {
+        tocEnabled = checkbox.checked;
+        const tocBlock = document.getElementById('tocBlock');
+        if (tocBlock) tocBlock.style.display = tocEnabled ? 'block' : 'none';
+        if (tocEnabled) renderTOC();
+        markUnsaved();
+    }
+
+    function updateFindingStatus(idx, value) {
+        findings[idx].status = value; renderAll();
+    }
+
+    function updateFindingRetestDate(idx, value) {
+        findings[idx].retestDate = value; renderAll();
+    }
+
+    // Rebuilds the Classification <select> options from the `classifications` array (preserving
+    // the current selection if it still exists) and the add/remove management list in Settings.
+    function renderClassificationSelect() {
+        const select = document.getElementById('meta-classification');
+        if (select) {
+            const currentVal = select.value;
+            select.innerHTML = '<option value="" selected>Select classification...</option>' +
+                classifications.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+            if (classifications.includes(currentVal)) { select.value = currentVal; }
+        }
+
+        const manageList = document.getElementById('classificationManageList');
+        if (manageList) {
+            manageList.innerHTML = classifications.length > 0
+                ? classifications.map((c, idx) => `
+                    <span class="asset-badge">
+                        <span>${escapeHtml(c)}</span>
+                        <span class="badge-del no-print" onclick="removeClassification(${idx})">×</span>
+                    </span>
+                `).join('')
+                : `<span class="text-muted small">No classifications defined.</span>`;
+        }
+
+        renderChecklist();
+    }
+
+    function addClassification() {
+        const input = document.getElementById('newClassificationInput');
+        const val = input.value.trim();
+        if (!val || classifications.includes(val)) { input.value = ''; return; }
+        classifications.push(val);
+        input.value = '';
+        markUnsaved();
+        renderClassificationSelect();
+    }
+
+    function removeClassification(idx) {
+        classifications.splice(idx, 1);
+        markUnsaved();
+        renderClassificationSelect();
+    }
+
+    function renderChecklist() {
+        const body = document.getElementById('checklistBody');
+        if (!body) return;
+
+        const companyVal = (document.getElementById('input-company-name').value || '').trim();
+        const clientVal = (document.getElementById('input-client-name').value || '').trim();
+        const contactNameVal = (document.getElementById('input-contact-name').value || '').trim();
+        const contactEmailVal = (document.getElementById('input-contact-email').value || '').trim();
+        const startDateVal = document.getElementById('meta-start-date')?.value || '';
+        const endDateVal = document.getElementById('meta-end-date')?.value || '';
+        const classificationVal = document.getElementById('meta-classification')?.value || '';
+
+        const items = [
+            { warnLabel: 'Assessment Window dates not set', okLabel: 'Assessment Window dates set', warn: !startDateVal || !endDateVal },
+            { warnLabel: 'Classification not set', okLabel: 'Classification set', warn: !classificationVal },
+            { warnLabel: 'Company logo not uploaded', okLabel: 'Company logo is uploaded', warn: !currentLogo },
+            { warnLabel: 'Assessing Company not configured', okLabel: 'Assessing Company configured', warn: !companyVal || companyVal === '[COMPANY NAME]' },
+            { warnLabel: 'Client Name not configured', okLabel: 'Client Name configured', warn: !clientVal || clientVal === '[CLIENT NAME]' },
+            { warnLabel: 'Contact Person not configured', okLabel: 'Contact Person configured', warn: !contactNameVal },
+            { warnLabel: 'Contact Email not configured', okLabel: 'Contact Email configured', warn: !contactEmailVal },
+        ];
+
+        // report-defaults.json's boilerplate text is full of "[insert ..., e.g., ...]" scaffolding
+        // meant to be replaced with real engagement-specific detail — flag any left behind so a
+        // report doesn't ship with template instructions still visible in it.
+        const leftoverPlaceholderPattern = /\[insert[^\]]*\]/gi;
+        let leftoverPlaceholders = 0;
+        document.querySelectorAll('#printableReport [contenteditable="true"]').forEach(el => {
+            const matches = el.innerText.match(leftoverPlaceholderPattern);
+            if (matches) leftoverPlaceholders += matches.length;
+        });
+        items.push({ warnLabel: 'Leftover boilerplate placeholders found', okLabel: 'No leftover boilerplate placeholders', count: leftoverPlaceholders });
+
+        // Only meaningful once findings exist — on a fresh report these would just show as a
+        // misleading "0 missing, all good" for a report that has nothing to check yet.
+        if (findings.length > 0) {
+            const missingScore = findings.filter(f => f.impact === null || f.exploit === null).length;
+            const missingStatus = findings.filter(f => !f.status).length;
+            const defaultRemediation = findings.filter(f => f.remediationIsDefault).length;
+            items.push({ warnLabel: 'Findings missing risk score', okLabel: 'All findings have a risk score', count: missingScore });
+            items.push({ warnLabel: 'Findings missing status', okLabel: 'All findings have a status', count: missingStatus });
+            items.push({ warnLabel: 'Findings still using default remediation text', okLabel: 'All remediation text has been customized', count: defaultRemediation });
+        }
+
+        body.innerHTML = items.map(item => {
+            const isWarn = item.warn !== undefined ? item.warn : item.count > 0;
+            const label = isWarn ? item.warnLabel : item.okLabel;
+            return `
+            <div class="checklist-item ${isWarn ? '' : 'checklist-ok'}">
+                <span class="checklist-icon"><i class="bi ${isWarn ? 'bi-exclamation-triangle-fill' : 'bi-check-circle-fill'}"></i></span>
+                <span class="checklist-label">${label}</span>
+                ${(item.count !== undefined && item.count > 0) ? `<span class="checklist-count">${item.count}</span>` : ''}
+            </div>
+        `;
+        }).join('');
+
+        // Total badge lives in the collapsible header itself, so it stays visible even when collapsed.
+        const totalIssues = items.filter(item => (item.warn !== undefined ? item.warn : item.count > 0)).length;
+        const badge = document.getElementById('checklistTotalBadge');
+        if (badge) {
+            badge.textContent = totalIssues > 0 ? `${totalIssues} issue${totalIssues === 1 ? '' : 's'}` : 'All clear';
+            badge.className = 'checklist-total-badge ' + (totalIssues > 0 ? 'has-issues' : 'all-clear');
+        }
+    }
+
+    function renderAll() {
+        document.querySelectorAll('.finding-dot').forEach(el => el.remove()); createMatrix(); 
+        let counts = { crit: 0, high: 0, med: 0, low: 0 };
+        
+        const activeSections = Array.from(document.querySelectorAll('.details-block'));
+        const activeSectionIds = activeSections.map(sec => sec.id);
+        const defaultSectionId = activeSectionIds[0] || 'block-details';
+        
+        // Coerce impact/exploit to a valid 1-5 integer or null (unset — not defaulted), default missing IDs
+        const normalizeScoreValue = (v) => {
+            const n = parseInt(v);
+            return (Number.isInteger(n) && n >= 1 && n <= 5) ? n : null;
+        };
+        findings.forEach(f => {
+            if (!f.sectionId || !activeSectionIds.includes(f.sectionId)) {
+                f.sectionId = defaultSectionId;
+            }
+            f.impact = normalizeScoreValue(f.impact);
+            f.exploit = normalizeScoreValue(f.exploit);
+            if (!FINDING_STATUSES.some(s => s.value === f.status)) { f.status = ''; }
+        });
+
+        // Grouped summary list rendering
+        const sl = document.getElementById('summaryList');
+        if (sl) {
+            sl.innerHTML = '';
+            activeSections.forEach(sec => {
+                const secTitleEl = sec.querySelector('.details-title');
+                const secTitle = secTitleEl ? secTitleEl.innerText.trim() : "Detailed Findings";
+                
+                const secFindings = findings
+                    .map((f, i) => ({ finding: f, globalIndex: i }))
+                    .filter(item => item.finding.sectionId === sec.id);
+                
+                if (secFindings.length > 0) {
+                    const sectionHeading = document.createElement('div');
+                    sectionHeading.className = 'fw-bold mt-3 mb-1 text-secondary text-uppercase';
+                    sectionHeading.style.fontSize = '0.75rem';
+                    sectionHeading.style.borderBottom = '1px dashed #dee2e6';
+                    sectionHeading.style.paddingBottom = '2px';
+                    sectionHeading.innerText = secTitle;
+                    sl.appendChild(sectionHeading);
+                    
+                    secFindings.forEach(item => {
+                        const div = document.createElement('div');
+                        div.className = 'summary-item';
+                        div.innerText = `${item.globalIndex + 1}. ${item.finding.title}`;
+                        sl.appendChild(div);
+                    });
+                }
+            });
+        }
+        
+        // Initialize maps for all containers. HTML is accumulated in a buffer per
+        // container and flushed once after the loop, instead of repeated innerHTML +=,
+        // which would otherwise re-parse the whole container on every single finding.
+        const containersMap = {};
+        const containerBuffers = {};
+        document.querySelectorAll('.findings-container').forEach(c => {
+            const parentBlock = c.closest('.details-block');
+            if (parentBlock) {
+                containersMap[parentBlock.id] = c;
+                containerBuffers[parentBlock.id] = '';
+            }
+        });
+
+        // Loop through and render findings
+        findings.forEach((f, i) => {
+            const id = i + 1;
+            const hasScore = f.impact !== null && f.exploit !== null;
+            const hasCvss = !!(f.cvssVector || f.cvssScore);
+
+            if (hasScore) {
+                const cell = document.getElementById(`cell-${f.impact}-${f.exploit}`);
+                if (cell) {
+                    const dot = document.createElement('div'); dot.className = 'finding-dot'; dot.innerText = id; cell.appendChild(dot);
+                }
+            }
+
+            let badgeClass = ''; let badgeText = '';
+            if (!hasScore) { badgeClass = 'badge-unscored'; badgeText = 'Not Scored'; }
+            else {
+                const score = f.impact * f.exploit;
+                if (score >= 16) { badgeClass = 'badge-crit'; badgeText = 'Critical'; counts.crit++; }
+                else if (score >= 10) { badgeClass = 'badge-high'; badgeText = 'High'; counts.high++; }
+                else if (score >= 5) { badgeClass = 'badge-med'; badgeText = 'Medium'; counts.med++; }
+                else { badgeClass = 'badge-low'; badgeText = 'Low'; counts.low++; }
+            }
+
+            let impactOptions = `<option value="" ${f.impact === null ? 'selected' : ''}>Impact</option>`;
+            let exploitOptions = `<option value="" ${f.exploit === null ? 'selected' : ''}>Exploit</option>`;
+            for(let scoreVal = 1; scoreVal <= 5; scoreVal++) {
+                impactOptions += `<option value="${scoreVal}" ${f.impact === scoreVal ? 'selected' : ''}>${scoreVal}</option>`;
+                exploitOptions += `<option value="${scoreVal}" ${f.exploit === scoreVal ? 'selected' : ''}>${scoreVal}</option>`;
+            }
+
+            const statusMeta = f.status ? (FINDING_STATUSES.find(s => s.value === f.status) || null) : null;
+            const statusOptionsHtml = `<option value="" ${!f.status ? 'selected' : ''}>Status</option>` +
+                FINDING_STATUSES.map(s => `<option value="${s.value}" ${f.status === s.value ? 'selected' : ''}>${s.value}</option>`).join('');
+
+            const assetsDataList = Array.isArray(f.assets) ? f.assets : [];
+            let assetsHtmlString = "";
+            
+            assetsHtmlString = `<div class="mt-2${assetsDataList.length === 0 ? ' print-fallback-hidden' : ''}"><strong>Affected Assets:</strong> `;
+            if (assetsDataList.length > 0) {
+                assetsHtmlString += assetsDataList.map((asset, aIdx) => {
+                    const assetJsArg = escapeHtml(JSON.stringify(String(asset)));
+                    return `
+                    <span class="asset-badge" title="Double click to edit string name" ondblclick="event.stopPropagation(); editInlineAsset(${i}, ${aIdx}, ${assetJsArg})">
+                        <span>${escapeHtml(asset)}</span>
+                        <span class="badge-del no-print" onclick="event.stopPropagation(); deleteInlineAsset(${i}, ${aIdx})">×</span>
+                    </span>
+                `;
+                }).join('');
+            } else {
+                assetsHtmlString += `<span class="text-muted small print-fallback-hidden me-2">No specific target assets linked.</span>`;
+            }
+            assetsHtmlString += `<button class="btn-add-asset-inline no-print" title="Link New Affected Asset" onclick="addInlineAsset(${i})">+</button></div>`;
+
+            let plannerHtml = "";
+            const plannerIsShown = f.showPlanner !== false;
+
+            if (plannerIsShown) {
+                plannerHtml = `
+                <div class="client-notes-canvas">
+                    <div class="cn-title">Remediation Action Planner</div>
+                    <div class="row">
+                        <div class="col-md-4 col-12">
+                            <div class="cn-field-line"><strong>Remediation Owner:</strong><div class="cn-field-fill"></div></div>
+                        </div>
+                        <div class="col-md-4 col-12">
+                            <div class="cn-field-line"><strong>Action Priority:</strong><div class="cn-field-fill"></div></div>
+                        </div>
+                        <div class="col-md-4 col-12">
+                            <div class="cn-field-line"><strong>Target Resolution Date:</strong><div class="cn-field-fill"></div></div>
+                        </div>
+                    </div>
+                    <div class="cn-notes-wrapper">
+                        <div class="small text-muted fw-bold text-uppercase mb-1" style="font-size:0.65rem; letter-spacing:0.3px;">Operational Execution Notes</div>
+                        <div class="cn-notes-ruled-line"></div>
+                        <div class="cn-notes-ruled-line"></div>
+                        <div class="cn-notes-ruled-line"></div>
+                        <div class="cn-notes-ruled-line"></div>
+                    </div>
+                </div>`;
+            }
+
+            // Render page break before the card if requested
+            if (f.pageBreakBefore) {
+                const pageBreakHtml = `
+                <div class="report-block page-break-block no-print-margin" style="margin: 15px 0;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="page-break-divider" style="font-size: 0.75rem;">--- Forced Print Page Break Boundary (Finding) ---</div>
+                        <button class="btn btn-sm btn-outline-danger no-print ms-2" onclick="toggleFindingPageBreak(${i})">Remove Break</button>
+                    </div>
+                </div>`;
+                const targetSectionId = containersMap[f.sectionId] ? f.sectionId : defaultSectionId;
+                if (containerBuffers[targetSectionId] !== undefined) {
+                    containerBuffers[targetSectionId] += pageBreakHtml;
+                }
+            }
+
+            const topControlsHtml = `
+                <div class="d-flex justify-content-end gap-1 mb-1 vuln-controls-top no-print">
+                    <button class="block-control-btn" onclick="moveFindingUp(${i})" data-tooltip="Move finding up"><i class="bi bi-chevron-up"></i></button>
+                    <button class="block-control-btn" onclick="moveFindingDown(${i})" data-tooltip="Move finding down"><i class="bi bi-chevron-down"></i></button>
+                    <button class="block-control-btn ${f.pageBreakBefore ? 'active' : ''}" onclick="toggleFindingPageBreak(${i})" data-tooltip="${f.pageBreakBefore ? 'Remove page break above this finding' : 'Insert page break above this finding'}"><i class="bi bi-scissors"></i></button>
+                    <button class="block-control-btn ${plannerIsShown ? 'active' : ''}" onclick="toggleFindingPlanner(${i}, ${!plannerIsShown})" data-tooltip="${plannerIsShown ? 'Hide the Remediation Action Planner for this finding' : 'Show the Remediation Action Planner for this finding'}"><i class="bi bi-clipboard-check"></i></button>
+                    <button class="block-control-btn control-danger" onclick="removeFinding(${i})" data-tooltip="Delete this finding"><i class="bi bi-trash"></i></button>
+                </div>`;
+
+            const cardHtml = `
+            <div class="card mb-4 border-0 border-bottom pb-4 vuln-card" draggable="false" data-index="${i}">
+                <div class="vuln-drag-handle no-print"><i class="bi bi-grip-vertical"></i></div>
+                <div class="card-body p-0">
+                    ${topControlsHtml}
+                    <div class="d-flex justify-content-between align-items-center mb-1 gap-2">
+                        <h3 class="editable-section section-edit mb-0 fw-bold flex-grow-1" contenteditable="true" onblur="updateFindingData(${i}, 'title', this.innerText)">${id}. ${escapeHtml(f.title)}</h3>
+                        <span class="crit-badge ${badgeClass}">${badgeText}</span>
+                    </div>
+
+                    <div class="d-flex flex-column text-muted small mb-3 bg-light p-2 rounded">
+                        <div class="d-flex justify-content-between align-items-center w-100">
+                            <div><span class="no-print"><strong>Category:</strong> ${escapeHtml(f.category || 'General')} | </span><strong>CWE:</strong> ${parseCweLinkBadge(f.cwe)}</div>
+                            <div class="d-flex gap-2 align-items-center no-print">
+                                <span class="fw-bold text-secondary">Impact:</span>
+                                <select class="form-select form-select-sm d-inline-block w-auto" onchange="updateFindingScore(${i}, 'impact', this.value)">${impactOptions}</select>
+                                <span class="fw-bold text-secondary ms-1">Exploitability:</span>
+                                <select class="form-select form-select-sm d-inline-block w-auto" onchange="updateFindingScore(${i}, 'exploit', this.value)">${exploitOptions}</select>
+                            </div>
+                            <div class="print-score-text">${hasScore ? `Impact: ${f.impact} / Exploitability: ${f.exploit}` : 'Impact / Exploitability: Not Scored'}</div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 flex-wrap mt-2${hasCvss ? '' : ' print-fallback-hidden'}">
+                            <span class="fw-bold text-secondary no-print">CVSS v3.1:</span>
+                            <input type="text" class="form-control form-control-sm no-print" style="width:auto; min-width:220px;" placeholder="Vector string" value="${escapeHtml(f.cvssVector || '')}" onchange="updateFindingData(${i}, 'cvssVector', this.value.trim())">
+                            <input type="number" class="form-control form-control-sm no-print" style="width:80px;" placeholder="Score" min="0" max="10" step="0.1" value="${escapeHtml(f.cvssScore || '')}" onchange="updateFindingData(${i}, 'cvssScore', this.value.trim())">
+                            <a href="https://www.first.org/cvss/calculator/3.1" target="_blank" rel="noopener noreferrer" class="no-print small" data-tooltip="Opens the official FIRST.org CVSS v3.1 calculator in a new tab — this app doesn't calculate CVSS itself">Calculate <i class="bi bi-box-arrow-up-right"></i></a>
+                            <span class="print-score-text">${hasCvss ? `CVSS v3.1: ${escapeHtml(f.cvssVector || '')}${f.cvssScore ? ` (Score: ${escapeHtml(f.cvssScore)})` : ''}` : ''}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center w-100 mt-2 flex-wrap gap-2">
+                            <div class="d-flex align-items-center gap-2${statusMeta ? '' : ' print-fallback-hidden'}">
+                                <span class="status-badge ${statusMeta ? statusMeta.cls : 'status-unset'}">${statusMeta ? escapeHtml(statusMeta.value) : 'Not Set'}</span>
+                                <select class="form-select form-select-sm d-inline-block w-auto no-print" onchange="updateFindingStatus(${i}, this.value)">${statusOptionsHtml}</select>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 no-print">
+                                <span class="fw-bold text-secondary">Retest Date:</span>
+                                <input type="date" class="form-control form-control-sm" style="width:auto;" value="${f.retestDate || ''}" onchange="updateFindingRetestDate(${i}, this.value)">
+                            </div>
+                            <div class="print-score-text">${f.retestDate ? `Retest Date: ${escapeHtml(f.retestDate)}` : ''}</div>
+                        </div>
+                        ${assetsHtmlString}
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="fw-bold small text-secondary text-uppercase">General Vulnerability Description</div>
+                        <div class="editable-section section-edit" contenteditable="true" onblur="updateFindingData(${i}, 'description', this.innerHTML)">${f.description}</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="fw-bold small text-secondary text-uppercase">Remediation</div>
+                        <div class="editable-section section-edit" contenteditable="true" onblur="updateFindingData(${i}, 'remediation', this.innerHTML)">${f.remediation}</div>
+                    </div>
+
+                    ${plannerHtml}
+                </div>
+            </div>`;
+            
+            const cardTargetSectionId = containersMap[f.sectionId] ? f.sectionId : defaultSectionId;
+            if (containerBuffers[cardTargetSectionId] !== undefined) {
+                containerBuffers[cardTargetSectionId] += cardHtml;
+            }
+        });
+
+        Object.keys(containerBuffers).forEach(secId => {
+            const html = containerBuffers[secId];
+            containersMap[secId].innerHTML = (html && html.trim().length > 0)
+                ? html
+                : `<div class="findings-empty-state no-print">No findings in this section yet — add one from the "Add Finding" library in the sidebar.</div>`;
+        });
+
+        // Finding text is rebuilt from `findings` on every renderAll() (add/remove/reorder/score
+        // change, etc.), so a literal [CLIENT NAME]-style placeholder in a description/details/
+        // remediation field — from a library template, or typed by hand and not yet blurred —
+        // would otherwise sit there as dead text instead of becoming a live token that tracks the
+        // sidebar fields. Re-run the same conversion used for section text on every finding field
+        // each time the DOM is rebuilt here.
+        document.querySelectorAll('.findings-container [contenteditable="true"]').forEach(el => convertLiteralTokensToSpans(el));
+
+        const execTableTarget = document.getElementById('execSeverityTableContainer');
+        if (execTableTarget) {
+            execTableTarget.innerHTML = `
+            <table class="table table-sm table-bordered mt-3 text-center border-light-subtle mx-auto" style="font-size: 0.8rem; max-width: 450px;">
+                <thead class="table-light text-uppercase fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px;">
+                    <tr>
+                        <th style="color: #721c24; background-color: #f8d7da;">Critical</th>
+                        <th style="color: #a14c06; background-color: #ffe5d0;">High</th>
+                        <th style="color: #856404; background-color: #fff3cd;">Medium</th>
+                        <th style="color: #155724; background-color: #d4edda;">Low</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="fw-bold fs-6 text-dark" style="background: #fff;">
+                        <td>${counts.crit}</td>
+                        <td>${counts.high}</td>
+                        <td>${counts.med}</td>
+                        <td>${counts.low}</td>
+                    </tr>
+                </tbody>
+            </table>`;
+        }
+        
+        syncTokens(); setupVulnDragAndDrop();
+        if (tocEnabled) renderTOC();
+        renderChecklist();
+        syncAriaLabelsFromTooltips();
+    }
+
+    // Icon-only controls (block-controls rail, finding controls row, etc.) already carry a
+    // data-tooltip with a full description; screen readers don't pick that up as an accessible
+    // name the way they do aria-label, so this backfills aria-label from it on every focusable
+    // element that doesn't already have one. Run after every render/DOM-structure change instead
+    // of hand-adding aria-label to each generated template, so newly added icons stay covered.
+    function syncAriaLabelsFromTooltips() {
+        document.querySelectorAll('[data-tooltip]:not([aria-label])').forEach(el => {
+            if (el.matches('button, a, input, select, textarea, [tabindex]')) {
+                el.setAttribute('aria-label', el.getAttribute('data-tooltip').replace(/\\n/g, ' '));
+            }
+        });
+    }
+
+    function updateFindingData(idx, field, val) {
+        if (field === 'title') {
+            val = val.replace(/^\d+\.\s*/, ''); findings[idx][field] = val; renderAll();
+        } else {
+            findings[idx][field] = val;
+            if (field === 'remediation') { findings[idx].remediationIsDefault = false; }
+            renderChecklist();
+        }
+    }
+    
+    function createMatrix() {
+        const m = document.getElementById('matrix'); m.innerHTML = '';
+        if(m) {
+            for (let r = 5; r >= 1; r--) {
+                let row = m.insertRow();
+                for (let c = 1; c <= 5; c++) {
+                    let cell = row.insertCell(); cell.id = `cell-${r}-${c}`;
+                    let s = r * c; cell.className = s >= 16 ? 'm-crit' : s >= 10 ? 'm-high' : s >= 5 ? 'm-med' : 'm-low';
+                }
+            }
+        }
+    }
+
+    const toBase64 = file => new Promise((res) => { const r = new FileReader(); r.readAsDataURL(file); r.onload = () => res(r.result); });
+    async function removeFinding(i) { if (await showConfirm(`Delete Finding #${i+1}?`)) { findings.splice(i, 1); markUnsaved(); renderAll(); announce('Finding deleted.'); } }
+    async function updateLogo(input) { if(input.files[0]) { currentLogo = await toBase64(input.files[0]); configuredLogoPath = ''; markUnsaved(); renderLogo(); renderChecklist(); } }
+    function renderLogo() {
+        const lc = document.getElementById('logoContainer');
+        if(lc) lc.innerHTML = currentLogo ? `<img src="${currentLogo}" class="report-logo mx-auto">` : `<div class="logo-placeholder no-print">Click to Upload Company Logo
+                <span class="info-tip" onclick="event.stopPropagation()" data-tooltip="Best practice: PNG or SVG with a transparent background. Displays at up to 160px tall / 80% of the page width, so a wide logo (roughly 3:1 to 4:1 aspect ratio) fits best. Keep the file small (under ~500KB) for fast loading and PDF export.">ⓘ</span>
+            </div>`;
+    }
+
+    // Shared by Export Report (writes it to a .json file) and autosave (writes it to localStorage
+    // for crash recovery) — both need the exact same snapshot of report state.
+    function buildReportPayload() {
+        // findings-container content is fully rebuilt from `findings` on import via renderAll(),
+        // so strip it here (on a clone, not the live DOM) to avoid doubling up the export file size.
+        const containerClone = document.getElementById('reportBlocksContainer').cloneNode(true);
+        containerClone.querySelectorAll('.findings-container').forEach(c => c.innerHTML = '');
+        const blocksHtml = containerClone.innerHTML;
+        const brandPrimary = document.getElementById('brandPrimaryColor').value;
+        const brandAccent = document.getElementById('brandAccentColor').value;
+        const brandHeadline = document.getElementById('brandHeadlineColor').value;
+        const companyName = document.getElementById('input-company-name').value;
+        const clientName = document.getElementById('input-client-name').value;
+        const contactName = document.getElementById('input-contact-name').value;
+        const contactEmail = document.getElementById('input-contact-email').value;
+        const watermark = {
+            enabled: document.getElementById('watermarkEnabled').checked,
+            mode: (document.querySelector('input[name="watermarkMode"]:checked') || {}).value || 'classification',
+            customText: document.getElementById('watermarkCustomText').value
+        };
+        return { findings, currentLogo, blocksHtml, tocEnabled, brandPrimary, brandAccent, brandHeadline, companyName, clientName, contactName, contactEmail, classifications, watermark, assessmentType: currentAssessmentType };
+    }
+
+    // Shared by Import Report (loads a .json file) and autosave restore (loads the localStorage
+    // snapshot) — both need to apply the same payload shape the same way. Throws on failure so each
+    // caller can show its own contextual error message. `markSaved` controls whether this payload
+    // counts as "saved" afterward: true for an explicit file import (its own file is now the saved
+    // copy), false for an autosave restore (the whole point is that draft was never exported).
+    function applyReportPayload(data, { markSaved } = { markSaved: true }) {
+        findings = data.findings || [];
+        currentLogo = data.currentLogo || "";
+        if (data.blocksHtml) document.getElementById('reportBlocksContainer').innerHTML = data.blocksHtml;
+        renderLogo(); createMatrix(); renderAll(); setupDragAndDrop(); setupStateLockListeners();
+
+        const startEl = document.getElementById('meta-start-date');
+        const endEl = document.getElementById('meta-end-date');
+        if (startEl && startEl.getAttribute('value')) startEl.value = startEl.getAttribute('value');
+        if (endEl && endEl.getAttribute('value')) endEl.value = endEl.getAttribute('value');
+
+        const check = document.getElementById('toggleMetaBg');
+        if (check) toggleMetadataBackground(check);
+
+        const tocCheck = document.getElementById('toggleTOC');
+        if (tocCheck) { tocCheck.checked = !!data.tocEnabled; toggleTOC(tocCheck); }
+
+        document.getElementById('brandPrimaryColor').value = data.brandPrimary || '#2c3e50';
+        document.getElementById('brandAccentColor').value = data.brandAccent || '#3498db';
+        document.getElementById('brandHeadlineColor').value = data.brandHeadline || '#333333';
+        updateBrandColors();
+
+        document.getElementById('input-company-name').value = data.companyName || '[COMPANY NAME]';
+        document.getElementById('input-client-name').value = data.clientName || '[CLIENT NAME]';
+        document.getElementById('input-contact-name').value = data.contactName || '';
+        document.getElementById('input-contact-email').value = data.contactEmail || '';
+        syncTokens();
+
+        if (Array.isArray(data.classifications) && data.classifications.length > 0) {
+            classifications = data.classifications;
+        }
+        renderClassificationSelect();
+
+        const wm = data.watermark || {};
+        document.getElementById('watermarkEnabled').checked = !!wm.enabled;
+        const wmMode = wm.mode === 'custom' ? 'custom' : 'classification';
+        const wmModeInput = document.querySelector(`input[name="watermarkMode"][value="${wmMode}"]`);
+        if (wmModeInput) wmModeInput.checked = true;
+        document.getElementById('watermarkCustomText').value = wm.customText || '';
+        updateWatermarkPreview();
+
+        if (data.assessmentType) setAssessmentTypeSilently(data.assessmentType);
+
+        hasUnsavedChanges = !markSaved;
+    }
+
+    function exportReportJson() {
+        const blob = new Blob([JSON.stringify(buildReportPayload(), null, 2)], {type: 'application/json'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `report.json`; a.click();
+        hasUnsavedChanges = false;
+    }
+
+    async function importReportJson(input) {
+        if (!input.files || !input.files[0]) return;
+
+        if (!(await showConfirm("Importing will completely replace the current report — all sections, findings, and the logo — and this cannot be undone. Continue?"))) {
+            input.value = '';
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            let data;
+            try {
+                data = JSON.parse(e.target.result);
+            } catch (err) {
+                await showAlert("Import failed: the selected file is not valid JSON.");
+                input.value = '';
+                return;
+            }
+
+            try {
+                applyReportPayload(data, { markSaved: true });
+            } catch (err) {
+                await showAlert("Import failed: the file's structure could not be applied to the report.");
+            } finally {
+                input.value = '';
+            }
+        };
+        reader.onerror = async () => {
+            await showAlert("Import failed: could not read the selected file.");
+            input.value = '';
+        };
+        reader.readAsText(input.files[0]);
+    }
+
+    init();
+</script>
+</body>
+</html>
