@@ -842,6 +842,32 @@ export const cases = [
         } }],
     })),
 
+    {
+        id: 'PERF-008-offline', title: 'Works with the CDN unreachable: styles and icons come from vendor/', tags: ['offline', 'stage4'],
+        blockUrls: ['*cdn.jsdelivr.net*'],
+        steps: [{ run: async () => {
+            const { assert } = __t;
+            const probe = document.createElement('div'); probe.className = 'd-flex'; document.body.appendChild(probe);
+            assert(getComputedStyle(probe).display === 'flex', 'Bootstrap CSS missing when the CDN is unreachable');
+            probe.remove();
+            await document.fonts.ready;
+            assert([...document.fonts].some(f => /bootstrap-icons/i.test(f.family) && f.status === 'loaded'), 'icon font missing when the CDN is unreachable');
+            const remote = performance.getEntriesByType('resource').map(r => r.name).filter(n => !n.startsWith(location.origin));
+            assert(remote.length === 0, 'loaded from another origin: ' + remote.join(', '));
+            const links = [...document.querySelectorAll('link[rel="stylesheet"]')];
+            assert(links.length >= 2 && links.every(l => l.integrity.startsWith('sha384-')), 'stylesheets lack integrity hashes');
+        } }],
+    },
+    {
+        id: 'PERF-008-fallback', title: 'Without the vendor/ folder the CDN copy is used (needs internet)', tags: ['offline', 'network', 'stage4'],
+        blockUrls: ['*/vendor/*'],
+        steps: [{ run: async () => {
+            const { assert, waitFor } = __t;
+            await waitFor(() => { const p = document.createElement('div'); p.className = 'd-flex'; document.body.appendChild(p); const ok = getComputedStyle(p).display === 'flex'; p.remove(); return ok; }, 8000, 'Bootstrap CSS from the CDN fallback');
+            assert([...document.querySelectorAll('link[rel="stylesheet"]')].every(l => l.href.startsWith('https://cdn.jsdelivr.net/')), 'stylesheets did not switch to the CDN');
+        } }],
+    },
+
     // ---------------------------------------------------------------- TEST-002 round trip
     {
         id: 'TEST-002', title: 'Export → import round-trip preserves the whole report', tags: ['persistence', 'stage1'],

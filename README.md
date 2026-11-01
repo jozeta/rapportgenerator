@@ -68,7 +68,7 @@ Most pentest reporting workflows bounce between a Word template, a spreadsheet o
 
 ## How it works
 
-The whole application is one HTML file: markup, CSS, and vanilla JavaScript in a single `<script>` block — no framework, no bundler, no `npm install`. [Bootstrap 5](https://getbootstrap.com/) and [Bootstrap Icons](https://icons.getbootstrap.com/) are pulled in from a CDN for layout, form styling, and every icon in the UI; everything else is hand-rolled.
+The whole application is one HTML file: markup, CSS, and vanilla JavaScript in a single `<script>` block — no framework, no bundler, no `npm install`. [Bootstrap 5](https://getbootstrap.com/) and [Bootstrap Icons](https://icons.getbootstrap.com/) provide layout, form styling, and every icon in the UI. They ship as local copies in `vendor/` (see `vendor/README.md`), with an automatic fallback to the same files on jsDelivr if that folder is missing. Everything else is hand-rolled.
 
 - **State** lives in a single in-memory `findings` array (one object per finding: title, CWE, category, assets, impact/exploit scores — `null` until scored, CVSS vector/score strings, description/remediation HTML, status, retest date, whether its Action Planner is shown, whether that visibility was set manually, and which section it belongs to) plus a couple of top-level variables for the logo, Table-of-Contents toggle, whether Action Planners are globally visible, and the current Assessment Type. There's no database and no server, and none of this is saved automatically as you type — see **Autosave** and **Report persistence** below for the two ways it does get saved.
 - **Rendering** is a single `renderAll()` function that regenerates the risk matrix, the findings summary, the severity counts table, the Pre-Export Checklist, and every finding card from the `findings` array, then re-attaches drag-and-drop listeners. It runs after almost every edit (adding a finding, changing a score, toggling a status, reordering).
@@ -97,7 +97,7 @@ The whole application is one HTML file: markup, CSS, and vanilla JavaScript in a
 6. Edit any section by clicking into it; drag section or finding handles, or use their move-up/move-down icons, to reorder.
 7. When you're done, click the printer icon (**Print / Export PDF**) and choose "Save as PDF" in the browser's print dialog, or **Export Report** to save your work as JSON for later editing.
 
-No installation and no internet connection required beyond the initial load of the Bootstrap CSS/icon fonts from their CDN — a local web server is only needed so the optional `library.json`/`report-defaults.json`/`settings.json` files can load.
+No installation and no internet connection required: Bootstrap and its icon font are served from the local `vendor/` folder (opened via `file://`, the page falls back to the jsDelivr copies, which does need a connection). A local web server is only needed so the optional `library.json`/`report-defaults.json`/`settings.json` files can load.
 
 ## Firm-wide settings
 
@@ -121,7 +121,7 @@ Several sections ship with these placeholders already in place (the Executive Su
 
 ## Data & privacy
 
-Everything — findings, report text, uploaded images, the logo — stays in the browser tab's memory. It's written to disk only when you explicitly export it (JSON or PDF); the identity-field and autosave mechanisms described above write to this browser's own `localStorage` instead, which never leaves your machine either. The only network/file activity is loading Bootstrap CSS and icons from their CDN on first load, and local `fetch()` requests for the optional `library.json`/`report-defaults.json`/`settings.json`/`logo.png`/`logo.jpg` files served alongside the HTML file itself. There is no telemetry, no analytics, and no backend to send data to.
+Everything — findings, report text, uploaded images, the logo — stays in the browser tab's memory. It's written to disk only when you explicitly export it (JSON or PDF); the identity-field and autosave mechanisms described above write to this browser's own storage (`localStorage`, and IndexedDB for autosaved drafts) instead, which never leaves your machine either. The only network/file activity is loading the Bootstrap CSS and icons, from `vendor/` (or from jsDelivr if that folder is missing), and local `fetch()` requests for the optional `library.json`/`report-defaults.json`/`settings.json`/`logo.png`/`logo.jpg` files served alongside the HTML file itself. There is no telemetry, no analytics, and no backend to send data to.
 
 ## Known limitations
 
@@ -135,7 +135,7 @@ Everything — findings, report text, uploaded images, the logo — stays in the
 
 ## Contributing
 
-The app logic is a single, self-contained HTML file, so contributions are as simple as editing `rapportgenerator.html` and serving the folder locally (e.g. `python3 -m http.server`) to test — `library.json` and `settings.json` are plain data files alongside it, edited directly or through the app's own export/import buttons. There's no build step to run. Please keep the "no framework, no dependencies beyond the Bootstrap CDN" philosophy intact when submitting changes.
+The app logic is a single, self-contained HTML file, so contributions are as simple as editing `rapportgenerator.html` and serving the folder locally (e.g. `python3 -m http.server`) to test — `library.json` and `settings.json` are plain data files alongside it, edited directly or through the app's own export/import buttons. There's no build step to run. Run the regression tests with `node tests/run.mjs` (Node 22+ and any installed Chrome/Edge; nothing to install, see `tests/README.md`). Please keep the "no framework, no dependencies beyond Bootstrap" philosophy intact when submitting changes.
 
 ## License
 

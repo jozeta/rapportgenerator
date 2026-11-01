@@ -129,6 +129,11 @@ for (const c of selected) {
     if (c.viewport) {
         await page.send('Emulation.setDeviceMetricsOverride', { width: c.viewport.width, height: c.viewport.height, deviceScaleFactor: 2, mobile: c.viewport.width < 768 });
     }
+    // A case can set `blockUrls: ['*pattern*', …]` to simulate being offline or a missing file.
+    if (c.blockUrls) {
+        await page.send('Network.enable');
+        await page.send('Network.setBlockedURLs', { urls: c.blockUrls });
+    }
     let ctx = {}; let error = null;
     try {
         for (let i = 0; i < c.steps.length; i++) {
