@@ -396,11 +396,11 @@ export const cases = [
         id: 'BUG-006', title: 'Library search tolerates entries missing title/cwe', tags: ['library', 'stage2'],
         steps: [{ run: async () => {
             const { assert, pickFile } = __t;
-            await pickFile('importLibraryFile', JSON.stringify([...library.slice(0, 5), { title: 'No CWE entry', category: 'X', description: 'd', remediation: 'r' }, { category: 'Y' }]));
+            await pickFile('importLibraryFile', JSON.stringify([...library.slice(0, 5), { title: 'Zyxwv entry without CWE', category: 'X', description: 'd', remediation: 'r' }, { category: 'Y' }]));
             const search = document.getElementById('librarySearch');
             search.value = 'injection'; search.dispatchEvent(new Event('input', { bubbles: true }));
             assert(document.querySelectorAll('#libraryResults .library-item').length >= 1, 'search returned nothing for "injection"');
-            search.value = 'no cwe'; search.dispatchEvent(new Event('input', { bubbles: true }));
+            search.value = 'zyxwv'; search.dispatchEvent(new Event('input', { bubbles: true }));
             assert(document.querySelectorAll('#libraryResults .library-item').length === 1, 'entry without a CWE is not searchable');
         } }],
     },
@@ -637,6 +637,167 @@ export const cases = [
             assert(px(350, 100).every(v => v > 235), `uncovered area changed: ${px(350, 100)}`);
             assert(hasUnsavedChanges, 'redaction did not mark the report as unsaved');
             assert(document.getElementById('redactModalOverlay').style.display === 'none', 'redact dialog still open');
+        } }],
+    },
+
+    // ---------------------------------------------------------------- step 4: usability
+    {
+        id: 'UI-001', title: 'Dialogs: Escape closes, Tab stays inside, focus returns, nested dialogs close one at a time', tags: ['ui', 'stage4'],
+        steps: [{ run: async () => {
+            const { assert, sleep } = __t;
+            const key = (k, opts = {}) => document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...opts }));
+            const shown = id => getComputedStyle(document.getElementById(id)).display !== 'none';
+            // Find & Replace: focus starts in the find field, Escape closes, focus goes back
+            toggleSidebar();                                  // the sidebar starts collapsed; its buttons can't take focus until shown
+            const frButton = document.querySelector('.sidebar [onclick*="openFindReplace"]') || document.querySelector('[onclick*="openFindReplace"]');
+            frButton.focus();
+            assert(document.activeElement === frButton, 'precondition: Find & Replace button not focusable');
+            frButton.click();
+            assert(shown('findReplaceOverlay') && document.activeElement.id === 'frFindInput', 'Find & Replace did not open with focus in the find field');
+            // Tab from the last control wraps to the first; Shift+Tab from the first wraps to the last
+            const items = [...document.querySelectorAll('#findReplaceOverlay button, #findReplaceOverlay input')];
+            items[items.length - 1].focus(); key('Tab');
+            assert(document.getElementById('findReplaceOverlay').contains(document.activeElement) && document.activeElement === items[0], 'Tab escaped the dialog');
+            key('Tab', { shiftKey: true });
+            assert(document.activeElement === items[items.length - 1], 'Shift+Tab did not wrap to the last control');
+            key('Escape');
+            assert(!shown('findReplaceOverlay'), 'Escape did not close Find & Replace');
+            assert(document.activeElement === frButton, 'focus did not return to the button that opened the dialog');
+            // Enter in the find field runs the replacement
+            findings.push(__t.finding({ title: 'Alpha' })); renderAll();
+            openFindReplace();
+            document.getElementById('frFindInput').value = 'Alpha'; document.getElementById('frReplaceInput').value = 'Beta';
+            key('Enter'); await sleep(50);
+            assert(findings[0].title === 'Beta', 'Enter in Find & Replace did not run it');
+            key('Escape'); await sleep(20);                  // closes the "Replaced 1 occurrence" alert
+            assert(!shown('appModalOverlay'), 'Escape did not close the result alert');
+            // nested: a confirm on top of Add Finding closes alone
+            openAddFindingModal();
+            const confirmP = showConfirm('Nested?');
+            assert(shown('appModalOverlay') && shown('addFindingModalOverlay'), 'nested confirm did not open over Add Finding');
+            key('Escape');
+            assert((await confirmP) === false, 'Escape on a confirm did not answer "cancel"');
+            assert(!shown('appModalOverlay') && shown('addFindingModalOverlay'), 'Escape closed more than the top dialog');
+            key('Escape');
+            assert(!shown('addFindingModalOverlay'), 'second Escape did not close Add Finding');
+            // redaction dialog closes with Escape too
+            const s = document.getElementById('section-conclusion');
+            await insertEvidenceImages([await __t.makeImageFile('screenshot', 300, 150)], __t.caretAtEnd(s));
+            s.querySelector('figure img').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            await openRedactModal();
+            key('Escape');
+            assert(!shown('redactModalOverlay'), 'Escape did not close the redaction dialog');
+        } }],
+    },
+    {
+        id: 'UI-002', title: 'Assets: type + Enter, paste a list, edit, remove — no browser prompt', tags: ['ui', 'stage4'],
+        steps: [{ run: async () => {
+            const { assert, cards, nativeDialogs } = __t;
+            document.getElementById('vTitle').value = 'Assets'; await addFinding();
+            const input = () => cards()[0].querySelector('.asset-entry-input');
+            const names = () => findings[0].assets.join('|');
+            cards()[0].querySelector('[data-asset-add]').click();
+            assert(input() && document.activeElement === input(), 'asset input did not open focused');
+            input().value = 'web01'; input().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+            assert(names() === 'web01' && document.activeElement === input(), 'Enter did not add the asset and keep the input open');
+            const dt = new DataTransfer(); dt.setData('text/plain', 'db01\n10.0.0.5\r\nweb01\n  app.example.com ');
+            input().dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+            assert(names() === 'web01|db01|10.0.0.5|app.example.com', `pasted list gave ${names()}`);
+            input().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+            assert(!input(), 'Escape did not close the asset input');
+            // edit: double-click puts it back in the input
+            cards()[0].querySelector('[data-asset-edit="1"]').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+            assert(input() && input().value === 'db01', 'double-click did not open the asset for editing');
+            input().value = 'db02'; input().dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+            assert(names() === 'web01|10.0.0.5|app.example.com|db02', `edit gave ${names()}`);
+            // remove
+            cards()[0].querySelector('[data-asset-remove="0"]').click();
+            assert(names() === '10.0.0.5|app.example.com|db02', `remove gave ${names()}`);
+            assert(hasUnsavedChanges, 'asset edits did not mark the report as unsaved');
+            assert(nativeDialogs.length === 0, 'a native browser dialog was used: ' + nativeDialogs.join('; '));
+            // the Add Finding form accepts a pasted multi-line list
+            const vAssets = document.getElementById('vAssets');
+            const dt2 = new DataTransfer(); dt2.setData('text/plain', 'a1\na2\na3');
+            vAssets.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt2, bubbles: true, cancelable: true }));
+            document.getElementById('vTitle').value = 'Form assets'; await addFinding();
+            assert(findings[1].assets.join('|') === 'a1|a2|a3', `form list gave ${findings[1].assets.join('|')}`);
+        } }],
+    },
+    {
+        id: 'UI-003', title: 'New findings go into the chosen section; empty sections offer "Add a finding here"', tags: ['ui', 'stage4'],
+        steps: [{ run: async () => {
+            const { assert, sleep } = __t;
+            document.getElementById('newHeadline').value = 'Internal Network'; addNewDetailsSection();
+            const [first, second] = [...document.querySelectorAll('.details-block')];
+            openAddFindingModal();
+            const select = document.getElementById('vTargetSection');
+            assert(!select.closest('.target-section-row').classList.contains('d-none'), 'section picker hidden although there are two sections');
+            assert([...select.options].map(o => o.textContent).includes('Internal Network'), 'picker does not list the new section');
+            select.value = second.id;
+            document.getElementById('vTitle').value = 'Internal finding'; await addFinding();
+            assert(findings[0].sectionId === second.id, 'finding not added to the chosen section');
+            assert(second.querySelector('.vuln-card'), 'card not rendered in the chosen section');
+            closeAddFindingModal();
+            openAddFindingModal();
+            assert(document.getElementById('vTargetSection').value === second.id, 'last used section not remembered');
+            closeAddFindingModal();
+            // the empty first section offers a shortcut that preselects it
+            const here = first.querySelector('[data-add-finding-to]');
+            assert(here, 'empty section has no "Add a finding here" button');
+            here.click(); await sleep(20);
+            assert(getComputedStyle(document.getElementById('addFindingModalOverlay')).display !== 'none', 'shortcut did not open Add Finding');
+            assert(document.getElementById('vTargetSection').value === first.id, 'shortcut did not preselect its section');
+            closeAddFindingModal();
+            // single section: picker hidden
+            second.querySelector('.control-danger').click(); await __t.answerModal(true);
+            openAddFindingModal();
+            assert(document.getElementById('vTargetSection').closest('.target-section-row').classList.contains('d-none'), 'picker shown with only one section');
+        } }],
+    },
+    {
+        id: 'UI-004', title: 'Library search: all fields, ranked, keyboard selection, overwrite protection', tags: ['ui', 'library', 'stage4'],
+        steps: [{ run: async () => {
+            const { assert, answerModal, sleep } = __t;
+            openAddFindingModal();
+            const search = document.getElementById('librarySearch');
+            const type = (v) => { search.value = v; search.dispatchEvent(new Event('input', { bubbles: true })); };
+            const titles = () => [...document.querySelectorAll('#libraryResults .library-item strong')].map(s => s.textContent);
+            // a word that appears only in template text, not titles
+            const bodyOnly = library.find(t => /kerberoast/i.test(t.description) && !/kerberoast/i.test(t.title));
+            type('kerberoast');
+            assert(titles().length >= 1, 'body-text search found nothing for "kerberoast"');
+            if (bodyOnly) assert(titles().includes(bodyOnly.title), 'template mentioning kerberoast only in its text was not found');
+            // multi-word: every word must match; title matches rank first
+            type('sql injection');
+            assert(titles()[0].toLowerCase().includes('sql injection'), `best match for "sql injection" was "${titles()[0]}"`);
+            assert(document.querySelector('#libraryResults mark'), 'matches are not highlighted');
+            assert(/\d+ templates?/.test(document.getElementById('libraryResultCount').textContent), 'result count missing');
+            // category label ("Web Application" is the label for OWASP) is searchable
+            type('web application xss');
+            assert(titles().some(t => /cross-site scripting|xss/i.test(t)), 'category label + keyword search failed');
+            // keyboard: ↓ ↓ Enter loads the second result
+            type('injection');
+            const second = titles()[1];
+            search.focus();
+            for (const k of ['ArrowDown', 'ArrowDown', 'Enter']) search.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
+            await sleep(20);
+            assert(document.getElementById('vTitle').value === second, `keyboard picked "${document.getElementById('vTitle').value}", expected "${second}"`);
+            // loading another template over the untouched first one: no question
+            type('csrf');
+            document.querySelector('#libraryResults .library-item').click(); await sleep(20);
+            assert(!__t.modalOpen(), 'asked for confirmation although the form only held a template');
+            // after the user edits the form, loading a template asks first; Cancel keeps the edits
+            document.getElementById('vDesc').value = 'My own notes';
+            type('sql injection');
+            document.querySelector('#libraryResults .library-item').click();
+            const asked = await answerModal(false);
+            assert(asked && asked.includes('Replace'), 'no confirmation before overwriting the user\'s edits');
+            assert(document.getElementById('vDesc').value === 'My own notes', 'edits were overwritten after Cancel');
+            // assets typed for this engagement survive loading a template
+            document.getElementById('vAssets').value = 'host-a';
+            document.querySelector('#libraryResults .library-item').click();
+            await answerModal(true);
+            assert(document.getElementById('vAssets').value === 'host-a', 'loading a template cleared the affected assets');
         } }],
     },
 
