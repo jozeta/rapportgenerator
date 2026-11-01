@@ -416,6 +416,44 @@ export const cases = [
         } }],
     },
 
+    {
+        id: 'PERF-001-dnd', title: 'Drag-and-drop still reorders findings and sections (delegated listeners)', tags: ['perf', 'dnd', 'stage2'],
+        steps: [{ run: async () => {
+            const { assert, sleep, cards } = __t;
+            const frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+            const drag = async (handle, overEl, y) => {
+                handle.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+                handle.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true }));
+                overEl.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, clientY: y }));
+                await frame();
+                handle.dispatchEvent(new DragEvent('dragend', { bubbles: true }));
+                await sleep(30);
+            };
+            for (const t of ['A', 'B', 'C']) { document.getElementById('vTitle').value = t; await addFinding(); }
+            for (let i = 0; i < 20; i++) renderAll();           // used to multiply the drop handlers
+            hasUnsavedChanges = false;
+            // 1) drag C above A
+            let first = cards()[0].getBoundingClientRect();
+            await drag(cards()[2].querySelector('.vuln-drag-handle'), cards()[0], first.top + 2);
+            assert(findings.map(f => f.title).join('') === 'CAB', `reorder within section gave ${findings.map(f => f.title).join('')}`);
+            assert(hasUnsavedChanges, 'a drag reorder did not mark the report as unsaved');
+            // 2) move B into a second Detailed Findings section
+            document.getElementById('newHeadline').value = 'Internal'; addNewDetailsSection();
+            const second = document.querySelectorAll('.details-block')[1];
+            const box = second.querySelector('.findings-container').getBoundingClientRect();
+            const bCard = cards().find(c => c.querySelector('[data-field="title"]').innerText.trim() === 'B');
+            await drag(bCard.querySelector('.vuln-drag-handle'), second.querySelector('.findings-container'), box.bottom - 2);
+            const b = findings.find(f => f.title === 'B');
+            assert(b.sectionId === second.id, 'finding did not move to the other section');
+            assert(findings.length === 3, `finding count changed to ${findings.length}`);
+            // 3) drag the Conclusion section above Executive Summary
+            const exec = document.getElementById('block-exec-summary').getBoundingClientRect();
+            await drag(document.querySelector('#block-conclusion .drag-handle'), document.getElementById('block-exec-summary'), exec.top + 2);
+            const ids = [...document.querySelectorAll('#reportBlocksContainer > .report-block')].map(b => b.id);
+            assert(ids.indexOf('block-conclusion') === ids.indexOf('block-exec-summary') - 1, 'section drag did not move the section');
+        } }],
+    },
+
     // ---------------------------------------------------------------- TEST-002 round trip
     {
         id: 'TEST-002', title: 'Export → import round-trip preserves the whole report', tags: ['persistence', 'stage1'],

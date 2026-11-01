@@ -1551,7 +1551,12 @@
         });
     }
 
+    // #reportBlocksContainer itself survives imports (only its innerHTML is replaced), so this
+    // delegated listener must be installed once, not on every import (PERF-001).
+    let stateLockListenersInstalled = false;
     function setupStateLockListeners() {
+        if (stateLockListenersInstalled) return;
+        stateLockListenersInstalled = true;
         document.getElementById('reportBlocksContainer').addEventListener('change', (e) => {
             if (e.target.tagName === 'SELECT') {
                 Array.from(e.target.options).forEach(opt => {
@@ -2329,101 +2334,129 @@
         announce('Page break inserted.');
     }
 
-    function setupDragAndDrop() {
-        const container = document.getElementById('reportBlocksContainer');
-        const blocks = container.querySelectorAll('.report-block');
-        
-        blocks.forEach(block => {
-            const handle = block.querySelector('.drag-handle');
-            if (handle) {
-                handle.addEventListener('mousedown', () => { block.setAttribute('draggable', 'true'); });
-                handle.addEventListener('mouseup', () => { block.setAttribute('draggable', 'false'); });
-                handle.addEventListener('dragend', () => { block.setAttribute('draggable', 'false'); });
-            }
-            block.addEventListener('dragstart', (e) => {
-                if (block.getAttribute('draggable') !== 'true') { e.preventDefault(); return; }
-                block.classList.add('dragging');
-            });
-            block.addEventListener('dragend', () => {
-                block.classList.remove('dragging'); block.setAttribute('draggable', 'false');
-                renderAll();
-            });
-        });
-        
-        container.addEventListener('dragover', e => {
-            const draggable = document.querySelector('.dragging'); if (!draggable) return;
-            e.preventDefault();
-            const afterElement = getDragAfterElement(container, e.clientY);
-            if (afterElement == null) { container.appendChild(draggable); }
-            else { container.insertBefore(draggable, afterElement); }
-        });
+    // Drag-and-drop for both sections and finding cards, via ONE set of listeners delegated from
+    // #reportBlocksContainer and installed once (PERF-001). The old code attached fresh listeners to
+    // every block on each section add/import and to every findings container on each renderAll(), so
+    // they piled up without bound (50 renders → 51 dragover handlers, each measuring every card).
+    // Delegation also covers sections and cards created later, with no re-wiring.
+    //
+    // Kept for its many existing callers: installs the delegation the first time, then only refreshes
+    // aria-labels for newly added icon buttons.
+    let dragAndDropInstalled = false;
+    let dragState = null;          // { kind: 'block' | 'card', el }
+    let pendingDragMove = null;    // latest pointer position, applied once per animation frame (PERF-007)
 
+    function setupDragAndDrop() {
+        if (!dragAndDropInstalled) {
+            dragAndDropInstalled = true;
+            const container = document.getElementById('reportBlocksContainer');
+
+            // Only a press on a grip handle arms its card/section for dragging, so text selection
+            // and image drags inside editable content keep working normally.
+            container.addEventListener('mousedown', (e) => {
+                const vulnHandle = e.target.closest('.vuln-drag-handle');
+                const target = vulnHandle ? vulnHandle.closest('.vuln-card')
+                    : (e.target.closest('.drag-handle') || {}).closest?.('.report-block');
+                if (target) target.setAttribute('draggable', 'true');
+            });
+            document.addEventListener('mouseup', disarmDraggables);
+
+            container.addEventListener('dragstart', (e) => {
+                const card = e.target.closest('.vuln-card');
+                if (card && card.getAttribute('draggable') === 'true') {
+                    dragState = { kind: 'card', el: card };
+                    card.classList.add('vuln-dragging');
+                    return;
+                }
+                const block = e.target.closest('#reportBlocksContainer > .report-block');
+                if (!card && block && block.getAttribute('draggable') === 'true') {
+                    dragState = { kind: 'block', el: block };
+                    block.classList.add('dragging');
+                    return;
+                }
+                e.preventDefault(); // not started from a grip handle
+            });
+
+            container.addEventListener('dragover', (e) => {
+                if (!dragState) return;
+                const findingsContainer = dragState.kind === 'card' ? e.target.closest('.findings-container') : null;
+                if (dragState.kind === 'card' && !findingsContainer) return; // cards only drop into findings lists
+                e.preventDefault();
+                const wasPending = pendingDragMove !== null;
+                pendingDragMove = { y: e.clientY, findingsContainer };
+                if (!wasPending) requestAnimationFrame(applyPendingDragMove);
+            });
+
+            container.addEventListener('drop', (e) => { if (dragState) e.preventDefault(); }); // never insert drag data as text
+
+            container.addEventListener('dragend', () => {
+                if (!dragState) return;
+                const { kind, el } = dragState;
+                dragState = null;
+                pendingDragMove = null;
+                el.classList.remove('dragging', 'vuln-dragging');
+                disarmDraggables();
+                if (kind === 'card') reorderFindingsFromDom();
+                markUnsaved(); // reordering is an edit (it didn't count as one before)
+                renderAll();
+                announce(kind === 'card' ? 'Finding moved.' : 'Section moved.');
+            });
+        }
         syncAriaLabelsFromTooltips();
     }
 
+    function disarmDraggables() {
+        if (dragState) return; // mouseup fires before dragend in some browsers; dragend disarms
+        document.querySelectorAll('#reportBlocksContainer [draggable="true"].report-block, #reportBlocksContainer [draggable="true"].vuln-card')
+            .forEach(el => el.setAttribute('draggable', 'false'));
+    }
+
+    function applyPendingDragMove() {
+        const move = pendingDragMove;
+        pendingDragMove = null;
+        if (!move || !dragState) return;
+        const { el } = dragState;
+        const parent = dragState.kind === 'card' ? move.findingsContainer : document.getElementById('reportBlocksContainer');
+        const after = dragState.kind === 'card' ? getDragAfterVulnElement(parent, move.y) : getDragAfterElement(parent, move.y);
+        if (after === el || (after ? after.previousElementSibling === el && el.parentNode === parent : parent.lastElementChild === el)) return; // already there
+        if (after == null) parent.appendChild(el);
+        else parent.insertBefore(el, after);
+    }
+
+    // Finding order (and section membership) after a card drop is read back from the DOM.
+    function reorderFindingsFromDom() {
+        const reordered = [];
+        document.querySelectorAll('.findings-container').forEach(container => {
+            const parentBlock = container.closest('.details-block');
+            const sectionId = parentBlock ? parentBlock.id : 'block-details';
+            container.querySelectorAll('.vuln-card').forEach(c => {
+                const finding = findings[parseInt(c.getAttribute('data-index'), 10)];
+                if (finding && !reordered.includes(finding)) {
+                    finding.sectionId = sectionId;
+                    reordered.push(finding);
+                }
+            });
+        });
+        findings.forEach(f => { if (!reordered.includes(f)) reordered.push(f); }); // never lose a finding
+        findings = reordered;
+    }
+
     function getDragAfterElement(container, y) {
-        const draggableElements = [...container.querySelectorAll('.report-block:not(.dragging)')];
+        // Direct children only: finding page breaks inside a findings list also carry .report-block,
+        // and inserting relative to one of those (not a child of this container) threw.
+        const draggableElements = [...container.querySelectorAll(':scope > .report-block:not(.dragging)')];
         return draggableElements.reduce((closest, child) => {
             const box = child.getBoundingClientRect(); const offset = y - box.top - box.height / 2;
-            if (offset < 0 && offset > closest.offset) { return { offset: offset, element: child }; } 
+            if (offset < 0 && offset > closest.offset) { return { offset: offset, element: child }; }
             else { return closest; }
         }, { offset: Number.NEGATIVE_INFINITY }).element;
     }
 
-    function setupVulnDragAndDrop() {
-        const containers = document.querySelectorAll('.findings-container');
-        const cards = document.querySelectorAll('.vuln-card');
-
-        cards.forEach(card => {
-            const handle = card.querySelector('.vuln-drag-handle');
-            if (handle) {
-                handle.addEventListener('mousedown', () => { card.setAttribute('draggable', 'true'); });
-                handle.addEventListener('mouseup', () => { card.setAttribute('draggable', 'false'); });
-                handle.addEventListener('dragend', () => { card.setAttribute('draggable', 'false'); });
-            }
-            card.addEventListener('dragstart', (e) => {
-                if (card.getAttribute('draggable') !== 'true') { e.preventDefault(); return; }
-                e.stopPropagation(); card.classList.add('vuln-dragging');
-            });
-            card.addEventListener('dragend', (e) => {
-                e.stopPropagation(); card.classList.remove('vuln-dragging'); card.setAttribute('draggable', 'false');
-                
-                const reorderedFindings = [];
-                document.querySelectorAll('.findings-container').forEach(container => {
-                    const parentBlock = container.closest('.details-block');
-                    const sectionId = parentBlock ? parentBlock.id : 'block-details';
-                    const containerCards = [...container.querySelectorAll('.vuln-card')];
-                    
-                    containerCards.forEach(c => {
-                        const originalIndex = parseInt(c.getAttribute('data-index'));
-                        const finding = findings[originalIndex];
-                        if (finding) {
-                            finding.sectionId = sectionId;
-                            reorderedFindings.push(finding);
-                        }
-                    });
-                });
-                findings = reorderedFindings;
-                renderAll(); 
-            });
-        });
-
-        containers.forEach(container => {
-            container.addEventListener('dragover', e => {
-                const draggable = document.querySelector('.vuln-dragging'); if (!draggable) return; 
-                e.preventDefault(); e.stopPropagation();
-                const afterElement = getDragAfterVulnElement(container, e.clientY);
-                if (afterElement == null) { container.appendChild(draggable); } 
-                else { container.insertBefore(draggable, afterElement); }
-            });
-        });
-    }
-
     function getDragAfterVulnElement(container, y) {
-        const draggableElements = [...container.querySelectorAll('.vuln-card:not(.vuln-dragging)')];
+        const draggableElements = [...container.querySelectorAll(':scope > .vuln-card:not(.vuln-dragging)')];
         return draggableElements.reduce((closest, child) => {
             const box = child.getBoundingClientRect(); const offset = y - box.top - box.height / 2;
-            if (offset < 0 && offset > closest.offset) { return { offset: offset, element: child }; } 
+            if (offset < 0 && offset > closest.offset) { return { offset: offset, element: child }; }
             else { return closest; }
         }, { offset: Number.NEGATIVE_INFINITY }).element;
     }
@@ -3061,7 +3094,7 @@
             </table>`;
         }
         
-        syncTokens(); setupVulnDragAndDrop();
+        syncTokens();
         if (tocEnabled) renderTOC();
         renderChecklist();
         syncAriaLabelsFromTooltips();
