@@ -16,6 +16,10 @@
     window.alert = (msg) => { nativeDialogs.push('alert: ' + msg); };
     window.confirm = (msg) => { nativeDialogs.push('confirm: ' + msg); return true; };
 
+    // Content-Security-Policy violations (e.g. a CDN stylesheet the CSP accidentally blocks).
+    const cspViolations = [];
+    document.addEventListener('securitypolicyviolation', e => cspViolations.push(`${e.violatedDirective} ${e.blockedURI}`));
+
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
     function assert(cond, message) { if (!cond) throw new Error(message); }
@@ -80,5 +84,5 @@
     // [0] = title <h3>, [1] = description, [2] = remediation
     const cardFields = (i = 0) => [...cards()[i].querySelectorAll('.editable-section')];
 
-    window.__t = { listenerCounts, nativeDialogs, sleep, assert, waitFor, modalOpen, answerModal, pickFile, captureDownload, finding, cards, cardFields };
+    window.__t = { listenerCounts, nativeDialogs, cspViolations, sleep, assert, waitFor, modalOpen, answerModal, pickFile, captureDownload, finding, cards, cardFields };
 })();

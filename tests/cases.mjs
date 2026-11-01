@@ -17,6 +17,12 @@ export const cases = [
             }
             assert(document.getElementById('input-assessment-type').options.length >= 7, 'assessment types missing');
             assert(document.querySelectorAll('#matrix td').length === 25, 'risk matrix is not 5x5');
+            const probe = document.createElement('div'); probe.className = 'd-flex'; document.body.appendChild(probe);
+            assert(getComputedStyle(probe).display === 'flex', 'Bootstrap CSS is not applied (blocked by CSP or offline?)');
+            probe.remove();
+            await document.fonts.ready;
+            assert([...document.fonts].some(f => /bootstrap-icons/i.test(f.family) && f.status === 'loaded'), 'Bootstrap Icons font did not load');
+            assert(__t.cspViolations.length === 0, 'CSP violations: ' + __t.cspViolations.join('; '));
         } }],
     },
 
@@ -98,21 +104,36 @@ export const cases = [
             const bad = [];
             for (const [i, t] of library.entries()) {
                 for (const field of ['description', 'remediation']) {
-                    const once = normalizeTokensInHtml(t[field]);
+                    // Same path as addFinding(): template text is plain text, escaped into finding HTML (BUG-015).
+                    const once = normalizeTokensInHtml(escapeHtml(t[field]));
                     const twice = normalizeTokensInHtml(once);
                     if (once !== twice) { bad.push(`#${i} ${field} (not idempotent)`); continue; }
-                    // BUG-015: a few templates contain prose like "sc config <name>" that the browser parses
-                    // as a tag (and "<iframe>" swallows the rest of the text). Exact-text comparison is
-                    // meaningless for those until BUG-015 is fixed, so only idempotence is checked there.
-                    if (/<[a-z][\w-]*>/i.test(t[field])) continue;
+                    const expected = t[field].replace(/\[(CLIENT NAME|COMPANY NAME|CONTACT NAME|CONTACT EMAIL)\]/g, m => values[m]);
                     const tpl = document.createElement('template');
-                    tpl.innerHTML = t[field];
-                    const expected = tpl.content.textContent.replace(/\[(CLIENT NAME|COMPANY NAME|CONTACT NAME|CONTACT EMAIL)\]/g, m => values[m]);
                     tpl.innerHTML = once;
                     if (tpl.content.textContent !== expected) bad.push(`#${i} ${field}`);
                 }
             }
             assert(bad.length === 0, `${bad.length} template fields wrong: ${bad.slice(0, 5).join(', ')}`);
+        } }],
+    },
+    {
+        id: 'BUG-015', title: 'Template text like "sc config <name>" and "<iframe>" is shown exactly as written', tags: ['library', 'stage1'],
+        steps: [{ run: async () => {
+            const { assert, cardFields } = __t;
+            const pick = (needle) => library.findIndex(t => t.description.includes(needle) || t.remediation.includes(needle));
+            for (const needle of ['<name>', '<commit>', '<iframe>']) {
+                findings = []; renderAll();
+                loadTemplate(pick(needle));
+                await addFinding();
+                const [, desc, rem] = cardFields(0);
+                const text = desc.innerText + '\n' + rem.innerText;
+                assert(text.includes(needle), `"${needle}" missing from the finding card`);
+                assert(!desc.querySelector('iframe, name, commit'), `"${needle}" was parsed as an HTML element`);
+            }
+            // the last one added is the X-Frame-Options template: the text after "<iframe>" must be visible
+            const tail = library[pick('<iframe>')].description.trim().slice(-40);
+            assert(cardFields(0)[1].innerText.includes(tail.replace('[CLIENT NAME]', document.getElementById('input-client-name').value)), 'text after "<iframe>" is still swallowed');
         } }],
     },
     {
@@ -480,6 +501,49 @@ export const cases = [
             assert(!window.__pwned, `script executed ${window.__pwned} time(s) from an imported report`);
             assert(!document.querySelector('#printableReport a[href^="javascript:"]'), 'javascript: link survived import');
             assert(!document.querySelector('#printableReport iframe'), 'iframe survived import');
+        } }],
+    },
+    {
+        id: 'SEC-001-formatting', title: 'Toolbar formatting survives export → import (rich-text policy)', tags: ['security', 'stage1'],
+        steps: [{ run: async () => {
+            const { assert, pickFile } = __t;
+            const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+            // What the floating toolbar (document.execCommand) and plain typing produce in Chrome/Edge:
+            const rich = `<b>bold</b> <i>italic</i> <strike>gone</strike> <font size="5">big</font> <font color="#dc3545">red</font>`
+                + `<div style="text-align: center;">centered</div><blockquote>quote</blockquote><pre>code block</pre>`
+                + `<ul><li>bullet</li></ul><ol><li>number</li></ol><h3>Sub heading</h3><strong>strong</strong><br><img src="${png}">`;
+            const expectations = ['b', 'i', 'strike', 'font[size="5"]', 'font[color="#dc3545"]', 'div[style*="text-align"]', 'blockquote', 'pre', 'ul > li', 'ol > li', 'h3', 'strong', 'br', 'img[src^="data:image/png"]'];
+            const base = buildReportPayload();
+            const payload = {
+                ...base,
+                blocksHtml: base.blocksHtml.replace(/(id="section-exec">)[\s\S]*?(<\/div>\s*<\/div>)/, `$1${rich}$2`),
+                findings: [__t.finding({ description: rich, remediation: rich })],
+            };
+            const alertText = await pickFile('importReportFile', JSON.stringify(payload));
+            assert(alertText === null, 'import error: ' + alertText);
+            const where = { section: document.getElementById('section-exec'), description: __t.cardFields(0)[1], remediation: __t.cardFields(0)[2] };
+            const missing = [];
+            for (const [name, el] of Object.entries(where)) for (const sel of expectations) if (!el.querySelector(sel)) missing.push(`${name}: ${sel}`);
+            assert(missing.length === 0, 'formatting lost on import → ' + missing.join(', '));
+        } }],
+    },
+    {
+        id: 'SEC-001-structure', title: 'Section controls still work after an import', tags: ['security', 'stage1'],
+        steps: [{ run: async () => {
+            const { assert, pickFile, answerModal } = __t;
+            await pickFile('importReportFile', JSON.stringify(buildReportPayload()));
+            const order = () => [...document.querySelectorAll('#reportBlocksContainer > .report-block')].map(b => b.id || b.querySelector('h2')?.innerText);
+            const before = order();
+            document.querySelector('#block-scope .block-control-btn[onclick="moveSectionUp(this)"]').click();
+            const after = order();
+            const i = before.indexOf('block-scope');
+            assert(after[i - 1] === 'block-scope', 'move-up control did nothing after import');
+            const start = document.getElementById('meta-start-date');
+            start.value = '2026-01-02'; start.dispatchEvent(new Event('change', { bubbles: true }));
+            assert(localStorage.getItem('rapportgen:meta-start-date') === '2026-01-02', 'metadata onchange handler lost after import');
+            document.querySelector('#block-conclusion .control-danger').click();
+            await answerModal(true);
+            assert(!document.getElementById('block-conclusion'), 'delete control did nothing after import');
         } }],
     },
     {

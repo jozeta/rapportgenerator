@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- SEC-005: defense in depth behind the HTML sanitizer. Even if injected markup ever ran, it could
+         not send report data anywhere: no requests or images to other origins, no frames, no plugins.
+         'unsafe-inline' scripts are still needed for the inline on* handlers (see ARCH-001). -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net data:; img-src 'self' data: blob:; connect-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
     <title>Professional Security Assessment Reporter</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
@@ -1629,6 +1633,184 @@
         return tpl.innerHTML;
     }
 
+    // ---- HTML sanitizer (SEC-001) ----------------------------------------------------------------
+    // Imported report files, autosaved drafts and library templates are untrusted input: a
+    // report.json from a colleague or client could carry <img onerror=…>, javascript: links, etc.
+    // Their HTML goes through sanitizeHtml() before it reaches the page. Two policies apply,
+    // depending on WHERE an element sits:
+    //   • RICH_TEXT_POLICY — inside an editable region (section text, finding description and
+    //     remediation): the formatting a report author can produce.
+    //   • APP_STRUCTURE_POLICY — the report's own skeleton outside editable regions (section control
+    //     rail, metadata form, tables). Fixed: inline handlers survive only when they are exactly one
+    //     of the strings this app itself generates, so a file can't smuggle in its own code.
+    // Disallowed tags are unwrapped (their text is kept); dangerous elements are removed entirely.
+
+    // What formatting may survive an import inside editable text. Covers what the floating toolbar
+    // (document.execCommand) and typing/pasting produce in Chrome/Edge/Firefox/Safari:
+    //   tags:            element names allowed inside editable text
+    //   attributes:      { tagName: ['attr', …] }. No 'class' — content must not borrow the app's own
+    //                    CSS classes (e.g. Bootstrap's fixed-top could overlay the UI); live-token spans
+    //                    are preserved separately.
+    //   styleProperties: CSS properties kept in style="" attributes. Layout properties such as position,
+    //                    display or z-index are deliberately absent so a file can't draw over the page.
+    // href/src values are checked separately (only http(s)/mailto/#anchors and data:image URLs pass),
+    // and on* event-handler attributes are always removed here, whatever is listed.
+    const RICH_TEXT_POLICY = {
+        tags: ['b', 'strong', 'i', 'em', 'u', 's', 'strike', 'sub', 'sup', 'font', 'span', 'div', 'p', 'br',
+               'h3', 'h4', 'blockquote', 'pre', 'code', 'ul', 'ol', 'li', 'img', 'a',
+               'table', 'thead', 'tbody', 'tr', 'th', 'td'],
+        attributes: {
+            font: ['size', 'color', 'face'],
+            img: ['src', 'alt', 'width', 'height'],
+            a: ['href', 'title'],
+            ol: ['start'],
+            td: ['colspan', 'rowspan'], th: ['colspan', 'rowspan'],
+            '*': ['style'],
+        },
+        styleProperties: ['text-align', 'color', 'background-color', 'font-weight', 'font-style', 'font-size',
+                          'text-decoration', 'text-decoration-line'],
+    };
+
+    const APP_STRUCTURE_POLICY = {
+        tags: new Set(['div', 'h1', 'h2', 'h3', 'h4', 'p', 'span', 'strong', 'small', 'br', 'i', 'a', 'button', 'input', 'select', 'option', 'label',
+                       'table', 'thead', 'tbody', 'tr', 'th', 'td']),
+        attributes: {
+            '*': ['class', 'id', 'style', 'contenteditable', 'draggable', 'data-tooltip', 'data-placeholder', 'title', 'aria-label', 'role', 'tabindex'],
+            input: ['type', 'value', 'checked', 'placeholder', 'disabled'],
+            option: ['value', 'selected'], label: ['for'], a: ['href'], button: ['type'], td: ['colspan', 'rowspan'], th: ['colspan', 'rowspan'],
+        },
+        styleProperties: '*', // any property, but dangerous values (url(), expression(), …) are still stripped
+        handlers: new Set([
+            'moveSectionUp(this)', 'moveSectionDown(this)', 'insertPageBreakAfter(this)', 'removeSection(this)',
+            'toggleMetadataBackground(this)', "persistField('meta-start-date');", "persistField('meta-end-date');",
+            "renderChecklist(); updateWatermarkPreview(); persistField('meta-classification');",
+        ]),
+        handlerAttributes: new Set(['onclick', 'onchange']),
+        inputTypes: new Set(['date', 'checkbox', 'text', 'radio']),
+    };
+
+    const COMPILED_RICH_TEXT_POLICY = {
+        tags: new Set(RICH_TEXT_POLICY.tags.map(t => t.toLowerCase())),
+        attributes: RICH_TEXT_POLICY.attributes,
+        styleProperties: new Set(RICH_TEXT_POLICY.styleProperties.map(p => p.toLowerCase())),
+        handlers: new Set(), handlerAttributes: new Set(), inputTypes: new Set(),
+    };
+
+    const SANITIZER_DROP_WITH_CONTENT = new Set(['script', 'style', 'iframe', 'frame', 'frameset', 'object', 'embed', 'applet', 'noscript', 'template',
+        'link', 'meta', 'base', 'form', 'textarea', 'title', 'xmp', 'noembed', 'noframes', 'audio', 'video', 'source', 'track', 'canvas', 'portal', 'dialog']);
+    const SAFE_HREF_RE = /^(https?:|mailto:|#)/i;
+    const SAFE_IMG_SRC_RE = /^data:image\/(png|jpe?g|gif|webp|bmp|svg\+xml);base64,/i;
+    const UNSAFE_CSS_VALUE_RE = /url\s*\(|expression|javascript:|@import|behavior|-moz-binding|\\/i;
+
+    function sanitizeStyle(value, policy) {
+        const kept = [];
+        for (const decl of value.split(';')) {
+            const colon = decl.indexOf(':');
+            if (colon < 0) continue;
+            const prop = decl.slice(0, colon).trim().toLowerCase();
+            const val = decl.slice(colon + 1).trim();
+            if (!prop || !val || UNSAFE_CSS_VALUE_RE.test(val)) continue;
+            if (policy.styleProperties !== '*' && !policy.styleProperties.has(prop)) continue;
+            kept.push(`${prop}: ${val}`);
+        }
+        return kept.join('; ');
+    }
+
+    // Returns false if the element itself must be removed.
+    function sanitizeAttributes(el, policy, reservedIds) {
+        const tag = el.localName;
+        const allowedHere = new Set([...(policy.attributes['*'] || []), ...(policy.attributes[tag] || [])].map(a => a.toLowerCase()));
+        for (const attr of [...el.attributes]) {
+            const name = attr.name.toLowerCase();
+            const value = attr.value.trim();
+            if (name.startsWith('on')) {
+                if (!(policy.handlerAttributes.has(name) && policy.handlers.has(attr.value))) el.removeAttribute(attr.name);
+                continue;
+            }
+            if (!allowedHere.has(name)) { el.removeAttribute(attr.name); continue; }
+            if (name === 'href' && !SAFE_HREF_RE.test(value)) { el.removeAttribute(attr.name); continue; }
+            if (name === 'src' && !SAFE_IMG_SRC_RE.test(value)) { el.removeAttribute(attr.name); continue; }
+            if (name === 'id' && reservedIds.has(value)) { el.removeAttribute(attr.name); continue; } // no DOM clobbering of app controls
+            if (name === 'style') {
+                const clean = sanitizeStyle(attr.value, policy);
+                if (clean) el.setAttribute('style', clean); else el.removeAttribute('style');
+            }
+        }
+        if (tag === 'input' && !policy.inputTypes.has((el.getAttribute('type') || 'text').toLowerCase())) return false;
+        if (tag === 'img' && !el.hasAttribute('src')) return false;
+        if (tag === 'a' && el.getAttribute('href')) el.setAttribute('rel', 'noopener noreferrer');
+        return true;
+    }
+
+    function sanitizeChildren(parent, mode, reservedIds) {
+        for (const node of [...parent.childNodes]) {
+            if (node.nodeType === Node.COMMENT_NODE || node.nodeType === Node.PROCESSING_INSTRUCTION_NODE) { node.remove(); continue; }
+            if (node.nodeType !== Node.ELEMENT_NODE) continue;
+            const tag = node.localName;
+            if (node.namespaceURI !== 'http://www.w3.org/1999/xhtml' || SANITIZER_DROP_WITH_CONTENT.has(tag)) { node.remove(); continue; }
+            // Live-token spans are app structure wherever they appear, independent of the rich-text policy.
+            if (tag === 'span' && TOKEN_DEFS.some(d => node.classList.contains(d.cls))) {
+                const def = TOKEN_DEFS.find(d => node.classList.contains(d.cls));
+                for (const attr of [...node.attributes]) node.removeAttribute(attr.name);
+                node.className = def.cls;
+                node.dataset.placeholder = def.placeholder;
+                node.textContent = node.textContent;               // flatten: a token holds plain text only
+                continue;
+            }
+            const policy = mode === 'app' ? APP_STRUCTURE_POLICY : COMPILED_RICH_TEXT_POLICY;
+            if (!policy.tags.has(tag)) {
+                sanitizeChildren(node, mode, reservedIds);
+                node.replaceWith(...node.childNodes);            // unwrap: keep the text, lose the tag
+                continue;
+            }
+            if (!sanitizeAttributes(node, policy, reservedIds)) { node.remove(); continue; }
+            // Inside an editable region only author formatting is allowed.
+            const childMode = (mode === 'app' && node.hasAttribute('contenteditable')) ? 'rich' : mode;
+            sanitizeChildren(node, childMode, reservedIds);
+        }
+    }
+
+    // `structure: true` for the report skeleton (blocksHtml); false for a plain rich-text field.
+    function sanitizeHtml(html, { structure = false } = {}) {
+        if (typeof html !== 'string' || html === '') return '';
+        const tpl = document.createElement('template');
+        tpl.innerHTML = html;
+        // ids used by the app outside the report container must not be re-declared by imported content
+        const container = document.getElementById('reportBlocksContainer');
+        const reservedIds = new Set([...document.querySelectorAll('[id]')]
+            .filter(el => !container || !container.contains(el)).map(el => el.id));
+        sanitizeChildren(tpl.content, structure ? 'app' : 'rich', reservedIds);
+        return tpl.innerHTML;
+    }
+
+    const SAFE_LOGO_RE = /^(data:image\/(png|jpe?g|gif|webp|svg\+xml);base64,[A-Za-z0-9+/=\s]+|[\w.\/-]+\.(png|jpe?g|gif|webp|svg))$/i;
+    const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+    // Returns a copy of a (validated, migrated) report payload that is safe to put on the page.
+    // Token repair (BUG-001) must see the damaged spans before the sanitizer normalizes them away,
+    // so it runs first — safely, since both work on inert templates.
+    function repairTokensInHtml(html) {
+        if (typeof html !== 'string' || html === '') return html;
+        const tpl = document.createElement('template');
+        tpl.innerHTML = html;
+        repairCorruptedTokens(tpl.content);
+        return tpl.innerHTML;
+    }
+
+    function sanitizeReportPayload(data) {
+        return {
+            ...data,
+            blocksHtml: sanitizeHtml(repairTokensInHtml(data.blocksHtml), { structure: true }),
+            currentLogo: (typeof data.currentLogo === 'string' && SAFE_LOGO_RE.test(data.currentLogo)) ? data.currentLogo : '',
+            findings: data.findings.map(f => ({
+                ...f,
+                description: sanitizeHtml(normalizeTokensInHtml(f.description)),
+                remediation: sanitizeHtml(normalizeTokensInHtml(f.remediation)),
+                retestDate: (typeof f.retestDate === 'string' && ISO_DATE_RE.test(f.retestDate)) ? f.retestDate : '',
+            })),
+        };
+    }
+
     function syncTokens() {
         const companyVal = document.getElementById('input-company-name').value || "[COMPANY NAME]";
         const clientVal = document.getElementById('input-client-name').value || "[CLIENT NAME]";
@@ -1803,12 +1985,13 @@
             return str.replace(pattern, replaceText);
         };
 
-        // HTML-bearing finding fields: parse into a detached element, replace text nodes only, re-serialize.
+        // HTML-bearing finding fields: parse into an inert <template> (a detached <div> would still
+        // load images and fire their handlers), replace text nodes only, re-serialize.
         const replaceHtmlText = (htmlString) => {
             if (typeof htmlString !== 'string' || !htmlString) return htmlString;
-            const container = document.createElement('div');
+            const container = document.createElement('template');
             container.innerHTML = htmlString;
-            replaceTextNodesInElement(container, pattern, replaceText, counter);
+            replaceTextNodesInElement(container.content, pattern, replaceText, counter);
             return container.innerHTML;
         };
 
@@ -2033,7 +2216,7 @@
                 <button class="block-control-btn control-danger" onclick="removeSection(this)" data-tooltip="Delete this section"><i class="bi bi-trash"></i></button>
             </div>
             <div class="d-flex justify-content-between align-items-center">
-                <h2 class="editable-section section-edit flex-grow-1 details-title" contenteditable="true">${headline}</h2>
+                <h2 class="editable-section section-edit flex-grow-1 details-title" contenteditable="true">${escapeHtml(headline)}</h2>
             </div>
             <div class="findings-container" style="position: relative; min-height: 50px; padding-left: 20px;"></div>`;
             
@@ -2068,7 +2251,7 @@
                 <button class="block-control-btn control-danger" onclick="removeSection(this)" data-tooltip="Delete this section"><i class="bi bi-trash"></i></button>
             </div>
             <div class="d-flex justify-content-between align-items-center">
-                <h2 class="editable-section section-edit flex-grow-1" contenteditable="true">${headline}</h2>
+                <h2 class="editable-section section-edit flex-grow-1" contenteditable="true">${escapeHtml(headline)}</h2>
             </div>
             <div class="editable-section section-edit" contenteditable="true">Enter content here...</div>`;
         
@@ -2320,8 +2503,11 @@
             exploit: exploitRaw ? parseInt(exploitRaw) : null,
             cvssVector: document.getElementById('vCvssVector').value.trim(),
             cvssScore: document.getElementById('vCvssScore').value.trim(),
-            description: document.getElementById('vDesc').value,
-            remediation: remediationVal,
+            // BUG-015 / SEC-002: the form and the library hold plain text, but finding fields are HTML.
+            // Escape on the way in, so "sc config <name>" shows as written and template text can never
+            // become markup. Line breaks still render: .editable-section uses white-space: pre-wrap.
+            description: escapeHtml(document.getElementById('vDesc').value),
+            remediation: escapeHtml(remediationVal),
             remediationIsDefault: remediationIsDefault,
             showPlanner: actionPlannersGloballyVisible,
             plannerManuallyHidden: false,
@@ -2761,7 +2947,7 @@
                             </div>
                             <div class="d-flex align-items-center gap-2 no-print">
                                 <span class="fw-bold text-secondary">Retest Date:</span>
-                                <input type="date" class="form-control form-control-sm" style="width:auto;" value="${f.retestDate || ''}" onchange="updateFindingRetestDate(${i}, this.value)">
+                                <input type="date" class="form-control form-control-sm" style="width:auto;" value="${escapeHtml(f.retestDate || '')}" onchange="updateFindingRetestDate(${i}, this.value)">
                             </div>
                             <div class="print-score-text">${f.retestDate ? `Retest Date: ${escapeHtml(f.retestDate)}` : ''}</div>
                         </div>
@@ -2873,7 +3059,7 @@
     async function updateLogo(input) { if(input.files[0]) { currentLogo = await toBase64(input.files[0]); configuredLogoPath = ''; markUnsaved(); renderLogo(); renderChecklist(); } }
     function renderLogo() {
         const lc = document.getElementById('logoContainer');
-        if(lc) lc.innerHTML = currentLogo ? `<img src="${currentLogo}" class="report-logo mx-auto">` : `<div class="logo-placeholder no-print">Click to Upload Company Logo
+        if(lc) lc.innerHTML = currentLogo ? `<img src="${escapeHtml(currentLogo)}" class="report-logo mx-auto">` : `<div class="logo-placeholder no-print">Click to Upload Company Logo
                 <span class="info-tip" onclick="event.stopPropagation()" data-tooltip="Best practice: PNG or SVG with a transparent background. Displays at up to 160px tall / 80% of the page width, so a wide logo (roughly 3:1 to 4:1 aspect ratio) fits best. Keep the file small (under ~500KB) for fast loading and PDF export.">ⓘ</span>
             </div>`;
     }
@@ -3024,7 +3210,7 @@
     function applyReportPayload(data, { markSaved } = { markSaved: true }) {
         const errors = validateReportPayload(data);
         if (errors.length) throw new ReportValidationError(errors);
-        const migrated = migrateReportPayload(data);
+        const migrated = sanitizeReportPayload(migrateReportPayload(data));
 
         const backup = buildReportPayload();
         const backupHadUnsavedChanges = hasUnsavedChanges;
