@@ -1,6 +1,6 @@
 # Rapportgenerator — Engineering Audit, Optimization & Competitive Analysis
 
-**Audit date:** 2026-11-01  **Scope:** `/Users/zeta/Desktop/code/rapportgenerator` (all files)  **Mode:** assessment only. No project files were modified.
+**Audit date:** 2026-11-01  **Scope:** this repository (all files)  **Mode:** assessment only. No project files were modified.
 
 **Evidence labels used throughout**
 - **CONFIRMED (runtime):** reproduced in a real browser (headless Microsoft Edge 156, driven over the Chrome DevTools Protocol against `http://127.0.0.1:8080`). Test scripts are listed in [Verification Results](#verification-results).
@@ -1025,7 +1025,7 @@ Evaluated via screenshots (desktop at 1400 px with the sidebar open; mobile at 3
 
 **Screen:** Report canvas at 390 px
 
-**Evidence:** at 390 px viewport, `scrollWidth` is 434 px (horizontal scroll). The heading wraps as "ASSESSME / NT REPORT". The floating action buttons overlap the paper. Screenshot: `shot-mobile.png` in the scratchpad.
+**Evidence:** at 390 px viewport, `scrollWidth` is 434 px (horizontal scroll). The heading wraps as "ASSESSME / NT REPORT". The floating action buttons overlap the paper. Checked with a screenshot during the audit.
 
 **Improvement:**
 - `overflow-wrap: break-word; hyphens: auto` on `h1`.
@@ -1548,7 +1548,7 @@ Ranked by priority, then by impact per unit of effort.
 
 **Environment:**
 - macOS (Darwin 27.0.0), Node v26.9.0, Python 3 `http.server` on `127.0.0.1:8080`.
-- Headless **Microsoft Edge 156.0.4314.58**, driven over the Chrome DevTools Protocol from a throwaway profile in the scratchpad.
+- Headless **Microsoft Edge 156.0.4314.58**, driven over the Chrome DevTools Protocol from a throwaway browser profile.
 - Playwright's MCP server could not be used: Google Chrome is not installed, and per the instructions nothing was installed.
 
 **Commands and tools actually run:**
@@ -1559,7 +1559,7 @@ Ranked by priority, then by impact per unit of effort.
 | JS syntax | `sed -n '1045,2904p' rapportgenerator.html > app.js && node --check app.js` | **syntax OK** |
 | Static scan | Python regex scan | 0 duplicate static ids; 153 inline `on*` handlers; 3 `createObjectURL` / 0 `revokeObjectURL`; 2 `execCommand`; 2 native `prompt()`; 1 `@media print` block |
 | Data lint | Python over `library.json` | 270 entries, all keys present, all `CWE-N`, 270 contain `[CLIENT NAME]`, 7 contain HTML, 7 duplicate titles |
-| Runtime tests | `node cdp.mjs t1.js` … `t6.js` (scratchpad) | Results cited per finding; summary below |
+| Runtime tests | one-off CDP scripts (since turned into `tests/cases.mjs`) | Results cited per finding; summary below |
 | Screenshots | `cdp.mjs` → `shot-desktop-sidebar.png`, `shot-mobile.png` | UI-006 evidence |
 | Competitive research | WebFetch / WebSearch (GitHub, vendor docs) | Sources cited in COMP-001 to COMP-006 |
 
