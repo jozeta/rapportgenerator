@@ -298,6 +298,64 @@ export const cases = [
         ],
     },
     {
+        id: 'BUG-004-race', title: 'Exporting while an autosave is pending never resurrects the draft', tags: ['autosave', 'stage2'],
+        steps: [
+            { run: async () => {
+                document.getElementById('vTitle').value = 'Racy';
+                await addFinding();                                   // schedules an autosave ~2 s later
+                await __t.captureDownload(() => exportReportJson());  // export before it fires
+                await __t.sleep(2600);                                // let the idle timer pass
+            } },
+            { run: async () => {
+                await __t.sleep(800);
+                __t.assert(!__t.modalOpen(), 'a restore prompt appeared after exporting');
+            } },
+        ],
+    },
+    {
+        id: 'BUG-005-legacy', title: 'A draft saved by the old version (localStorage) is still offered, then moved to IndexedDB', tags: ['autosave', 'stage2'],
+        steps: [
+            { run: async () => {
+                const data = buildReportPayload();
+                delete data.schemaVersion; delete data.meta;                    // as the old version wrote it
+                data.findings = [__t.finding({ title: 'Legacy draft finding' })];
+                localStorage.setItem('rapportgen:autosave', JSON.stringify({ savedAt: Date.now() - 60000, data }));
+            } },
+            { run: async () => {
+                const { assert, answerModal, waitFor, modalOpen } = __t;
+                await waitFor(modalOpen, 4000, 'restore prompt');
+                await answerModal(true);
+                assert(findings.length === 1 && findings[0].title === 'Legacy draft finding', 'legacy draft not restored');
+                await autosaveReport();
+                assert(localStorage.getItem('rapportgen:autosave') === null, 'legacy localStorage draft not cleaned up after moving to IndexedDB');
+            } },
+        ],
+    },
+    {
+        id: 'UI-009', title: 'Save status line reflects unsaved / autosaved / exported / failed', tags: ['autosave', 'stage2'],
+        steps: [{ run: async () => {
+            const { assert, captureDownload } = __t;
+            const status = () => document.getElementById('saveStatus');
+            assert(status().textContent === 'No unsaved changes', `initial: "${status().textContent}"`);
+            document.getElementById('vTitle').value = 'Status'; await addFinding();
+            assert(status().textContent.startsWith('Not exported'), `after edit: "${status().textContent}"`);
+            await autosaveReport();
+            assert(status().textContent.includes('draft kept in this browser'), `after autosave: "${status().textContent}"`);
+            await captureDownload(() => exportReportJson());
+            assert(status().textContent.startsWith('All changes exported'), `after export: "${status().textContent}"`);
+            // both stores refuse the write → red warning
+            const origOpen = indexedDB.open.bind(indexedDB);
+            indexedDB.open = () => { throw new Error('simulated'); };
+            autosaveDbPromise = null;
+            const origSet = Storage.prototype.setItem;
+            Storage.prototype.setItem = function () { throw new DOMException('quota', 'QuotaExceededError'); };
+            markUnsaved();
+            await autosaveReport();
+            Storage.prototype.setItem = origSet; indexedDB.open = origOpen; autosaveDbPromise = null;
+            assert(status().classList.contains('is-error') && status().textContent.startsWith('Autosave failed'), `after failure: "${status().textContent}"`);
+        } }],
+    },
+    {
         id: 'BUG-005', title: 'Autosave works for a report with ~9 MB of screenshots', tags: ['autosave', 'stage2'],
         steps: [
             { run: async () => {

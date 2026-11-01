@@ -153,6 +153,10 @@
         /* Editable Areas and Buffer Target Space Padding Adjustments */
         .editable-section { border: 1px dashed transparent; transition: 0.2s; padding: 6px 20px 6px 8px; border-radius: 6px; min-height: 1.2em; white-space: pre-wrap; }
         .finding-number { padding: 6px 0 6px 8px; white-space: nowrap; }
+        .save-status { font-size: 0.72rem; line-height: 1.3; padding-left: 2px; }
+        .save-status.is-clean { color: #6c757d; }
+        .save-status.is-dirty { color: #8a6d00; }
+        .save-status.is-error { color: #b02a37; font-weight: 600; }
         .finding-title { padding-left: 6px; }
         .editable-section:hover { border-color: var(--accent); background: #f0f9ff; cursor: text; }
         .editable-section:focus { outline: none; border-color: var(--accent); background: #f0f9ff; }
@@ -453,6 +457,7 @@
                     <button class="btn btn-outline-dark btn-sm" onclick="document.getElementById('importReportFile').click()" data-tooltip="Load a previously exported report JSON file, replacing everything in the editor"><i class="bi bi-upload"></i> Import Report</button>
                 </div>
                 <button class="btn btn-outline-danger btn-sm" onclick="startNewReport()" data-tooltip="Wipe findings, section text, the logo, and all remembered profile details (client, company, contact, dates, classification) — starts completely blank"><i class="bi bi-file-earmark"></i> New Report</button>
+                <div id="saveStatus" class="save-status is-clean" role="status" aria-live="polite">No unsaved changes</div>
             </div>
             <input type="file" id="importReportFile" class="d-none" onchange="importReportJson(this)">
 
@@ -1057,7 +1062,11 @@
     let actionPlannersGloballyVisible = false;
     let hasUnsavedChanges = false;
 
-    function markUnsaved() { hasUnsavedChanges = true; }
+    function markUnsaved() {
+        hasUnsavedChanges = true;
+        scheduleAutosave();
+        updateSaveStatus();
+    }
 
     // Announces structural changes (finding/section added, removed, reordered, etc.) to screen
     // readers via the visually-hidden #srAnnouncer aria-live region — these actions have no other
@@ -1260,50 +1269,165 @@
 
     // Crash/tab-close recovery: findings, section text, the logo, branding, etc. only ever live in
     // page memory until an explicit Export Report, so closing the tab or a browser crash before that
-    // would otherwise lose everything since the last export. Periodically snapshot the same payload
-    // Export Report would produce into localStorage (buildReportPayload/applyReportPayload — defined
-    // further down, alongside exportReportJson/importReportJson which share them — are plain function
-    // declarations, so they're hoisted and safe to call from here) so it can be offered back on the
-    // next visit. Only fires while hasUnsavedChanges is true, so a pristine or already-exported report
-    // isn't needlessly rewritten to storage every tick.
-    const AUTOSAVE_KEY = 'rapportgen:autosave';
+    // would otherwise lose everything since the last export. The same payload Export Report builds is
+    // snapshotted as a draft and offered back on the next visit.
+    //
+    // Drafts live in IndexedDB (BUG-005): localStorage's ~5 MB quota was exceeded by a few screenshots,
+    // and the failure was silent. localStorage is only a fallback where IndexedDB is unavailable.
+    // A save runs ~2 s after the last change, every 20 s while there are unsaved changes, and when the
+    // tab is hidden or closed (visibilitychange/pagehide are where browsers let the write finish).
+    // All writes and deletes go through one queue, so an export's "clear the draft" can never be
+    // overtaken by an older save still in flight (BUG-004).
+    const AUTOSAVE_KEY = 'rapportgen:autosave';           // localStorage location (fallback, and where old versions saved)
+    const AUTOSAVE_DB = 'rapportgen';
+    const AUTOSAVE_STORE = 'drafts';
+    const AUTOSAVE_RECORD = 'autosave';
     const AUTOSAVE_INTERVAL_MS = 20000;
+    const AUTOSAVE_IDLE_MS = 2000;
+
+    const saveStatus = { autosavedAt: null, exportedAt: null, autosaveFailed: false };
+    let autosaveIdleTimer = null;
+    let autosaveQueue = Promise.resolve();
+    let autosaveDbPromise = null;
+
+    function openAutosaveDb() {
+        if (!autosaveDbPromise) {
+            autosaveDbPromise = new Promise((resolve, reject) => {
+                if (!window.indexedDB) { reject(new Error('IndexedDB unavailable')); return; }
+                const req = indexedDB.open(AUTOSAVE_DB, 1);
+                req.onupgradeneeded = () => req.result.createObjectStore(AUTOSAVE_STORE);
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+                req.onblocked = () => reject(new Error('IndexedDB open blocked'));
+            });
+            autosaveDbPromise.catch(() => { autosaveDbPromise = null; }); // allow a retry next time
+        }
+        return autosaveDbPromise;
+    }
+
+    async function draftStore(mode, operation) {
+        const db = await openAutosaveDb();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(AUTOSAVE_STORE, mode);
+            const req = operation(tx.objectStore(AUTOSAVE_STORE));
+            let result;
+            req.onsuccess = () => { result = req.result; };
+            tx.oncomplete = () => resolve(result);
+            tx.onerror = () => reject(tx.error || req.error);
+            tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
+        });
+    }
+
+    function enqueueDraftOperation(operation) {
+        autosaveQueue = autosaveQueue.then(operation, operation);
+        return autosaveQueue;
+    }
+
+    function scheduleAutosave() {
+        clearTimeout(autosaveIdleTimer);
+        autosaveIdleTimer = setTimeout(autosaveReport, AUTOSAVE_IDLE_MS);
+    }
 
     function autosaveReport() {
-        try {
-            localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ savedAt: Date.now(), data: buildReportPayload() }));
-        } catch (err) { /* localStorage unavailable (private mode, quota, etc.) — this tick's autosave is skipped */ }
+        clearTimeout(autosaveIdleTimer);
+        autosaveIdleTimer = null;
+        return enqueueDraftOperation(async () => {
+            if (!hasUnsavedChanges) return; // exported/imported since this save was requested
+            const snapshot = { savedAt: Date.now(), data: buildReportPayload() };
+            try {
+                await draftStore('readwrite', store => store.put(snapshot, AUTOSAVE_RECORD));
+                try { localStorage.removeItem(AUTOSAVE_KEY); } catch (err) { /* nothing to clean up */ }
+                saveStatus.autosaveFailed = false;
+                saveStatus.autosavedAt = snapshot.savedAt;
+            } catch (idbErr) {
+                try {
+                    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(snapshot));
+                    saveStatus.autosaveFailed = false;
+                    saveStatus.autosavedAt = snapshot.savedAt;
+                } catch (lsErr) {
+                    // Neither store took it. Don't leave an older, smaller draft behind to be restored
+                    // later as if it were current — and tell the user (status line turns red).
+                    saveStatus.autosaveFailed = true;
+                    try { localStorage.removeItem(AUTOSAVE_KEY); } catch (err) { /* ignore */ }
+                    try { await draftStore('readwrite', store => store.delete(AUTOSAVE_RECORD)); } catch (err) { /* ignore */ }
+                    console.error('Autosave failed', idbErr, lsErr);
+                }
+            }
+            updateSaveStatus();
+        });
     }
 
     function clearAutosave() {
-        try { localStorage.removeItem(AUTOSAVE_KEY); } catch (err) { /* nothing to clear */ }
+        clearTimeout(autosaveIdleTimer);
+        autosaveIdleTimer = null;
+        return enqueueDraftOperation(async () => {
+            try { localStorage.removeItem(AUTOSAVE_KEY); } catch (err) { /* nothing to clear */ }
+            try { await draftStore('readwrite', store => store.delete(AUTOSAVE_RECORD)); } catch (err) { /* nothing to clear */ }
+            saveStatus.autosavedAt = null;
+            saveStatus.autosaveFailed = false;
+            updateSaveStatus();
+        });
+    }
+
+    async function loadAutosaveSnapshot() {
+        try {
+            const snapshot = await draftStore('readonly', store => store.get(AUTOSAVE_RECORD));
+            if (snapshot && snapshot.data) return snapshot;
+        } catch (err) { /* fall through to localStorage */ }
+        try {
+            const raw = localStorage.getItem(AUTOSAVE_KEY);   // fallback store, or a draft from an older version
+            const snapshot = raw ? JSON.parse(raw) : null;
+            if (snapshot && snapshot.data) return snapshot;
+        } catch (err) { /* unreadable */ }
+        return null;
     }
 
     function setupAutosave() {
         setInterval(() => { if (hasUnsavedChanges) autosaveReport(); }, AUTOSAVE_INTERVAL_MS);
-        window.addEventListener('beforeunload', () => { if (hasUnsavedChanges) autosaveReport(); });
+        const saveNow = () => { if (hasUnsavedChanges) autosaveReport(); };
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveNow(); });
+        window.addEventListener('pagehide', saveNow);
+        window.addEventListener('beforeunload', saveNow);
+        updateSaveStatus();
+    }
+
+    // UI-009: one line in the Save/Load panel that says where the work stands.
+    function updateSaveStatus() {
+        const el = document.getElementById('saveStatus');
+        if (!el) return;
+        const time = ts => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        let text, state;
+        if (hasUnsavedChanges && saveStatus.autosaveFailed) {
+            text = 'Autosave failed — use Export Report now to keep your changes'; state = 'is-error';
+        } else if (hasUnsavedChanges) {
+            text = 'Not exported' + (saveStatus.autosavedAt ? ` · draft kept in this browser ${time(saveStatus.autosavedAt)}` : ' · unsaved changes');
+            state = 'is-dirty';
+        } else if (saveStatus.exportedAt) {
+            text = `All changes exported ${time(saveStatus.exportedAt)}`; state = 'is-clean';
+        } else {
+            text = 'No unsaved changes'; state = 'is-clean';
+        }
+        if (el.textContent !== text) el.textContent = text;
+        el.className = 'save-status ' + state;
     }
 
     // Offered once at startup, after the rest of the page has loaded, so an accepted restore has a
     // fully-initialized report to apply itself onto.
     async function maybeRestoreAutosaveDraft() {
-        let raw;
-        try { raw = localStorage.getItem(AUTOSAVE_KEY); } catch (err) { return; }
-        if (!raw) return;
-
-        let snapshot;
-        try { snapshot = JSON.parse(raw); } catch (err) { clearAutosave(); return; }
-        if (!snapshot || !snapshot.data) { clearAutosave(); return; }
+        const snapshot = await loadAutosaveSnapshot();
+        if (!snapshot) return;
 
         const when = new Date(snapshot.savedAt || Date.now()).toLocaleString();
-        const restore = await showConfirm(`Found an autosaved draft from ${when}, saved automatically because a previous session ended without exporting. Click OK to restore it, or Cancel to discard it and start blank.`);
-        if (!restore) { clearAutosave(); return; }
+        const restore = await showConfirm(`Found a draft from ${when} that was never exported (it was saved automatically in this browser). Click OK to restore it, or Cancel to discard it and start blank.`);
+        if (!restore) { await clearAutosave(); return; }
 
         try {
             applyReportPayload(snapshot.data, { markSaved: false });
+            saveStatus.autosavedAt = snapshot.savedAt || null;
+            updateSaveStatus();
         } catch (err) {
-            await showAlert("Couldn't restore the autosaved draft — it appears to be corrupted, so it has been discarded.");
-            clearAutosave();
+            await showAlert("Couldn't restore the draft — it appears to be damaged, so it has been discarded.");
+            await clearAutosave();
         }
     }
 
@@ -1316,8 +1440,8 @@
         try {
             PERSISTED_FIELD_IDS.forEach(id => localStorage.removeItem(PERSIST_PREFIX + id));
         } catch (err) { /* localStorage unavailable — nothing to clear */ }
-        clearAutosave();
         hasUnsavedChanges = false; // we already confirmed above; don't also trigger the beforeunload prompt
+        await clearAutosave();
         location.reload();
     }
 
@@ -3381,12 +3505,17 @@
         if (data.assessmentType) setAssessmentTypeSilently(data.assessmentType);
 
         hasUnsavedChanges = !markSaved;
+        if (markSaved) { clearTimeout(autosaveIdleTimer); autosaveIdleTimer = null; } // nothing new to save
+        updateSaveStatus();
     }
 
     function exportReportJson() {
         const blob = new Blob([JSON.stringify(buildReportPayload(), null, 2)], {type: 'application/json'});
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `report.json`; a.click();
         hasUnsavedChanges = false;
+        saveStatus.exportedAt = Date.now();
+        clearAutosave(); // the exported file is now the saved copy; no stale "restore draft?" prompt next time (BUG-004)
+        updateSaveStatus();
     }
 
     async function importReportJson(input) {
@@ -3410,6 +3539,9 @@
 
             try {
                 applyReportPayload(data, { markSaved: true });
+                saveStatus.exportedAt = null;
+                clearAutosave(); // the imported file is the saved copy now; an older draft no longer applies
+                updateSaveStatus();
             } catch (err) {
                 const details = err instanceof ReportValidationError
                     ? '\n\n• ' + err.errors.slice(0, 8).join('\n• ') + (err.errors.length > 8 ? `\n• …and ${err.errors.length - 8} more` : '')
