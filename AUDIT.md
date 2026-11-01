@@ -18,8 +18,8 @@ Work happens on the `audit-fixes` branch. Run `node tests/run.mjs` to check: eve
 | ✅ Done: step 0 (foundation) | ARCH-006, TEST-001, TEST-002, TEST-003 |
 | ✅ Done: step 1 (critical) | BUG-001, BUG-010, BUG-015, BUG-002, BUG-003, BUG-011, BUG-012, ARCH-004, SEC-001, SEC-002, SEC-005 |
 | ✅ Done: step 2 (reliability) | BUG-004, BUG-005, BUG-006, BUG-007, BUG-008, BUG-009, BUG-013, BUG-014, PERF-001, PERF-007, UI-009 |
-| ⏳ Next: step 3 | PERF-003, PERF-005, PERF-006 + FEAT-005 (images and evidence) |
-| ⏳ Later: steps 4–6 | UI-001, UI-002, UI-003, UI-004, UI-005, UI-006, UI-008, PERF-008, SEC-004, FEAT-004, FEAT-008, ARCH-003 |
+| ✅ Done: step 3 (images and evidence) | PERF-003, PERF-005, PERF-006, FEAT-005 |
+| ⏳ Next: steps 4–6 | UI-001, UI-002, UI-003, UI-004, UI-005, UI-006, UI-008, PERF-008, SEC-004, FEAT-004, FEAT-008, ARCH-003 |
 | — Not selected | FEAT-001, FEAT-002, FEAT-003, FEAT-006, FEAT-007, FEAT-009, FEAT-010, FEAT-011, FEAT-012, UI-007, PERF-002, PERF-004, SEC-003, SEC-006, ARCH-001, ARCH-002, ARCH-005, ARCH-007, TEST-004–007 |
 
 **Decisions taken during implementation:**

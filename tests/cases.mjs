@@ -512,6 +512,134 @@ export const cases = [
         } }],
     },
 
+    // ---------------------------------------------------------------- step 3: images and evidence
+    {
+        id: 'PERF-003', title: 'Large images are scaled to print width; screenshots stay PNG, photos get smaller', tags: ['images', 'stage3'],
+        steps: [{ run: async () => {
+            const { assert, makeImageFile, imageSize } = __t;
+            const photo = await makeImageFile('photo', 3000, 2000);
+            const photoUrl = await prepareImageForReport(photo);
+            const photoSize = await imageSize(photoUrl);
+            assert(photoSize.width === 1600 && photoSize.height === 1067, `photo not scaled: ${photoSize.width}x${photoSize.height}`);
+            assert(!photoUrl.startsWith('data:image/png'), 'noisy photo kept as (huge) PNG');
+            assert(photoUrl.length * 0.75 < photo.size / 3, `photo barely shrank: ${Math.round(photo.size / 1024)} KB → ${Math.round(photoUrl.length * 0.75 / 1024)} KB`);
+
+            const shot = await makeImageFile('screenshot', 2400, 1400);
+            const shotUrl = await prepareImageForReport(shot);
+            assert(shotUrl.startsWith('data:image/png'), 'screenshot (text) was re-encoded lossy');
+            assert((await imageSize(shotUrl)).width === 1600, 'screenshot not scaled to print width');
+
+            const small = await makeImageFile('screenshot', 600, 300);
+            const smallUrl = await prepareImageForReport(small);
+            const original = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(small); });
+            assert(smallUrl === original, 'a small image was needlessly re-encoded');
+
+            const transparent = await makeImageFile('photo', 2000, 1000, { alpha: true });
+            const transparentUrl = await prepareImageForReport(transparent);
+            assert(!transparentUrl.startsWith('data:image/jpeg'), 'transparent image turned into JPEG (transparency lost)');
+        } }],
+    },
+    {
+        id: 'FEAT-005-paste', title: 'Pasting a screenshot inserts a compressed, captioned figure', tags: ['images', 'stage3'],
+        steps: [{ run: async () => {
+            const { assert, makeImageFile, caretAtEnd, imageSize, waitFor } = __t;
+            const section = document.getElementById('section-conclusion');
+            caretAtEnd(section);
+            const dt = new DataTransfer(); dt.items.add(await makeImageFile('photo', 3000, 2000));
+            section.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+            await waitFor(() => section.querySelector('figure img'), 5000, 'pasted figure');
+            const img = section.querySelector('figure img');
+            assert((await imageSize(img.src)).width <= 1600, 'pasted image not scaled down');
+            assert(section.querySelector('figure figcaption').innerText.includes('[insert figure caption]'), 'caption placeholder missing');
+            assert(hasUnsavedChanges, 'paste did not mark the report as unsaved');
+            renderChecklist();
+            assert(/Leftover boilerplate placeholders/.test(document.getElementById('checklistBody').innerText), 'checklist does not flag the unwritten caption');
+            // text pastes are untouched
+            const before = section.innerHTML;
+            const textDt = new DataTransfer(); textDt.setData('text/plain', 'hello');
+            const ev = new ClipboardEvent('paste', { clipboardData: textDt, bubbles: true, cancelable: true });
+            section.dispatchEvent(ev);
+            assert(!ev.defaultPrevented && section.innerHTML === before, 'plain-text paste was intercepted');
+        } }],
+    },
+    {
+        id: 'FEAT-005-finding', title: 'A screenshot pasted into a finding is saved with the finding and survives export/import', tags: ['images', 'stage3'],
+        steps: [
+            { run: async () => {
+                const { assert, makeImageFile, caretAtEnd, waitFor, cardFields, captureDownload } = __t;
+                document.getElementById('vTitle').value = 'With evidence'; await addFinding();
+                const desc = cardFields(0)[1];
+                caretAtEnd(desc);
+                const dt = new DataTransfer(); dt.items.add(await makeImageFile('screenshot', 1200, 700));
+                desc.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+                await waitFor(() => desc.querySelector('figure img'), 5000, 'pasted figure');
+                const { text } = await captureDownload(() => exportReportJson());
+                assert(JSON.parse(text).findings[0].description.includes('<figure>'), 'figure not saved in the finding');
+                return { exported: text };
+            } },
+            { fresh: true, run: async (ctx) => {
+                const { assert, pickFile, cardFields } = __t;
+                await pickFile('importReportFile', ctx.exported);
+                const desc = cardFields(0)[1];
+                assert(desc.querySelector('figure > img[src^="data:image/"]') && desc.querySelector('figure > figcaption'), 'figure lost on import');
+            } },
+        ],
+    },
+    {
+        id: 'FEAT-005-title', title: 'Images are not pasted into headings or finding titles', tags: ['images', 'stage3'],
+        steps: [{ run: async () => {
+            const { assert, makeImageFile, caretAtEnd, sleep, cardFields } = __t;
+            document.getElementById('vTitle').value = 'T'; await addFinding();
+            const title = cardFields(0)[0];
+            caretAtEnd(title);
+            const dt = new DataTransfer(); dt.items.add(await makeImageFile('screenshot', 400, 200));
+            title.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+            await sleep(500);
+            assert(!title.querySelector('img, figure'), 'image ended up in a finding title');
+        } }],
+    },
+    {
+        id: 'FEAT-005-redact', title: 'Redaction burns black boxes into the image pixels', tags: ['images', 'stage3'],
+        steps: [{ run: async () => {
+            const { assert, caretAtEnd, waitFor, sleep, answerModal } = __t;
+            // a plain white 400x200 image, inserted via the same path as a paste
+            const c = document.createElement('canvas'); c.width = 400; c.height = 200;
+            const cx = c.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, 400, 200);
+            const file = new File([await new Promise(r => c.toBlob(r, 'image/png'))], 'white.png', { type: 'image/png' });
+            const section = document.getElementById('section-conclusion');
+            await insertEvidenceImages([file], caretAtEnd(section));
+            const img = section.querySelector('figure img');
+            assert(img, 'figure not inserted');
+            // nothing selected yet → explains what to do
+            selectEvidenceImage(null);
+            const opened = openRedactModal();
+            assert((await answerModal(true)) !== null, 'no hint shown when no image is selected');
+            await opened;
+            // select the image and draw one box over the left half
+            img.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            assert(getComputedStyle(document.getElementById('imageSelectionOutline')).display === 'block', 'selected image is not outlined');
+            await openRedactModal();
+            const canvas = document.getElementById('redactCanvas');
+            const r = canvas.getBoundingClientRect();
+            const at = (fx, fy) => ({ clientX: r.left + r.width * fx, clientY: r.top + r.height * fy, pointerId: 1, bubbles: true });
+            canvas.dispatchEvent(new PointerEvent('pointerdown', at(0.02, 0.02)));
+            canvas.dispatchEvent(new PointerEvent('pointermove', at(0.5, 0.98)));
+            canvas.dispatchEvent(new PointerEvent('pointerup', at(0.5, 0.98)));
+            assert(document.getElementById('redactBoxCount').textContent === '1 box', 'box not recorded');
+            hasUnsavedChanges = false;
+            applyRedaction();
+            await sleep(100);
+            const out = new Image(); out.src = img.src; await out.decode();
+            const check = document.createElement('canvas'); check.width = out.naturalWidth; check.height = out.naturalHeight;
+            const ctx = check.getContext('2d'); ctx.drawImage(out, 0, 0);
+            const px = (x, y) => [...ctx.getImageData(x, y, 1, 1).data].slice(0, 3);
+            assert(px(50, 100).every(v => v < 20), `covered area is not black: ${px(50, 100)}`);
+            assert(px(350, 100).every(v => v > 235), `uncovered area changed: ${px(350, 100)}`);
+            assert(hasUnsavedChanges, 'redaction did not mark the report as unsaved');
+            assert(document.getElementById('redactModalOverlay').style.display === 'none', 'redact dialog still open');
+        } }],
+    },
+
     // ---------------------------------------------------------------- TEST-002 round trip
     {
         id: 'TEST-002', title: 'Export → import round-trip preserves the whole report', tags: ['persistence', 'stage1'],

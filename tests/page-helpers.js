@@ -84,5 +84,42 @@
     // [0] = title <h3>, [1] = description, [2] = remediation
     const cardFields = (i = 0) => [...cards()[i].querySelectorAll('.editable-section')];
 
-    window.__t = { listenerCounts, nativeDialogs, cspViolations, sleep, assert, waitFor, modalOpen, answerModal, pickFile, captureDownload, finding, cards, cardFields };
+    // Test images. "photo" = noisy gradients (compresses badly as PNG); "screenshot" = flat colors and text.
+    async function makeImageFile(kind, width, height, { alpha = false } = {}) {
+        const c = document.createElement('canvas'); c.width = width; c.height = height;
+        const ctx = c.getContext('2d');
+        if (kind === 'photo') {
+            const img = ctx.createImageData(width, height);
+            for (let i = 0; i < img.data.length; i += 4) {
+                const p = i / 4, x = p % width, y = (p / width) | 0;
+                img.data[i] = (x * 255 / width + Math.random() * 60) | 0;
+                img.data[i + 1] = (y * 255 / height + Math.random() * 60) | 0;
+                img.data[i + 2] = (Math.random() * 255) | 0;
+                img.data[i + 3] = alpha && x < width / 4 ? 0 : 255;
+            }
+            ctx.putImageData(img, 0, 0);
+        } else {
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, height);
+            ctx.fillStyle = '#1e1e1e'; ctx.fillRect(0, 0, width, 60);
+            ctx.fillStyle = '#222'; ctx.font = '28px monospace';
+            for (let y = 120; y < height; y += 40) ctx.fillText('HTTP/1.1 200 OK  Set-Cookie: session=abc123; HttpOnly', 40, y);
+        }
+        const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+        return new File([blob], `${kind}.png`, { type: 'image/png' });
+    }
+
+    // Puts the caret at the end of an editable element.
+    function caretAtEnd(el) {
+        el.focus();
+        const range = document.createRange(); range.selectNodeContents(el); range.collapse(false);
+        const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+        return range;
+    }
+
+    async function imageSize(src) {
+        const img = new Image(); img.src = src; await img.decode();
+        return { width: img.naturalWidth, height: img.naturalHeight };
+    }
+
+    window.__t = { makeImageFile, caretAtEnd, imageSize, listenerCounts, nativeDialogs, cspViolations, sleep, assert, waitFor, modalOpen, answerModal, pickFile, captureDownload, finding, cards, cardFields };
 })();

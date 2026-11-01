@@ -153,6 +153,16 @@
         /* Editable Areas and Buffer Target Space Padding Adjustments */
         .editable-section { border: 1px dashed transparent; transition: 0.2s; padding: 6px 20px 6px 8px; border-radius: 6px; min-height: 1.2em; white-space: pre-wrap; }
         .finding-number { padding: 6px 0 6px 8px; white-space: nowrap; }
+        /* Evidence figures (FEAT-005): numbered automatically in document order, renumbered as they move. */
+        #printableReport { counter-reset: report-figure; }
+        .editable-section figure { margin: 14px 0; counter-increment: report-figure; break-inside: avoid; page-break-inside: avoid; }
+        .editable-section figure img { margin: 0 auto 6px; }
+        .editable-section figcaption { font-size: 0.82rem; color: #555; text-align: center; }
+        .editable-section figcaption::before { content: "Figure " counter(report-figure) ": "; font-weight: 600; color: #333; }
+        #imageSelectionOutline { position: absolute; display: none; border: 2px solid var(--accent); border-radius: 9px; pointer-events: none; z-index: 1400; }
+        .redact-box { max-width: 900px; }
+        .redact-stage { background: #f1f3f5; border-radius: 8px; padding: 8px; text-align: center; margin-bottom: 12px; }
+        #redactCanvas { max-width: 100%; max-height: 60vh; cursor: crosshair; touch-action: none; }
         .save-status { font-size: 0.72rem; line-height: 1.3; padding-left: 2px; }
         .save-status.is-clean { color: #6c757d; }
         .save-status.is-dirty { color: #8a6d00; }
@@ -620,7 +630,8 @@
                 <button class="btn btn-sm btn-light border" onmousedown="event.preventDefault(); toggleColorTray();" title="Text Color"><i class="bi bi-palette"></i></button>
                 <div class="vr mx-1"></div>
 
-                <button class="btn btn-sm btn-light border" onmousedown="event.preventDefault(); document.getElementById('toolbarImageInput').click();" title="Insert Image Box"><i class="bi bi-image"></i></button>
+                <button class="btn btn-sm btn-light border" onmousedown="event.preventDefault(); document.getElementById('toolbarImageInput').click();" title="Insert image (or paste a screenshot with Ctrl/Cmd+V)"><i class="bi bi-image"></i></button>
+                <button class="btn btn-sm btn-light border" onmousedown="event.preventDefault(); openRedactModal();" title="Redact the selected image (click an image first)"><i class="bi bi-eraser-fill"></i></button>
                 <div class="vr mx-1"></div>
 
                 <button class="btn btn-sm btn-light border" onmousedown="event.preventDefault(); formatDoc('insertUnorderedList')" title="Bullet List"><i class="bi bi-list-ul"></i></button>
@@ -923,6 +934,22 @@
 </div>
 
 <!-- Generic Confirm/Alert Modal (replaces native confirm()/alert()) -->
+<div id="imageSelectionOutline" class="no-print" aria-hidden="true"></div>
+
+<div id="redactModalOverlay" class="app-modal-overlay no-print">
+    <div class="app-modal-box app-modal-wide redact-box" role="dialog" aria-modal="true" aria-labelledby="redactTitle">
+        <h5 id="redactTitle" class="mb-1">Redact image</h5>
+        <p class="small text-muted mb-2">Drag over passwords, tokens or personal data to cover them with black boxes. <strong>Apply</strong> burns the boxes into the image, so the covered content can't be recovered from the report or its exports.</p>
+        <div class="redact-stage"><canvas id="redactCanvas" aria-label="Image being redacted. Drag to draw a black box."></canvas></div>
+        <div class="app-modal-actions align-items-center">
+            <span id="redactBoxCount" class="small text-muted me-auto">0 boxes</span>
+            <button class="btn btn-sm btn-outline-secondary" onclick="undoRedactBox()"><i class="bi bi-arrow-counterclockwise"></i> Undo box</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="closeRedactModal()">Cancel</button>
+            <button id="redactApplyBtn" class="btn btn-sm btn-dark" onclick="applyRedaction()">Apply redaction</button>
+        </div>
+    </div>
+</div>
+
 <div id="appModalOverlay" class="app-modal-overlay no-print">
     <div class="app-modal-box" role="alertdialog" aria-modal="true">
         <div id="appModalMessage" class="app-modal-message"></div>
@@ -1137,7 +1164,22 @@
     // Loads a local image file (settings.json's logo path, or an auto-detected logo.png/jpg) and
     // converts it to a base64 data URL via canvas, so it round-trips through report JSON export
     // the same way an uploaded logo does. Resolves null if the file doesn't exist or can't load.
-    function loadImageAsDataUrl(path) {
+    // PERF-006: read the file's own bytes (a logo.jpg stays a JPEG) instead of redrawing it on a
+    // canvas, which re-encoded everything as PNG — often several times larger. The canvas route
+    // remains as a fallback for when fetch() isn't allowed (file://).
+    async function loadImageAsDataUrl(path) {
+        try {
+            const res = await fetch(path);
+            if (!res.ok) return null;                              // no such file
+            const blob = await res.blob();
+            if (blob.type.startsWith('image/')) return await readBlobAsDataUrl(blob);
+            return null;
+        } catch (err) {
+            return loadImageAsDataUrlViaCanvas(path);
+        }
+    }
+
+    function loadImageAsDataUrlViaCanvas(path) {
         return new Promise((resolve) => {
             const img = new Image();
             img.onload = () => {
@@ -1526,8 +1568,7 @@
                 customText: document.getElementById('watermarkCustomText').value
             }
         };
-        const blob = new Blob([JSON.stringify(settings, null, 2)], {type: 'application/json'});
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'settings.json'; a.click();
+        downloadFile('settings.json', JSON.stringify(settings, null, 2));
     }
 
     let library = [];
@@ -1558,6 +1599,8 @@
         setupSelectionListeners();
         setupKeyboardPrintInterceptors();
         setupGlobalTooltips();
+        setupEvidenceHandling();
+        setupRedactCanvas();
         setupUnsavedChangesTracking();
         setupAutosave();
         updateWatermarkPreview();
@@ -1829,7 +1872,7 @@
     // and on* event-handler attributes are always removed here, whatever is listed.
     const RICH_TEXT_POLICY = {
         tags: ['b', 'strong', 'i', 'em', 'u', 's', 'strike', 'sub', 'sup', 'font', 'span', 'div', 'p', 'br',
-               'h3', 'h4', 'blockquote', 'pre', 'code', 'ul', 'ol', 'li', 'img', 'a',
+               'h3', 'h4', 'blockquote', 'pre', 'code', 'ul', 'ol', 'li', 'img', 'a', 'figure', 'figcaption',
                'table', 'thead', 'tbody', 'tr', 'th', 'td'],
         attributes: {
             font: ['size', 'color', 'face'],
@@ -2319,22 +2362,279 @@
         document.execCommand(cmd, false, val);
     }
 
-    async function insertImageFromToolbar(input) {
-        if (input.files && input.files[0]) {
-            const base64 = await toBase64(input.files[0]);
-            if (lastSavedRange) {
-                const sel = window.getSelection();
-                let node = lastSavedRange.startContainer; if (node.nodeType === 3) node = node.parentNode;
-                const targetBlock = node.closest('.section-edit');
-                
-                if (targetBlock) { targetBlock.focus(); }
-                sel.removeAllRanges(); sel.addRange(lastSavedRange);
+    // ---- Evidence images (PERF-003, FEAT-005) -----------------------------------------------------
+    // Screenshots are the bulk of a report's weight. Every inserted image (toolbar, paste, file drop,
+    // redaction) goes through prepareImageForReport(): scaled down to print width and re-encoded in
+    // whichever format is smallest — but screenshots are mostly text, so lossless PNG is kept unless a
+    // lossy format is much smaller. Images are inserted as numbered <figure>s with an editable caption.
+    const IMAGE_MAX_WIDTH = 1600;                  // ~200 dpi across an A4 text column
+    const IMAGE_KEEP_ORIGINAL_BYTES = 250 * 1024;  // already small and not oversized: keep the exact bytes
+    const PNG_ALWAYS_OK_BYTES = 400 * 1024;        // a PNG this small is kept even if lossy would be smaller
 
-                const imgHtml = `<img src="${base64}">`;
-                document.execCommand('insertHTML', false, imgHtml);
-                input.value = ''; document.getElementById('floatingToolbar').style.display = 'none';
-            }
+    function readBlobAsDataUrl(blob) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(blob);
+        });
+    }
+
+    function decodeImage(src) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error('This file is not an image the browser can read.'));
+            img.src = src;
+        });
+    }
+
+    function canvasHasTransparency(canvas) {
+        const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+        for (let i = 3; i < data.length; i += 4) if (data[i] < 255) return true;
+        return false;
+    }
+
+    // Encodes a canvas as the smallest sensible data URL (PNG / WebP / JPEG). JPEG is never used for
+    // images with transparency (it would turn transparent areas black).
+    function encodeCanvasForReport(canvas) {
+        const png = canvas.toDataURL('image/png');
+        const candidates = [png];
+        const webp = canvas.toDataURL('image/webp', 0.9);
+        if (webp.startsWith('data:image/webp')) candidates.push(webp);   // browsers without WebP encoding return PNG
+        if (!canvasHasTransparency(canvas)) candidates.push(canvas.toDataURL('image/jpeg', 0.88));
+        const smallest = candidates.reduce((a, b) => (b.length < a.length ? b : a));
+        const pngBytes = png.length * 0.75;
+        return (pngBytes <= PNG_ALWAYS_OK_BYTES || png.length <= smallest.length * 1.5) ? png : smallest;
+    }
+
+    // Accepts a File/Blob or a data URL; resolves to a data URL ready to embed in the report.
+    async function prepareImageForReport(source, { maxWidth = IMAGE_MAX_WIDTH } = {}) {
+        const srcUrl = typeof source === 'string' ? source : await readBlobAsDataUrl(source);
+        const type = (srcUrl.match(/^data:([^;,]+)/) || [])[1] || '';
+        if (!type.startsWith('image/')) throw new Error('This file is not an image.');
+        if (type === 'image/gif' || type === 'image/svg+xml') return srcUrl; // keep animation / vector as-is
+        const img = await decodeImage(srcUrl);
+        const scale = Math.min(1, maxWidth / img.naturalWidth);
+        if (scale === 1 && srcUrl.length * 0.75 <= IMAGE_KEEP_ORIGINAL_BYTES) return srcUrl;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const encoded = encodeCanvasForReport(canvas);
+        return (scale === 1 && encoded.length >= srcUrl.length) ? srcUrl : encoded;
+    }
+
+    function evidenceFigureHtml(dataUrl) {
+        // The caption starts as an [insert …] placeholder, which the Pre-Export Checklist flags until it's written.
+        return `<figure><img src="${escapeHtml(dataUrl)}" alt="Evidence screenshot"><figcaption>[insert figure caption]</figcaption></figure><p><br></p>`;
+    }
+
+    // Headings and finding titles are single-line text; images go into body text only.
+    function acceptsEvidenceImages(editable) {
+        return !!editable && !editable.matches('h1, h2, h3, h4, [data-field="title"]');
+    }
+
+    async function insertEvidenceImages(files, range) {
+        const urls = [];
+        for (const file of files) {
+            try { urls.push(await prepareImageForReport(file)); }
+            catch (err) { await showAlert(`Couldn't insert "${file.name || 'image'}": ${err.message}`); }
         }
+        if (!urls.length || !range) return;
+        let node = range.startContainer; if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
+        const editable = node.closest && node.closest('.section-edit');
+        if (!acceptsEvidenceImages(editable)) return;
+        editable.focus();
+        const sel = window.getSelection();
+        sel.removeAllRanges(); sel.addRange(range);
+        document.execCommand('insertHTML', false, urls.map(evidenceFigureHtml).join('')); // fires 'input' → saved like typing
+        announce(urls.length === 1 ? 'Image inserted.' : `${urls.length} images inserted.`);
+    }
+
+    async function insertImageFromToolbar(input) {
+        const files = [...(input.files || [])];
+        input.value = '';
+        document.getElementById('floatingToolbar').style.display = 'none';
+        if (!files.length) return;
+        if (!lastSavedRange) { await showAlert('Click into a text section or finding first, then insert the image.'); return; }
+        await insertEvidenceImages(files, lastSavedRange.cloneRange());
+    }
+
+    function imageFilesFrom(dataTransfer) {
+        if (!dataTransfer) return [];
+        const fromItems = [...(dataTransfer.items || [])]
+            .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
+            .map(item => item.getAsFile()).filter(Boolean);
+        return fromItems.length ? fromItems : [...(dataTransfer.files || [])].filter(f => f.type.startsWith('image/'));
+    }
+
+    function caretRangeAtPoint(x, y) {
+        if (document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y);
+        const pos = document.caretPositionFromPoint && document.caretPositionFromPoint(x, y);
+        if (!pos) return null;
+        const range = document.createRange();
+        range.setStart(pos.offsetNode, pos.offset); range.collapse(true);
+        return range;
+    }
+
+    // Paste (Ctrl/Cmd+V of a screenshot) and drop of image files into body text; selecting an image
+    // for redaction. All delegated from the report, installed once.
+    function setupEvidenceHandling() {
+        const report = document.getElementById('printableReport');
+
+        report.addEventListener('paste', (e) => {
+            const editable = e.target.closest && e.target.closest('.section-edit');
+            if (!acceptsEvidenceImages(editable)) return;
+            const files = imageFilesFrom(e.clipboardData);
+            if (!files.length) return;          // ordinary text paste: leave it to the browser
+            e.preventDefault();
+            const sel = window.getSelection();
+            insertEvidenceImages(files, sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null);
+        });
+
+        report.addEventListener('dragover', (e) => {
+            if (dragState || !e.dataTransfer || ![...e.dataTransfer.types].includes('Files')) return;
+            if (!acceptsEvidenceImages(e.target.closest && e.target.closest('.section-edit'))) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+        });
+        report.addEventListener('drop', (e) => {
+            if (dragState) return;
+            const files = imageFilesFrom(e.dataTransfer);
+            if (!files.length) return;
+            e.preventDefault();                 // never let the browser navigate to the dropped file
+            if (!acceptsEvidenceImages(e.target.closest && e.target.closest('.section-edit'))) return;
+            insertEvidenceImages(files, caretRangeAtPoint(e.clientX, e.clientY));
+        });
+
+        report.addEventListener('click', (e) => {
+            const img = e.target.closest && e.target.closest('.section-edit img');
+            selectEvidenceImage(img || null);
+        });
+        window.addEventListener('resize', positionImageSelectionOutline);
+    }
+
+    // The selected image is marked with an outline drawn over it (not a class on the <img>, which
+    // would end up in the saved report).
+    let selectedEvidenceImage = null;
+
+    function selectEvidenceImage(img) {
+        selectedEvidenceImage = img;
+        positionImageSelectionOutline();
+    }
+
+    function positionImageSelectionOutline() {
+        const outline = document.getElementById('imageSelectionOutline');
+        if (!outline) return;
+        if (!selectedEvidenceImage || !selectedEvidenceImage.isConnected) { outline.style.display = 'none'; return; }
+        const r = selectedEvidenceImage.getBoundingClientRect();
+        Object.assign(outline.style, {
+            display: 'block', top: `${window.scrollY + r.top - 4}px`, left: `${window.scrollX + r.left - 4}px`,
+            width: `${r.width + 8}px`, height: `${r.height + 8}px`,
+        });
+    }
+
+    // ---- Redaction: black boxes flattened into the image pixels ----
+    const redactState = { img: null, source: null, boxes: [], drawing: null };
+
+    async function openRedactModal() {
+        const img = selectedEvidenceImage;
+        if (!img || !img.isConnected) {
+            await showAlert('Click an image in the report first, then choose Redact to black out sensitive parts of it.');
+            return;
+        }
+        let source;
+        try { source = await decodeImage(img.src); }
+        catch (err) { await showAlert("This image can't be redacted: " + err.message); return; }
+        Object.assign(redactState, { img, source, boxes: [], drawing: null });
+        const canvas = document.getElementById('redactCanvas');
+        canvas.width = source.naturalWidth;
+        canvas.height = source.naturalHeight;
+        drawRedactCanvas();
+        document.getElementById('redactModalOverlay').style.display = 'flex';
+        document.getElementById('redactApplyBtn').focus();
+    }
+
+    function closeRedactModal() {
+        document.getElementById('redactModalOverlay').style.display = 'none';
+        Object.assign(redactState, { img: null, source: null, boxes: [], drawing: null });
+    }
+
+    function normalizedBox(b) {
+        return { x: Math.min(b.x0, b.x1), y: Math.min(b.y0, b.y1), w: Math.abs(b.x1 - b.x0), h: Math.abs(b.y1 - b.y0) };
+    }
+
+    function drawRedactCanvas({ preview = true } = {}) {
+        const canvas = document.getElementById('redactCanvas');
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(redactState.source, 0, 0);
+        ctx.fillStyle = '#000';
+        redactState.boxes.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
+        if (preview && redactState.drawing) {
+            const b = normalizedBox(redactState.drawing);
+            ctx.fillStyle = 'rgba(0,0,0,0.55)';
+            ctx.fillRect(b.x, b.y, b.w, b.h);
+        }
+        document.getElementById('redactBoxCount').textContent =
+            redactState.boxes.length === 1 ? '1 box' : `${redactState.boxes.length} boxes`;
+    }
+
+    function redactPointFromEvent(e) {
+        const canvas = document.getElementById('redactCanvas');
+        const r = canvas.getBoundingClientRect();
+        return {
+            x: Math.max(0, Math.min(canvas.width, (e.clientX - r.left) * canvas.width / r.width)),
+            y: Math.max(0, Math.min(canvas.height, (e.clientY - r.top) * canvas.height / r.height)),
+        };
+    }
+
+    function setupRedactCanvas() {
+        const canvas = document.getElementById('redactCanvas');
+        canvas.addEventListener('pointerdown', (e) => {
+            if (!redactState.source) return;
+            const p = redactPointFromEvent(e);
+            redactState.drawing = { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
+            canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId);
+            e.preventDefault();
+        });
+        canvas.addEventListener('pointermove', (e) => {
+            if (!redactState.drawing) return;
+            const p = redactPointFromEvent(e);
+            redactState.drawing.x1 = p.x; redactState.drawing.y1 = p.y;
+            drawRedactCanvas();
+        });
+        const finish = () => {
+            if (!redactState.drawing) return;
+            const b = normalizedBox(redactState.drawing);
+            redactState.drawing = null;
+            if (b.w >= 3 && b.h >= 3) redactState.boxes.push(b);   // ignore stray clicks
+            drawRedactCanvas();
+        };
+        canvas.addEventListener('pointerup', finish);
+        canvas.addEventListener('pointercancel', finish);
+    }
+
+    function undoRedactBox() {
+        redactState.boxes.pop();
+        drawRedactCanvas();
+    }
+
+    function applyRedaction() {
+        const { img, boxes } = redactState;
+        if (!img || !boxes.length) { closeRedactModal(); return; }
+        drawRedactCanvas({ preview: false });
+        // The boxes are now part of the pixels; the original image is replaced, not layered over,
+        // so what was under them is gone from the report and from every later export.
+        img.src = encodeCanvasForReport(document.getElementById('redactCanvas'));
+        const editable = img.closest('[contenteditable="true"]');
+        if (editable) editable.dispatchEvent(new Event('input', { bubbles: true })); // save like any edit
+        closeRedactModal();
+        positionImageSelectionOutline();
+        announce('Image redacted.');
     }
 
     function moveSectionUp(btn) {
@@ -2649,8 +2949,7 @@
     }
 
     function exportLibraryJson() {
-        const blob = new Blob([JSON.stringify(library, null, 2)], {type: 'application/json'});
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'library.json'; a.click();
+        downloadFile('library.json', JSON.stringify(library, null, 2));
     }
 
     async function importLibraryJson(input) {
@@ -3219,6 +3518,7 @@
         }
         
         syncTokens();
+        positionImageSelectionOutline(); // a re-rendered card replaced the selected image, or moved it
         if (tocEnabled) renderTOC();
         renderChecklist();
         syncAriaLabelsFromTooltips();
@@ -3264,7 +3564,28 @@
 
     const toBase64 = file => new Promise((res) => { const r = new FileReader(); r.readAsDataURL(file); r.onload = () => res(r.result); });
     async function removeFinding(i) { if (await showConfirm(`Delete Finding #${i+1}?`)) { findings.splice(i, 1); markUnsaved(); renderAll(); announce('Finding deleted.'); } }
-    async function updateLogo(input) { if(input.files[0]) { currentLogo = await toBase64(input.files[0]); configuredLogoPath = ''; markUnsaved(); renderLogo(); renderChecklist(); } }
+    async function updateLogo(input) {
+        const file = input.files && input.files[0];
+        input.value = '';
+        if (!file) return;
+        try {
+            // Logos print at most ~160px tall; 1200px wide is plenty and keeps oversized uploads out of every export.
+            currentLogo = await prepareImageForReport(file, { maxWidth: 1200 });
+        } catch (err) {
+            await showAlert(`Couldn't use "${file.name}" as the logo: ${err.message}`);
+            return;
+        }
+        configuredLogoPath = ''; markUnsaved(); renderLogo(); renderChecklist();
+    }
+
+    // PERF-005: one download helper; the object URL is released afterwards instead of pinning a
+    // report-sized Blob in memory for the rest of the session.
+    function downloadFile(filename, content, type = 'application/json') {
+        const url = URL.createObjectURL(new Blob([content], { type }));
+        const a = document.createElement('a');
+        a.href = url; a.download = filename; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 10000); // give the browser time to start the download
+    }
     function renderLogo() {
         const lc = document.getElementById('logoContainer');
         if(lc) lc.innerHTML = currentLogo ? `<img src="${escapeHtml(currentLogo)}" class="report-logo mx-auto">` : `<div class="logo-placeholder no-print">Click to Upload Company Logo
@@ -3510,8 +3831,7 @@
     }
 
     function exportReportJson() {
-        const blob = new Blob([JSON.stringify(buildReportPayload(), null, 2)], {type: 'application/json'});
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `report.json`; a.click();
+        downloadFile('report.json', JSON.stringify(buildReportPayload(), null, 2));
         hasUnsavedChanges = false;
         saveStatus.exportedAt = Date.now();
         clearAutosave(); // the exported file is now the saved copy; no stale "restore draft?" prompt next time (BUG-004)
