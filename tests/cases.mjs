@@ -25,11 +25,18 @@ export const cases = [
         id: 'BUG-001-section', title: 'Placeholder typed into a section survives repeated focusout', tags: ['tokens', 'stage1'],
         steps: [{ run: async () => {
             const { assert } = __t;
+            const client = document.getElementById('input-client-name');
+            client.value = 'Acme Corp'; client.dispatchEvent(new Event('input', { bubbles: true }));
             const el = document.getElementById('section-conclusion');
-            el.insertAdjacentText('beforeend', ' Thanks to [CLIENT NAME].');
+            el.insertAdjacentText('beforeend', ' Thanks to [CLIENT NAME] and [CONTACT EMAIL].');
             for (let i = 0; i < 3; i++) el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
             assert(!el.innerText.includes('">'), `section text corrupted: "…${el.innerText.slice(-80)}"`);
-            assert(el.querySelectorAll('[class^="token-"]').length >= 1, 'placeholder was not converted to a live token');
+            assert(el.innerText.trim().endsWith('Thanks to Acme Corp and [CONTACT EMAIL].'), `placeholder not converted: "…${el.innerText.slice(-60)}"`);
+            // proves both literals became live tokens rather than staying plain text
+            client.value = 'Globex'; client.dispatchEvent(new Event('input', { bubbles: true }));
+            const email = document.getElementById('input-contact-email');
+            email.value = 'a@b.se'; email.dispatchEvent(new Event('input', { bubbles: true }));
+            assert(el.innerText.trim().endsWith('Thanks to Globex and a@b.se.'), `tokens not live: "…${el.innerText.slice(-60)}"`);
         } }],
     },
     {
@@ -49,6 +56,63 @@ export const cases = [
             const text = cardFields(0)[1].innerText;
             assert(text.includes('Acme Corp'), 'client name token missing from description');
             assert(!text.includes('">'), `description corrupted: "…${text.slice(Math.max(0, text.indexOf('Acme') - 20), text.indexOf('Acme') + 40)}…"`);
+        } }],
+    },
+    {
+        id: 'BUG-001-repair', title: 'Reports damaged by the old token code are repaired on import', tags: ['tokens', 'stage1'],
+        steps: [{ run: async () => {
+            const { assert, pickFile, captureDownload } = __t;
+            // Real output of the original convertLiteralTokensToSpans after 4 passes (client "Acme Corp", company empty)…
+            const acme4 = `For <span class="token-client" data-placeholder="&lt;span class=" token-client"="">Acme Corp</span>"&gt;Acme Corp, see <span class="token-company" data-placeholder="&lt;span class=" token-company"=""><span class="token-company" data-placeholder="&lt;span class=" token-company"="">[COMPANY NAME]</span>"&gt;<span class="token-company" data-placeholder="[COMPANY NAME]">[COMPANY NAME]</span></span>"&gt;<span class="token-company" data-placeholder="&lt;span class=" token-company"=""><span class="token-company" data-placeholder="[COMPANY NAME]">[COMPANY NAME]</span></span>"&gt;<span class="token-company" data-placeholder="&lt;span class=" token-company"="">[COMPANY NAME]</span>"&gt;<span class="token-company" data-placeholder="[COMPANY NAME]">[COMPANY NAME]</span> and <span class="token-client" data-placeholder="&lt;span class=" token-client"="">Acme Corp</span>"&gt;Acme Corp.`;
+            // …and after 3 passes with an empty client name.
+            const empty3 = `For <span class="token-client" data-placeholder="&lt;span class=" token-client"=""><span class="token-client" data-placeholder="[CLIENT NAME]">[CLIENT NAME]</span></span>"&gt;<span class="token-client" data-placeholder="&lt;span class=" token-client"="">[CLIENT NAME]</span>"&gt;<span class="token-client" data-placeholder="[CLIENT NAME]">[CLIENT NAME]</span>, see <span class="token-company" data-placeholder="&lt;span class=" token-company"=""><span class="token-company" data-placeholder="[COMPANY NAME]">[COMPANY NAME]</span></span>"&gt;<span class="token-company" data-placeholder="&lt;span class=" token-company"="">[COMPANY NAME]</span>"&gt;<span class="token-company" data-placeholder="[COMPANY NAME]">[COMPANY NAME]</span> and <span class="token-client" data-placeholder="&lt;span class=" token-client"=""><span class="token-client" data-placeholder="[CLIENT NAME]">[CLIENT NAME]</span></span>"&gt;<span class="token-client" data-placeholder="&lt;span class=" token-client"="">[CLIENT NAME]</span>"&gt;<span class="token-client" data-placeholder="[CLIENT NAME]">[CLIENT NAME]</span>.`;
+            const base = buildReportPayload();
+            const payload = {
+                ...base, clientName: 'Acme Corp', companyName: '',
+                blocksHtml: base.blocksHtml.replace(/(id="section-exec">)[\s\S]*?(<\/div>)/, `$1${empty3}$2`),
+                findings: [__t.finding({ description: acme4, remediation: empty3 })],
+            };
+            await pickFile('importReportFile', JSON.stringify(payload));
+            const expected = 'For Acme Corp, see [COMPANY NAME] and Acme Corp.';
+            const exec = document.getElementById('section-exec').innerText.trim();
+            assert(exec === expected, `section not repaired: "${exec}"`);
+            const [, desc, rem] = __t.cardFields(0);
+            assert(desc.innerText.trim() === expected, `description not repaired: "${desc.innerText.trim()}"`);
+            assert(rem.innerText.trim() === expected, `remediation not repaired: "${rem.innerText.trim()}"`);
+            const { text } = await captureDownload(() => exportReportJson());
+            assert(!text.includes('data-placeholder=\\"&lt;span'), 're-exported file still contains damaged tokens');
+            // tokens are live again: changing the client name updates every repaired token
+            const client = document.getElementById('input-client-name');
+            client.value = 'Globex'; client.dispatchEvent(new Event('input', { bubbles: true }));
+            assert(document.getElementById('section-exec').innerText.trim() === 'For Globex, see [COMPANY NAME] and Globex.', 'repaired tokens are not live');
+        } }],
+    },
+    {
+        id: 'BUG-001-library', title: 'Every library template converts to exactly the expected text', tags: ['tokens', 'library', 'stage1'],
+        steps: [{ run: async () => {
+            const { assert } = __t;
+            const set = (id, v) => { const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); };
+            set('input-client-name', 'Acme Corp'); set('input-company-name', 'Sec AB');
+            set('input-contact-name', 'Ada'); set('input-contact-email', 'ada@sec.example');
+            const values = { '[CLIENT NAME]': 'Acme Corp', '[COMPANY NAME]': 'Sec AB', '[CONTACT NAME]': 'Ada', '[CONTACT EMAIL]': 'ada@sec.example' };
+            const bad = [];
+            for (const [i, t] of library.entries()) {
+                for (const field of ['description', 'remediation']) {
+                    const once = normalizeTokensInHtml(t[field]);
+                    const twice = normalizeTokensInHtml(once);
+                    if (once !== twice) { bad.push(`#${i} ${field} (not idempotent)`); continue; }
+                    // BUG-015: a few templates contain prose like "sc config <name>" that the browser parses
+                    // as a tag (and "<iframe>" swallows the rest of the text). Exact-text comparison is
+                    // meaningless for those until BUG-015 is fixed, so only idempotence is checked there.
+                    if (/<[a-z][\w-]*>/i.test(t[field])) continue;
+                    const tpl = document.createElement('template');
+                    tpl.innerHTML = t[field];
+                    const expected = tpl.content.textContent.replace(/\[(CLIENT NAME|COMPANY NAME|CONTACT NAME|CONTACT EMAIL)\]/g, m => values[m]);
+                    tpl.innerHTML = once;
+                    if (tpl.content.textContent !== expected) bad.push(`#${i} ${field}`);
+                }
+            }
+            assert(bad.length === 0, `${bad.length} template fields wrong: ${bad.slice(0, 5).join(', ')}`);
         } }],
     },
     {

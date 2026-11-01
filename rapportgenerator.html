@@ -1528,31 +1528,103 @@
         });
     }
 
-    function convertLiteralTokensToSpans(element) {
-        let html = element.innerHTML;
-        const companyVal = document.getElementById('input-company-name').value || "[COMPANY NAME]";
-        const clientVal = document.getElementById('input-client-name').value || "[CLIENT NAME]";
-        const contactNameVal = document.getElementById('input-contact-name').value || "[CONTACT NAME]";
-        const contactEmailVal = document.getElementById('input-contact-email').value || "[CONTACT EMAIL]";
-        let mutated = false;
+    // Live tokens: literal "[CLIENT NAME]"-style text becomes a <span class="token-*"> whose text
+    // syncTokens() keeps in step with the sidebar field.
+    const TOKEN_DEFS = [
+        { placeholder: '[CLIENT NAME]',   cls: 'token-client',        inputId: 'input-client-name' },
+        { placeholder: '[COMPANY NAME]',  cls: 'token-company',       inputId: 'input-company-name' },
+        { placeholder: '[CONTACT NAME]',  cls: 'token-contact-name',  inputId: 'input-contact-name' },
+        { placeholder: '[CONTACT EMAIL]', cls: 'token-contact-email', inputId: 'input-contact-email' },
+    ];
+    const TOKEN_SELECTOR = TOKEN_DEFS.map(d => '.' + d.cls).join(', ');
+    const RAW_TEXT_SELECTOR = 'iframe, script, style, textarea, title, noscript, noembed, noframes, xmp';
+    // Non-global: used with .test() and with matchAll() via a fresh /g copy, so no lastIndex state
+    // leaks between calls (a shared /g regex makes matchAll() resume after the previous .test() match).
+    const TOKEN_LITERAL_RE = /\[(?:CLIENT NAME|COMPANY NAME|CONTACT NAME|CONTACT EMAIL)\]/;
 
-        if (html.includes('[CLIENT NAME]')) {
-            html = html.replaceAll('[CLIENT NAME]', `<span class="token-client" data-placeholder="[CLIENT NAME]">${clientVal}</span>`);
-            mutated = true;
+    function tokenDisplayValue(def) {
+        return document.getElementById(def.inputId).value || def.placeholder;
+    }
+
+    function createTokenSpan(def) {
+        const span = document.createElement('span');
+        span.className = def.cls;
+        span.dataset.placeholder = def.placeholder;
+        span.textContent = tokenDisplayValue(def);
+        return span;
+    }
+
+    // Converts literal placeholders by walking TEXT NODES only and building spans with DOM APIs.
+    // Idempotent: text already inside a token span is skipped and attribute values are never
+    // touched. (The old version ran replaceAll() over innerHTML, which also matched the
+    // data-placeholder="[CLIENT NAME]" attribute of spans it had created on an earlier pass and
+    // corrupted the text into 'Acme Corp">Acme Corp' — BUG-001 — and inserted the sidebar values
+    // as raw HTML — BUG-010.) Also repairs content already damaged by that old version.
+    function convertLiteralTokensToSpans(element) {
+        repairCorruptedTokens(element);
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+        const textNodes = [];
+        let node;
+        while ((node = walker.nextNode())) {
+            if (!node.nodeValue.includes('[')) continue;
+            if (node.parentElement && node.parentElement.closest(TOKEN_SELECTOR)) continue;
+            // Raw-text elements serialize their children as literal text, so a span inserted there
+            // would come back as "<span …[CLIENT NAME]…>" text on the next parse and convert again.
+            if (node.parentElement && node.parentElement.closest(RAW_TEXT_SELECTOR)) continue;
+            if (TOKEN_LITERAL_RE.test(node.nodeValue)) textNodes.push(node);
         }
-        if (html.includes('[COMPANY NAME]')) {
-            html = html.replaceAll('[COMPANY NAME]', `<span class="token-company" data-placeholder="[COMPANY NAME]">${companyVal}</span>`);
-            mutated = true;
+        for (const textNode of textNodes) {
+            const text = textNode.nodeValue;
+            const frag = document.createDocumentFragment();
+            let last = 0;
+            for (const match of text.matchAll(new RegExp(TOKEN_LITERAL_RE.source, 'g'))) {
+                if (match.index > last) frag.appendChild(document.createTextNode(text.slice(last, match.index)));
+                frag.appendChild(createTokenSpan(TOKEN_DEFS.find(d => d.placeholder === match[0])));
+                last = match.index + match[0].length;
+            }
+            if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+            textNode.replaceWith(frag);
         }
-        if (html.includes('[CONTACT NAME]')) {
-            html = html.replaceAll('[CONTACT NAME]', `<span class="token-contact-name" data-placeholder="[CONTACT NAME]">${contactNameVal}</span>`);
-            mutated = true;
+    }
+
+    // Undoes the damage the old string-based conversion left in saved reports. A damaged token is
+    // a span whose data-placeholder isn't one of the four placeholders (it starts with '<span class='),
+    // followed by a text node beginning with '">'. Two shapes occur:
+    //   (a) '">' then another token span of the same type  → the damaged span is a duplicate; drop both it and the '">'
+    //   (b) '">' then the old value as plain text            → turn the damaged span back into a real token and strip '">' + value
+    // Damaged spans can nest, so repeat until none remain.
+    function repairCorruptedTokens(root) {
+        const isValidPlaceholder = (p) => TOKEN_DEFS.some(d => d.placeholder === p);
+        for (let guard = 0; guard < 1000; guard++) {
+            const bad = [...root.querySelectorAll('span[data-placeholder]')].find(s => !isValidPlaceholder(s.dataset.placeholder));
+            if (!bad) return;
+            const def = TOKEN_DEFS.find(d => bad.classList.contains(d.cls)) || TOKEN_DEFS[0];
+            const next = bad.nextSibling;
+            if (next && next.nodeType === Node.TEXT_NODE && next.nodeValue.startsWith('">')) {
+                const rest = next.nodeValue.slice(2);
+                const following = next.nextSibling;
+                if (rest === '' && following && following.nodeType === Node.ELEMENT_NODE && following.classList.contains(def.cls)) {
+                    next.remove();                                   // shape (a)
+                    bad.remove();
+                    continue;
+                }
+                const oldValue = bad.textContent;                    // shape (b)
+                next.nodeValue = (oldValue && rest.startsWith(oldValue)) ? rest.slice(oldValue.length) : rest;
+                if (next.nodeValue === '') next.remove();
+            }
+            bad.replaceWith(createTokenSpan(def));
         }
-        if (html.includes('[CONTACT EMAIL]')) {
-            html = html.replaceAll('[CONTACT EMAIL]', `<span class="token-contact-email" data-placeholder="[CONTACT EMAIL]">${contactEmailVal}</span>`);
-            mutated = true;
-        }
-        if (mutated) { element.innerHTML = html; }
+    }
+
+    // Applies token conversion + repair to an HTML string without ever attaching it to the live
+    // page. Parsing happens in an inert <template>, so <img onerror> etc. in the string can't fire
+    // during the conversion (a detached <div> would still start loading images).
+    function normalizeTokensInHtml(html) {
+        if (typeof html !== 'string' || html === '') return html;
+        const tpl = document.createElement('template');
+        tpl.innerHTML = html;
+        convertLiteralTokensToSpans(tpl.content);
+        return tpl.innerHTML;
     }
 
     function syncTokens() {
@@ -2817,8 +2889,18 @@
     // copy), false for an autosave restore (the whole point is that draft was never exported).
     function applyReportPayload(data, { markSaved } = { markSaved: true }) {
         findings = data.findings || [];
+        // Repair token damage left by older versions of this app (BUG-001) in the finding data itself,
+        // not just in the rendered cards, so the next export is clean too.
+        if (Array.isArray(findings)) {
+            findings.forEach(f => {
+                if (!f || typeof f !== 'object') return;
+                f.description = normalizeTokensInHtml(f.description);
+                f.remediation = normalizeTokensInHtml(f.remediation);
+            });
+        }
         currentLogo = data.currentLogo || "";
         if (data.blocksHtml) document.getElementById('reportBlocksContainer').innerHTML = data.blocksHtml;
+        document.querySelectorAll('#reportBlocksContainer .editable-section').forEach(el => convertLiteralTokensToSpans(el));
         renderLogo(); createMatrix(); renderAll(); setupDragAndDrop(); setupStateLockListeners();
 
         const startEl = document.getElementById('meta-start-date');

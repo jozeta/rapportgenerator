@@ -431,6 +431,37 @@ All of these fit the no-backend model.
 
 ---
 
+### [BUG-015] [P2] Library prose with angle brackets is parsed as HTML: text disappears, and `<iframe>` swallows the rest of a description
+
+*(Found 2026-11-01 while fixing BUG-001.)*
+
+**Category:** Bug (data + rendering model) **Confidence:** High (CONFIRMED by script; the effect follows from HTML parsing rules)
+
+**Affected files:**
+- `library.json`: 8 fields in 7 templates
+  - #20 "Missing X-Frame-Options Header": `<iframe>`
+  - #122 IMDSv1: `<role-name>`
+  - #143 Insecure Service Permissions: `<name>`, `<group>`
+  - #144 Unquoted Service Path: `<name>`
+  - #180 Anonymous API Access: `<endpoint>`
+  - #181 Excessive RBAC Permissions: `<identity>`
+  - #223 Secrets in VCS History: `<commit>`
+- `addFinding()` (`rapportgenerator.html`): the `<textarea>` values are stored as finding HTML
+
+**Problem:** The library text and the Add Finding textareas are plain text, but finding descriptions and remediations are rendered as HTML. So `sc config <name> binPath=…` shows up as `sc config  binPath=…`, because `<name>` becomes an empty unknown element. In #20, everything after `<iframe>` becomes invisible iframe content and disappears from the report, including the client-name sentence.
+
+**Root cause:** No conversion step between the plain-text model (library, form) and the HTML model (finding cards).
+
+**Impact:** The command examples consultants rely on are silently missing from the client deliverable.
+
+**Recommendation:** Convert form text to HTML in `addFinding()` by escaping it (`escapeHtml`; newlines already render because `.editable-section` uses `white-space: pre-wrap`). Keep `library.json` as plain text. The 7 templates that already contain intentional HTML among the 270 should be reviewed: only `< and >` in #42 looks deliberate, and it is not a tag.
+
+**Validation:** `BUG-001-library` already checks idempotence. Remove its BUG-015 skip and require exact text for all 540 fields.
+
+**Complexity:** Small **Dependencies:** SEC-001 (both define what HTML a finding may contain)
+
+---
+
 ## Performance Report
 
 **Measurements** (headless Edge 156 on this Mac; averages of 5 runs; synthetic findings built from real library templates):

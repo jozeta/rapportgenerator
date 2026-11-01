@@ -16,8 +16,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-import { cases } from './cases.mjs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+// CASES=/path/to/other-cases.mjs runs a different case file (e.g. a one-off investigation).
+const { cases } = await import(process.env.CASES ? pathToFileURL(path.resolve(process.env.CASES)).href : './cases.mjs');
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PAGE_HELPERS = fs.readFileSync(path.join(ROOT, 'tests', 'page-helpers.js'), 'utf8');
