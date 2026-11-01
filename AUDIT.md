@@ -21,13 +21,16 @@ Work happens on the `audit-fixes` branch. Run `node tests/run.mjs` to check: eve
 | ✅ Done: step 3 (images and evidence) | PERF-003, PERF-005, PERF-006, FEAT-005 |
 | ✅ Done: step 4 (usability) | UI-001, UI-002, UI-003, UI-004, UI-006, UI-008, PERF-008, SEC-004 |
 | ✅ Done: step 5 (undo) | UI-005 |
-| ⏳ Next: step 6 | FEAT-004, FEAT-008, ARCH-003 |
+| ✅ Done: step 6 (retests) | ARCH-003, FEAT-004, FEAT-008 |
 | — Not selected | FEAT-001, FEAT-002, FEAT-003, FEAT-006, FEAT-007, FEAT-009, FEAT-010, FEAT-011, FEAT-012, UI-007, PERF-002, PERF-004, SEC-003, SEC-006, ARCH-001, ARCH-002, ARCH-005, ARCH-007, TEST-004–007 |
 
 **Decisions taken during implementation:**
 - **BUG-007:** only *False Positive* is excluded from the matrix and the severity totals. Add `'Remediated'` to `STATUSES_EXCLUDED_FROM_RISK_TOTALS` to report outstanding risk only.
 - **BUG-011:** the Findings Summary section can be moved but not deleted.
 - **BUG-015:** the Add Finding form and the library are plain text and are escaped into finding HTML (option A).
+- **ARCH-003:** findings carry a stable `id` (report format v3), but the inline handlers on finding cards still address findings by position. That's safe because every change re-renders the cards; moving fully to id-based handlers is part of ARCH-001.
+- **FEAT-004:** a retest is started from the sidebar. Deleting the Retest Summary section ends it, and both can be undone.
+- **UI-005:** the confirmation questions were kept, and undo is an additional safety net.
 - **SEC-001:** the rich-text policy keeps the editor toolbar's output (bold, italic, strike, font size and color, alignment, quote, code, lists, h3/h4, links, images, tables). It never keeps `class`, layout CSS or event handlers.
 
 ---

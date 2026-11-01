@@ -977,6 +977,116 @@ export const cases = [
         } }],
     },
 
+    // ---------------------------------------------------------------- step 6: ids, retest, sort
+    {
+        id: 'ARCH-003', title: 'Findings get stable unique ids that survive reorder, export/import and undo', tags: ['ids', 'stage6'],
+        steps: [
+            { run: async () => {
+                const { assert, captureDownload } = __t;
+                for (const t of ['A', 'B', 'C']) { document.getElementById('vTitle').value = t; await addFinding(); }
+                const ids = findings.map(f => f.id);
+                assert(ids.every(id => typeof id === 'string' && id.length >= 8) && new Set(ids).size === 3, 'ids missing or not unique: ' + ids);
+                moveFindingDown(0);
+                assert(findings.map(f => f.title).join('') === 'BAC' && findings[1].id === ids[0], 'id did not travel with its finding on reorder');
+                assert(document.querySelector(`.vuln-card[data-finding-id="${ids[0]}"]`).dataset.index === '1', 'card not tagged with its id');
+                const { text } = await captureDownload(() => exportReportJson());
+                const payload = JSON.parse(text);
+                assert(payload.schemaVersion === 3 && payload.findings.every(f => f.id), 'export lacks ids or v3');
+                // legacy file without ids, plus a duplicated id
+                const legacy = { ...payload, schemaVersion: 2, findings: [__t.finding({ title: 'No id' }), { ...__t.finding({ title: 'Dup 1' }), id: 'same' }, { ...__t.finding({ title: 'Dup 2' }), id: 'same' }] };
+                return { exported: text, ids, legacy: JSON.stringify(legacy) };
+            } },
+            { fresh: true, run: async (ctx) => {
+                const { assert, pickFile } = __t;
+                await pickFile('importReportFile', ctx.exported);
+                assert(findings.map(f => f.id).join() === [ctx.ids[1], ctx.ids[0], ctx.ids[2]].join(), 'ids changed on import');
+                await pickFile('importReportFile', ctx.legacy);
+                const ids = findings.map(f => f.id);
+                assert(ids.every(Boolean) && new Set(ids).size === 3, 'legacy ids not backfilled / duplicates not re-issued: ' + ids);
+                assert(findings[1].id === 'same', 'the first of two duplicate ids should be kept');
+            } },
+        ],
+    },
+    {
+        id: 'FEAT-004', title: 'Retest: original results recorded, live summary table, new/removed findings, ends with its section', tags: ['retest', 'stage6'],
+        steps: [
+            { run: async () => {
+                const { assert, answerModal, captureDownload, cards } = __t;
+                // nothing to retest yet → explanation, no section
+                const p0 = startRetest(); assert((await answerModal(true)) !== null, 'no explanation without findings'); await p0;
+                assert(!document.getElementById('block-retest'), 'retest started without findings');
+                const add = async (title, impact, exploit, status) => { document.getElementById('vTitle').value = title; await addFinding(); const f = findings[findings.length - 1]; Object.assign(f, { impact, exploit, status }); renderAll(); };
+                await add('SQLi', 5, 4, 'Open'); await add('XSS', 3, 4, 'Open'); await add('Banner', 1, 2, 'Open');
+                const p = startRetest(); await answerModal(true); await p;
+                const block = document.getElementById('block-retest');
+                assert(block && block.querySelector('h2').innerText.trim() === 'Retest Summary', 'Retest Summary section not added');
+                assert(document.getElementById('retestStartBtn').innerText.includes('in progress'), 'sidebar does not show the retest in progress');
+                const table = () => document.getElementById('retestSummaryTable');
+                const rowFor = (title) => [...table().querySelectorAll('tbody tr')].find(tr => tr.children[1].innerText === title);
+                const cell = (title, n) => rowFor(title).children[n].innerText.toLowerCase();   // badges are CSS-uppercased
+                assert(cell('SQLi', 2).includes('critical') && cell('SQLi', 2).includes('open'), 'original result missing in table');
+                assert(cards()[0].innerText.includes('Original result: Critical · Open'), 'card does not show the original result');
+                // verify fixes: statuses and dates change, originals don't
+                findings[0].status = 'Remediated'; findings[0].retestDate = '2026-11-20'; findings[0].impact = 1; findings[0].exploit = 1;
+                findings[1].status = 'Partially Remediated';
+                renderAll();
+                assert(cell('SQLi', 2).includes('critical'), 'original severity changed when the finding was rescored');
+                assert(cell('SQLi', 3).includes('remediated') && cell('SQLi', 4) === '2026-11-20', 'retest status/date not shown');
+                const totals = table().querySelector('.retest-totals').innerText;
+                assert(totals.includes('Of the 3 original findings') && totals.includes('1 remediated') && totals.includes('1 partially remediated') && totals.includes('1 still open'), `totals: ${totals}`);
+                renderChecklist();
+                assert(/Original findings without a retest date/.test(document.getElementById('checklistBody').innerText), 'checklist does not track missing retest dates');
+                // a new finding and a removed one
+                await add('New issue', 2, 2, 'Open');
+                assert(cell('New issue', 2).includes('new in retest'), 'new finding not marked as new');
+                const rp = removeFinding(2); await answerModal(true); await rp;
+                const removed = [...table().querySelectorAll('tbody tr')].find(tr => tr.innerText.includes('Banner'));
+                assert(removed && removed.innerText.toLowerCase().includes('removed from this report'), 'removed original finding not listed');
+                const { text } = await captureDownload(() => exportReportJson());
+                assert(JSON.parse(text).retest && Object.keys(JSON.parse(text).retest.baseline).length === 3, 'retest not exported');
+                return { exported: text };
+            } },
+            { fresh: true, run: async (ctx) => {
+                const { assert, pickFile, answerModal } = __t;
+                await pickFile('importReportFile', ctx.exported);
+                assert(document.getElementById('block-retest') && document.getElementById('retestSummaryTable').querySelectorAll('tbody tr').length === 4, 'retest not restored on import');
+                // deleting the section ends the retest (asks first) — and can be undone
+                document.querySelector('#block-retest .control-danger').click();
+                const asked = await answerModal(true);
+                assert(asked && asked.includes('End the retest'), 'deleting the section did not explain it ends the retest');
+                assert(!document.getElementById('block-retest') && retestState === null, 'retest not ended');
+                assert(!__t.cards()[0].innerText.includes('Original result'), 'cards still show original results');
+                undoLastChange();
+                assert(document.getElementById('block-retest') && retestState && __t.cards()[0].innerText.includes('Original result'), 'ending the retest was not undone');
+            } },
+        ],
+    },
+    {
+        id: 'FEAT-008', title: 'Sort by severity orders one section Critical → Low, unscored then false positives last; undoable', tags: ['sort', 'stage6'],
+        steps: [{ run: async () => {
+            const { assert, answerModal } = __t;
+            const mk = (title, impact, exploit, extra = {}) => __t.finding({ title, impact, exploit, ...extra });
+            document.getElementById('newHeadline').value = 'Internal'; addNewDetailsSection();
+            const second = document.querySelectorAll('.details-block')[1].id;
+            findings = [
+                mk('Low one', 1, 2), mk('FP crit', 5, 5, { status: 'False Positive' }), mk('Unscored', null, null),
+                mk('High (cvss 7.5)', 3, 4, { cvssScore: '7.5' }), mk('Other section', 1, 1, { sectionId: second }),
+                mk('Critical', 5, 4), mk('High (cvss 8.8)', 4, 3, { cvssScore: '8.8' }),
+            ];
+            renderAll();
+            const btn = document.querySelector('#block-details [data-sort-section]');
+            assert(btn, 'no sort button in a section with several findings');
+            assert(!document.querySelector(`#${second} [data-sort-section]`), 'sort button shown in a section with one finding');
+            btn.click();
+            const order = findings.map(f => f.title).join(' | ');
+            // the other section's finding keeps its slot (index 4); this section's findings are re-slotted around it
+            assert(order === 'Critical | High (cvss 8.8) | High (cvss 7.5) | Low one | Other section | Unscored | FP crit', `order: ${order}`);
+            assert(findings[4].title === 'Other section' && findings[4].sectionId === second, 'a finding from another section moved');
+            undoLastChange();
+            assert(findings.map(f => f.title)[0] === 'Low one', 'sorting not undone');
+        } }],
+    },
+
     // ---------------------------------------------------------------- TEST-002 round trip
     {
         id: 'TEST-002', title: 'Export → import round-trip preserves the whole report', tags: ['persistence', 'stage1'],

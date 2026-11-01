@@ -178,6 +178,13 @@
         .app-toast.visible { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
         .app-toast .btn-link { color: #8ec5ff; font-weight: 600; text-decoration: none; }
         .icon-btn:disabled { opacity: 0.35; cursor: default; background: none; border-color: transparent; }
+        .findings-toolbar { display: flex; justify-content: flex-end; margin: 0 0 6px; }
+        .retest-original { font-size: 0.8rem; margin-top: 6px; }
+        .retest-totals { font-size: 0.85rem; margin: 6px 0 8px; }
+        .retest-table { font-size: 0.8rem; }
+        .retest-table td, .retest-table th { vertical-align: middle; }
+        .retest-table .crit-badge, .retest-table .status-badge { font-size: 0.68rem; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .retest-table tr { break-inside: avoid; page-break-inside: avoid; }
         ::highlight(find-match) { background-color: #ffe066; color: inherit; }
         .save-status { font-size: 0.72rem; line-height: 1.3; padding-left: 2px; }
         .save-status.is-clean { color: #6c757d; }
@@ -506,6 +513,8 @@
                 </div>
                 <button class="btn btn-outline-danger btn-sm" onclick="startNewReport()" data-tooltip="Wipe findings, section text, the logo, and all remembered profile details (client, company, contact, dates, classification) — starts completely blank"><i class="bi bi-file-earmark"></i> New Report</button>
                 <div id="saveStatus" class="save-status is-clean" role="status" aria-live="polite">No unsaved changes</div>
+                <button id="retestStartBtn" class="btn btn-outline-secondary btn-sm mt-1" onclick="startRetest()" data-tooltip="Record each finding's current severity and status as the original result, and add a Retest Summary section"><i class="bi bi-arrow-repeat"></i> Start Retest</button>
+                <div id="retestStatus" class="save-status is-clean" style="display:none"></div>
             </div>
             <input type="file" id="importReportFile" class="d-none" onchange="importReportJson(this)">
 
@@ -1711,6 +1720,8 @@
         setupLibraryKeyboard();
         setupAssetEditing();
         setupUndoKeyboard();
+        setupSortButtons();
+        updateRetestControls();
         setupRedactCanvas();
         setupUnsavedChangesTracking();
         setupAutosave();
@@ -2499,6 +2510,204 @@
         document.getElementById('appToast').classList.remove('visible');
     }
 
+    // ---- Stable finding ids (ARCH-003) -------------------------------------------------------------
+    // Display numbers ("3.") follow the order in the report and change when findings move; the id
+    // never changes. Retests match findings by id.
+    function newFindingId() {
+        if (window.crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+        return 'f-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+    }
+
+    // Gives every finding a unique id: backfills old files, and re-issues duplicates (e.g. a finding
+    // copied by hand inside a JSON file).
+    function ensureFindingIds() {
+        const seen = new Set();
+        findings.forEach(f => {
+            if (typeof f.id !== 'string' || !f.id || seen.has(f.id)) f.id = newFindingId();
+            seen.add(f.id);
+        });
+    }
+
+    function severityLabel(f) {
+        if (f.impact === null || f.impact === undefined || f.exploit === null || f.exploit === undefined) return 'Not Scored';
+        const score = f.impact * f.exploit;
+        return score >= 16 ? 'Critical' : score >= 10 ? 'High' : score >= 5 ? 'Medium' : 'Low';
+    }
+
+    const SEVERITY_BADGE_CLASS = { Critical: 'badge-crit', High: 'badge-high', Medium: 'badge-med', Low: 'badge-low', 'Not Scored': 'badge-unscored' };
+
+    function todayIso() {
+        const d = new Date(), pad = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    }
+
+    // ---- Retest workflow (FEAT-004) ----------------------------------------------------------------
+    // "Start retest" freezes each finding's current severity and status as its original result
+    // (retestState.baseline, keyed by finding id) and adds a Retest Summary section whose table
+    // compares original and retest results. Deleting that section ends the retest.
+    let retestState = null;   // { startedAt: 'YYYY-MM-DD', baseline: { [findingId]: { title, severity, status } } }
+
+    async function startRetest() {
+        if (retestState) { document.getElementById('block-retest')?.scrollIntoView({ block: 'start', behavior: 'smooth' }); return; }
+        if (!findings.length) {
+            await showAlert("Add the report's findings first: starting a retest records each finding's current severity and status as its original result.");
+            return;
+        }
+        const ok = await showConfirm('Start a retest?\n\nEach finding\'s current severity and status are saved as its original result, and a "Retest Summary" section is added to the report. Then update each finding\'s status and retest date as you verify the fixes. The summary table updates as you go.');
+        if (!ok) return;
+        recordUndoPoint('Start retest');
+        ensureFindingIds();
+        retestState = {
+            startedAt: todayIso(),
+            baseline: Object.fromEntries(findings.map(f => [f.id, { title: f.title, severity: severityLabel(f), status: f.status || '' }])),
+        };
+        insertRetestBlock();
+        markUnsaved();
+        renderAll();
+        updateRetestControls();
+        document.getElementById('block-retest').scrollIntoView({ block: 'start', behavior: 'smooth' });
+        showToast('Retest started: original results recorded.', { undo: true });
+    }
+
+    async function endRetest() {
+        if (!retestState) return;
+        const ok = await showConfirm('End the retest?\n\nThe recorded original results and the Retest Summary section are removed. Finding statuses and retest dates stay as they are.');
+        if (!ok) return;
+        recordUndoPoint('End retest');
+        retestState = null;
+        document.getElementById('block-retest')?.remove();
+        markUnsaved();
+        renderAll();
+        updateRetestControls();
+        showToast('Retest ended.', { undo: true });
+    }
+
+    // The section's controls use the same allow-listed inline handlers as every other section, so it
+    // survives export/import; its table is regenerated by renderRetestSummary() on each render.
+    function insertRetestBlock() {
+        if (document.getElementById('block-retest')) return;
+        const block = document.createElement('div');
+        block.className = 'report-block';
+        block.id = 'block-retest';
+        block.setAttribute('draggable', 'false');
+        block.innerHTML = `<div class="block-controls no-print">
+                <div class="drag-handle" draggable="true"><i class="bi bi-grip-vertical"></i></div>
+                <button class="block-control-btn" onclick="moveSectionUp(this)" data-tooltip="Move section up"><i class="bi bi-chevron-up"></i></button>
+                <button class="block-control-btn" onclick="moveSectionDown(this)" data-tooltip="Move section down"><i class="bi bi-chevron-down"></i></button>
+                <button class="block-control-btn" onclick="insertPageBreakAfter(this)" data-tooltip="Insert page break below this block"><i class="bi bi-scissors"></i></button>
+                <button class="block-control-btn control-danger" onclick="removeSection(this)" data-tooltip="Delete this section (ends the retest)"><i class="bi bi-trash"></i></button>
+            </div>
+            <h2 class="editable-section section-edit" contenteditable="true">Retest Summary</h2>
+            <div class="editable-section section-edit mb-2" contenteditable="true">A retest was performed on [insert retest date or date range] to verify the remediation of the findings reported in the original assessment. The table below compares each finding's original result with its status at retest.</div>
+            <div id="retestSummaryTable" class="retest-summary"></div>`;
+        const anchor = document.getElementById('block-summary') || document.querySelector('.details-block');
+        const container = document.getElementById('reportBlocksContainer');
+        if (anchor && anchor.parentNode === container) container.insertBefore(block, anchor.nextSibling);
+        else container.appendChild(block);
+        convertLiteralTokensToSpans(block);
+        setupDragAndDrop(); // refreshes aria-labels for the new controls
+    }
+
+    function updateRetestControls() {
+        const startBtn = document.getElementById('retestStartBtn');
+        const status = document.getElementById('retestStatus');
+        if (!startBtn || !status) return;
+        if (retestState) {
+            startBtn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Retest in progress';
+            startBtn.setAttribute('data-tooltip', 'Jump to the Retest Summary section');
+            status.innerHTML = `Started ${escapeHtml(retestState.startedAt || '')} · <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="endRetest()">End retest</button>`;
+            status.style.display = '';
+        } else {
+            startBtn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Start Retest';
+            startBtn.setAttribute('data-tooltip', "Record each finding's current severity and status as the original result, and add a Retest Summary section");
+            status.textContent = '';
+            status.style.display = 'none';
+        }
+    }
+
+    // Shown on a finding card (and in print) while a retest is in progress.
+    function retestOriginalHtml(f) {
+        if (!retestState) return '';
+        const b = retestState.baseline[f.id];
+        if (!b) return `<div class="retest-original"><strong>Original result:</strong> <span class="fst-italic">new in this retest</span></div>`;
+        return `<div class="retest-original"><strong>Original result:</strong> ${escapeHtml(b.severity)} · ${escapeHtml(b.status || 'status not set')}</div>`;
+    }
+
+    function statusBadgeHtml(status) {
+        const meta = FINDING_STATUSES.find(s => s.value === status);
+        return meta ? `<span class="status-badge ${meta.cls}">${escapeHtml(meta.value)}</span>` : '<span class="status-badge status-unset">Not set</span>';
+    }
+
+    function renderRetestSummary() {
+        const target = document.getElementById('retestSummaryTable');
+        if (!target) return;
+        if (!retestState) { target.innerHTML = ''; return; }
+        const base = retestState.baseline || {};
+        const presentIds = new Set(findings.map(f => f.id));
+        const rows = findings.map((f, i) => {
+            const b = base[f.id];
+            const original = b
+                ? `<span class="crit-badge ${SEVERITY_BADGE_CLASS[b.severity] || 'badge-unscored'}">${escapeHtml(b.severity)}</span> ${statusBadgeHtml(b.status)}`
+                : '<span class="text-muted fst-italic">New in retest</span>';
+            return `<tr><td>${i + 1}</td><td>${escapeHtml(f.title)}</td><td>${original}</td><td>${statusBadgeHtml(f.status)}</td><td>${escapeHtml(f.retestDate || '—')}</td></tr>`;
+        });
+        Object.entries(base).filter(([id]) => !presentIds.has(id)).forEach(([, b]) => {
+            rows.push(`<tr class="text-muted"><td>—</td><td>${escapeHtml(b.title)}</td><td><span class="crit-badge ${SEVERITY_BADGE_CLASS[b.severity] || 'badge-unscored'}">${escapeHtml(b.severity)}</span> ${statusBadgeHtml(b.status)}</td><td colspan="2" class="fst-italic">Removed from this report</td></tr>`);
+        });
+
+        const originals = findings.filter(f => base[f.id]);
+        const count = (st) => originals.filter(f => (f.status || '') === st).length;
+        const parts = [
+            [count('Remediated'), 'remediated'], [count('Partially Remediated'), 'partially remediated'],
+            [count('Open'), 'still open'], [count('Accepted Risk'), 'accepted as risk'],
+            [count('False Positive'), 'false positive'], [count(''), 'not yet retested'],
+        ].filter(([n]) => n > 0).map(([n, label]) => `<strong>${n}</strong> ${label}`);
+        const summary = originals.length
+            ? `Of the ${originals.length} original finding${originals.length === 1 ? '' : 's'}: ${parts.join(', ')}.`
+            : 'None of the original findings are in the report any more.';
+
+        target.innerHTML = `<p class="retest-totals">${summary}</p>
+            <table class="table table-sm table-bordered retest-table">
+                <thead class="table-light"><tr><th style="width:2.5rem">#</th><th>Finding</th><th>Original result</th><th>Retest status</th><th style="width:7.5rem">Retest date</th></tr></thead>
+                <tbody>${rows.join('')}</tbody>
+            </table>`;
+    }
+
+    // ---- Sort by severity (FEAT-008) ----------------------------------------------------------------
+    // Orders one Detailed Findings section Critical → Low (ties: higher CVSS score first, then the
+    // current order), unscored findings after that and false positives last. Other sections keep
+    // their order: the section's findings are re-slotted into the positions they already occupied.
+    function severitySortKey(f) {
+        if (f.status === 'False Positive') return -2;
+        if (f.impact === null || f.impact === undefined || f.exploit === null || f.exploit === undefined) return -1;
+        return f.impact * f.exploit;
+    }
+
+    function sortSectionBySeverity(sectionId) {
+        const slots = [];
+        findings.forEach((f, i) => { if (f.sectionId === sectionId) slots.push(i); });
+        if (slots.length < 2) return;
+        const sorted = slots.map(i => findings[i]).map((f, order) => ({ f, order }))
+            .sort((a, b) => (severitySortKey(b.f) - severitySortKey(a.f))
+                || ((parseFloat(b.f.cvssScore) || 0) - (parseFloat(a.f.cvssScore) || 0))
+                || (a.order - b.order))
+            .map(x => x.f);
+        if (sorted.every((f, k) => f === findings[slots[k]])) { showToast('Already sorted by severity.'); return; }
+        recordUndoPoint('Sort by severity');
+        slots.forEach((slot, k) => { findings[slot] = sorted[k]; });
+        markUnsaved();
+        renderAll();
+        showToast('Findings sorted by severity.', { undo: true });
+        announce('Findings sorted by severity.');
+    }
+
+    function setupSortButtons() {
+        document.getElementById('reportBlocksContainer').addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-sort-section]');
+            if (btn) sortSectionBySeverity(btn.dataset.sortSection);
+        });
+    }
+
     // Single shared tooltip element appended to <body>, positioned via getBoundingClientRect and
     // clamped to the viewport. Needed because a plain CSS ::after tooltip nested inside .sidebar
     // gets clipped by the sidebar's own overflow-y:auto — this escapes that entirely.
@@ -2924,6 +3133,7 @@
         }
         // BUG-011: the risk matrix, severity table and findings list live in this block; removing it
         // used to make every later render throw.
+        if (targetBlock.id === 'block-retest') { await endRetest(); return; } // deleting it ends the retest
         if (targetBlock.id === 'block-summary') {
             await showAlert("The Findings Summary section can't be deleted: it holds the risk matrix and the severity table. You can move it with the arrows or the drag handle instead.");
             return;
@@ -3398,7 +3608,8 @@
             plannerManuallyHidden: false,
             status: '',
             retestDate: '',
-            sectionId: sectionId
+            sectionId: sectionId,
+            id: newFindingId()
         });
         markUnsaved();
         renderAll();
@@ -3693,6 +3904,10 @@
             items.push({ warnLabel: 'Findings missing risk score', okLabel: 'All findings have a risk score', count: missingScore });
             items.push({ warnLabel: 'Findings missing status', okLabel: 'All findings have a status', count: missingStatus });
             items.push({ warnLabel: 'Findings still using default remediation text', okLabel: 'All remediation text has been customized', count: defaultRemediation });
+            if (retestState) {
+                const notRetested = findings.filter(f => retestState.baseline[f.id] && !f.retestDate).length;
+                items.push({ warnLabel: 'Original findings without a retest date', okLabel: 'All original findings have a retest date', count: notRetested });
+            }
         }
 
         body.innerHTML = items.map(item => {
@@ -3737,6 +3952,7 @@
             f.exploit = normalizeScoreValue(f.exploit);
             if (!FINDING_STATUSES.some(s => s.value === f.status)) { f.status = ''; }
         });
+        ensureFindingIds();
 
         // Grouped summary list rendering
         const sl = document.getElementById('summaryList');
@@ -3893,7 +4109,7 @@
                 </div>`;
 
             const cardHtml = `
-            <div class="card mb-4 border-0 border-bottom pb-4 vuln-card" draggable="false" data-index="${i}">
+            <div class="card mb-4 border-0 border-bottom pb-4 vuln-card" draggable="false" data-index="${i}" data-finding-id="${escapeHtml(f.id)}">
                 <div class="vuln-drag-handle no-print"><i class="bi bi-grip-vertical"></i></div>
                 <div class="card-body p-0">
                     ${topControlsHtml}
@@ -3932,6 +4148,7 @@
                             <div class="print-score-text">${f.retestDate ? `Retest Date: ${escapeHtml(f.retestDate)}` : ''}</div>
                         </div>
                         ${assetsHtmlString}
+                        ${retestOriginalHtml(f)}
                     </div>
 
                     <div class="mb-3">
@@ -3956,8 +4173,13 @@
 
         Object.keys(containerBuffers).forEach(secId => {
             const html = containerBuffers[secId];
+            // FEAT-008: a "Sort by severity" button above any section with two or more findings
+            // (generated here, so it isn't part of the saved report).
+            const sortBar = findings.filter(f => f.sectionId === secId).length >= 2
+                ? `<div class="findings-toolbar no-print"><button type="button" class="btn btn-sm btn-outline-secondary" data-sort-section="${escapeHtml(secId)}" data-tooltip="Order this section Critical → Low; unscored next, false positives last"><i class="bi bi-sort-down"></i> Sort by severity</button></div>`
+                : '';
             containersMap[secId].innerHTML = (html && html.trim().length > 0)
-                ? html
+                ? sortBar + html
                 : `<div class="findings-empty-state no-print">No findings in this section yet. <button type="button" class="btn btn-sm btn-outline-secondary ms-1" data-add-finding-to="${escapeHtml(secId)}"><i class="bi bi-plus-lg"></i> Add a finding here</button></div>`;
         });
 
@@ -3993,6 +4215,7 @@
         }
         
         syncTokens();
+        renderRetestSummary();
         positionImageSelectionOutline(); // a re-rendered card replaced the selected image, or moved it
         if (tocEnabled) renderTOC();
         renderChecklist();
@@ -4078,7 +4301,8 @@
     // v1: no schemaVersion; metadata (dates, classification) only survived as HTML attributes inside
     //     blocksHtml, and only if the user had changed them during the session (BUG-002).
     // v2: adds schemaVersion, an explicit `meta` object and actionPlannersGloballyVisible (BUG-012).
-    const REPORT_SCHEMA_VERSION = 2;
+    // v3: every finding has a stable `id` (ARCH-003), and an optional `retest` block (FEAT-004).
+    const REPORT_SCHEMA_VERSION = 3;
 
     class ReportValidationError extends Error {
         constructor(errors) { super(errors.join(' ')); this.errors = errors; }
@@ -4134,6 +4358,18 @@
             }
         }
         if (data.watermark !== undefined && !isObject(data.watermark)) errors.push('Its watermark settings are invalid.');
+        if (Array.isArray(data.findings)) {
+            data.findings.forEach((f, i) => { if (isObject(f) && !isOptionalText(f.id)) errors.push(`Finding ${i + 1}: "id" must be text.`); });
+        }
+        if (data.retest !== undefined && data.retest !== null) {
+            if (!isObject(data.retest) || !isObject(data.retest.baseline) || !isOptionalText(data.retest.startedAt)) {
+                errors.push('Its retest information is invalid.');
+            } else {
+                for (const b of Object.values(data.retest.baseline)) {
+                    if (!isObject(b) || !['title', 'severity', 'status'].every(k => isOptionalText(b[k]))) { errors.push('Its retest information is invalid.'); break; }
+                }
+            }
+        }
         return errors;
     }
 
@@ -4161,6 +4397,10 @@
                 d.actionPlannersGloballyVisible = d.findings.some(f => f && f.showPlanner === true);
             }
             d.schemaVersion = 2;
+        }
+        if (d.schemaVersion < 3) {
+            // v3 only adds fields: finding ids are backfilled when the payload is applied.
+            d.schemaVersion = 3;
         }
 
         // Files saved after the Findings Summary section was deleted (possible before BUG-011 was
@@ -4207,7 +4447,7 @@
             classification: classSelect ? classSelect.value : '',
             showMetaBackground: metaBg ? metaBg.checked : true,
         };
-        return { schemaVersion: REPORT_SCHEMA_VERSION, findings, currentLogo, blocksHtml, tocEnabled, brandPrimary, brandAccent, brandHeadline, companyName, clientName, contactName, contactEmail, classifications, watermark, assessmentType: currentAssessmentType, meta, actionPlannersGloballyVisible };
+        return { schemaVersion: REPORT_SCHEMA_VERSION, findings, currentLogo, blocksHtml, tocEnabled, brandPrimary, brandAccent, brandHeadline, companyName, clientName, contactName, contactEmail, classifications, watermark, assessmentType: currentAssessmentType, meta, actionPlannersGloballyVisible, retest: retestState };
     }
 
     // Shared by Import Report (loads a .json file) and autosave restore (loads the localStorage
@@ -4255,9 +4495,13 @@
         });
         currentLogo = data.currentLogo || "";
         actionPlannersGloballyVisible = !!data.actionPlannersGloballyVisible;
+        ensureFindingIds();
+        retestState = data.retest || null;
         updateActionPlannerToggleIcon();
         document.getElementById('reportBlocksContainer').innerHTML = data.blocksHtml;
         document.querySelectorAll('#reportBlocksContainer .editable-section').forEach(el => convertLiteralTokensToSpans(el));
+        if (retestState) insertRetestBlock();          // e.g. a file whose Retest Summary block was removed by hand
+        updateRetestControls();
         renderLogo(); createMatrix(); renderAll(); setupDragAndDrop(); setupStateLockListeners();
 
         if (Array.isArray(data.classifications) && data.classifications.length > 0) {
