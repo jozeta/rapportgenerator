@@ -179,6 +179,67 @@ export const cases = [
         } }],
     },
     {
+        id: 'BUG-003-rollback', title: 'A failure halfway through applying an import restores the previous report', tags: ['import', 'stage1'],
+        steps: [{ run: async () => {
+            const { assert, pickFile, captureDownload } = __t;
+            document.getElementById('vTitle').value = 'Original';
+            await addFinding();
+            const { text } = await captureDownload(() => exportReportJson());
+            const other = JSON.parse(text);
+            other.findings = [__t.finding({ title: 'Incoming' })];
+            const execBefore = document.getElementById('section-exec').innerHTML;
+            const original = window.renderAll;
+            let calls = 0;
+            window.renderAll = function () { if (calls++ === 0) throw new Error('simulated failure'); return original.apply(this, arguments); };
+            const alertText = await pickFile('importReportFile', JSON.stringify(other));
+            window.renderAll = original;
+            assert(alertText !== null, 'no error shown after a failed apply');
+            assert(findings.length === 1 && findings[0].title === 'Original', `report not rolled back: ${findings.map(f => f.title)}`);
+            assert(document.getElementById('section-exec').innerHTML === execBefore, 'sections not rolled back');
+            assert(__t.cards().length === 1, 'finding card not re-rendered after rollback');
+        } }],
+    },
+    {
+        id: 'ARCH-004-legacy', title: 'Old (v1) report files still import, with dates and a missing summary recovered', tags: ['import', 'stage1'],
+        steps: [
+            { run: async () => {
+                const { captureDownload } = __t;
+                const set = (id, v) => { const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); };
+                set('meta-start-date', '2025-03-03'); set('meta-classification', 'Internal Use Only');
+                document.getElementById('vTitle').value = 'Legacy finding';
+                await addFinding();
+                const v2 = JSON.parse((await captureDownload(() => exportReportJson())).text);
+                const v1 = { ...v2 };
+                delete v1.schemaVersion; delete v1.meta; delete v1.actionPlannersGloballyVisible;
+                const tpl = document.createElement('template'); tpl.innerHTML = v1.blocksHtml;
+                tpl.content.querySelector('#block-summary').remove();       // as saved by an old version after deleting it
+                return { v1: JSON.stringify(v1), v1NoSummary: JSON.stringify({ ...v1, blocksHtml: tpl.innerHTML }) };
+            } },
+            { fresh: true, run: async (ctx) => {
+                const { assert, pickFile } = __t;
+                let alertText = await pickFile('importReportFile', ctx.v1);
+                assert(alertText === null, 'v1 file rejected: ' + alertText);
+                assert(document.getElementById('meta-start-date').value === '2025-03-03', 'v1 start date not recovered');
+                assert(document.getElementById('meta-classification').value === 'Internal Use Only', 'v1 classification not recovered');
+                assert(findings[0].title === 'Legacy finding', 'v1 findings not imported');
+                alertText = await pickFile('importReportFile', ctx.v1NoSummary);
+                assert(alertText === null, 'v1 file without summary rejected: ' + alertText);
+                assert(document.querySelectorAll('#matrix td').length === 25, 'risk matrix not restored');
+                findings[0].impact = 4; findings[0].exploit = 4; renderAll();
+                assert(document.querySelectorAll('#matrix .finding-dot').length === 1, 'restored matrix does not plot findings');
+            } },
+        ],
+    },
+    {
+        id: 'ARCH-004-newer', title: 'A file from a newer format version is refused with an explanation', tags: ['import', 'stage1'],
+        steps: [{ run: async () => {
+            const { assert, pickFile } = __t;
+            const payload = { ...buildReportPayload(), schemaVersion: 99 };
+            const alertText = await pickFile('importReportFile', JSON.stringify(payload));
+            assert(alertText && alertText.includes('newer version'), `unexpected message: ${alertText}`);
+        } }],
+    },
+    {
         id: 'BUG-011', title: 'Deleting the Findings Summary section does not break the app', tags: ['stage1'],
         steps: [{ run: async () => {
             const { assert, answerModal, cards } = __t;

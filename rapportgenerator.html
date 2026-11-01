@@ -1413,6 +1413,8 @@
     }
 
     function init() {
+        const summaryBlock = document.getElementById('block-summary');
+        if (summaryBlock) PRISTINE_SUMMARY_BLOCK_HTML = summaryBlock.outerHTML;
         setupStateLockListeners();
         setupDynamicTokenParsers();
         createMatrix();
@@ -1996,6 +1998,12 @@
         const isDetails = targetBlock.classList.contains('details-block');
         if (isDetails && document.querySelectorAll('.details-block').length <= 1) {
             await showAlert("At least one Detailed Findings section must remain in the report.");
+            return;
+        }
+        // BUG-011: the risk matrix, severity table and findings list live in this block; removing it
+        // used to make every later render throw.
+        if (targetBlock.id === 'block-summary') {
+            await showAlert("The Findings Summary section can't be deleted: it holds the risk matrix and the severity table. You can move it with the arrows or the drag handle instead.");
             return;
         }
         const isBreak = targetBlock.classList.contains('page-break-block');
@@ -2848,14 +2856,14 @@
     }
     
     function createMatrix() {
-        const m = document.getElementById('matrix'); m.innerHTML = '';
-        if(m) {
-            for (let r = 5; r >= 1; r--) {
-                let row = m.insertRow();
-                for (let c = 1; c <= 5; c++) {
-                    let cell = row.insertCell(); cell.id = `cell-${r}-${c}`;
-                    let s = r * c; cell.className = s >= 16 ? 'm-crit' : s >= 10 ? 'm-high' : s >= 5 ? 'm-med' : 'm-low';
-                }
+        const m = document.getElementById('matrix');
+        if (!m) return; // BUG-011: must not throw, or every renderAll() after it fails too
+        m.innerHTML = '';
+        for (let r = 5; r >= 1; r--) {
+            let row = m.insertRow();
+            for (let c = 1; c <= 5; c++) {
+                let cell = row.insertCell(); cell.id = `cell-${r}-${c}`;
+                let s = r * c; cell.className = s >= 16 ? 'm-crit' : s >= 10 ? 'm-high' : s >= 5 ? 'm-med' : 'm-low';
             }
         }
     }
@@ -2869,6 +2877,108 @@
                 <span class="info-tip" onclick="event.stopPropagation()" data-tooltip="Best practice: PNG or SVG with a transparent background. Displays at up to 160px tall / 80% of the page width, so a wide logo (roughly 3:1 to 4:1 aspect ratio) fits best. Keep the file small (under ~500KB) for fast loading and PDF export.">ⓘ</span>
             </div>`;
     }
+
+    // ---- Report file format -------------------------------------------------------------------
+    // v1: no schemaVersion; metadata (dates, classification) only survived as HTML attributes inside
+    //     blocksHtml, and only if the user had changed them during the session (BUG-002).
+    // v2: adds schemaVersion, an explicit `meta` object and actionPlannersGloballyVisible (BUG-012).
+    const REPORT_SCHEMA_VERSION = 2;
+
+    class ReportValidationError extends Error {
+        constructor(errors) { super(errors.join(' ')); this.errors = errors; }
+    }
+
+    // Returns a list of human-readable problems; empty means the payload is safe to apply. Checks
+    // shape and types only — HTML content is handled separately (SEC-001).
+    function validateReportPayload(data) {
+        const isObject = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+        const isOptionalText = v => v === undefined || v === null || typeof v === 'string';
+        if (!isObject(data)) return ['The file does not contain a report.'];
+        const errors = [];
+
+        if (data.schemaVersion !== undefined) {
+            if (!Number.isInteger(data.schemaVersion) || data.schemaVersion < 1) errors.push('Its format version is invalid.');
+            else if (data.schemaVersion > REPORT_SCHEMA_VERSION) errors.push(`It was saved by a newer version of this app (format v${data.schemaVersion}); this version can read up to v${REPORT_SCHEMA_VERSION}.`);
+        }
+
+        if (!Array.isArray(data.findings)) {
+            errors.push('Its list of findings is missing or not a list.');
+        } else {
+            data.findings.forEach((f, i) => {
+                const at = `Finding ${i + 1}`;
+                if (!isObject(f)) { errors.push(`${at} is not a finding.`); return; }
+                for (const k of ['title', 'cwe', 'category', 'description', 'remediation', 'status', 'retestDate', 'cvssVector', 'cvssScore', 'sectionId']) {
+                    if (!isOptionalText(f[k])) errors.push(`${at}: "${k}" must be text.`);
+                }
+                for (const k of ['impact', 'exploit']) {
+                    if (f[k] !== undefined && f[k] !== null && f[k] !== '' && !Number.isFinite(Number(f[k]))) errors.push(`${at}: "${k}" must be a number.`);
+                }
+                if (f.assets !== undefined && !(Array.isArray(f.assets) && f.assets.every(a => typeof a === 'string'))) errors.push(`${at}: "assets" must be a list of text.`);
+            });
+        }
+
+        if (typeof data.blocksHtml !== 'string') {
+            errors.push('Its report sections are missing.');
+        } else {
+            const tpl = document.createElement('template');
+            tpl.innerHTML = data.blocksHtml;
+            if (!tpl.content.querySelector('.details-block .findings-container')) errors.push('Its report sections contain no Detailed Findings section.');
+        }
+
+        for (const k of ['currentLogo', 'companyName', 'clientName', 'contactName', 'contactEmail', 'assessmentType', 'brandPrimary', 'brandAccent', 'brandHeadline']) {
+            if (!isOptionalText(data[k])) errors.push(`"${k}" must be text.`);
+        }
+        if (data.classifications !== undefined && !(Array.isArray(data.classifications) && data.classifications.every(c => typeof c === 'string'))) {
+            errors.push('Its classification list must be a list of text.');
+        }
+        if (data.meta !== undefined) {
+            if (!isObject(data.meta)) errors.push('Its metadata block is invalid.');
+            else for (const k of ['startDate', 'endDate', 'classification']) {
+                if (!isOptionalText(data.meta[k])) errors.push(`Metadata "${k}" must be text.`);
+            }
+        }
+        if (data.watermark !== undefined && !isObject(data.watermark)) errors.push('Its watermark settings are invalid.');
+        return errors;
+    }
+
+    // Brings an older payload up to the current format. Never mutates its input.
+    function migrateReportPayload(data) {
+        const d = { ...data };
+        const tpl = document.createElement('template');
+        tpl.innerHTML = d.blocksHtml;
+
+        if (!d.schemaVersion || d.schemaVersion < 2) {
+            // v1 kept metadata only as attributes, which were set only if the user had touched the field.
+            if (!d.meta) {
+                const start = tpl.content.querySelector('#meta-start-date');
+                const end = tpl.content.querySelector('#meta-end-date');
+                const selected = [...tpl.content.querySelectorAll('#meta-classification option[selected]')].map(o => o.value).filter(Boolean);
+                const bg = tpl.content.querySelector('#toggleMetaBg');
+                d.meta = {
+                    startDate: (start && start.getAttribute('value')) || '',
+                    endDate: (end && end.getAttribute('value')) || '',
+                    classification: selected.length ? selected[selected.length - 1] : '',
+                    showMetaBackground: bg ? bg.hasAttribute('checked') : true,
+                };
+            }
+            if (d.actionPlannersGloballyVisible === undefined) {
+                d.actionPlannersGloballyVisible = d.findings.some(f => f && f.showPlanner === true);
+            }
+            d.schemaVersion = 2;
+        }
+
+        // Files saved after the Findings Summary section was deleted (possible before BUG-011 was
+        // fixed) have no risk matrix; put the standard block back in front of the first findings section.
+        if (!tpl.content.querySelector('#matrix') && PRISTINE_SUMMARY_BLOCK_HTML) {
+            const firstDetails = tpl.content.querySelector('.details-block');
+            firstDetails.insertAdjacentHTML('beforebegin', PRISTINE_SUMMARY_BLOCK_HTML);
+            d.blocksHtml = tpl.innerHTML;
+        }
+        return d;
+    }
+
+    // Captured once at startup, before any import can replace the report container.
+    let PRISTINE_SUMMARY_BLOCK_HTML = '';
 
     // Shared by Export Report (writes it to a .json file) and autosave (writes it to localStorage
     // for crash recovery) — both need the exact same snapshot of report state.
@@ -2890,7 +3000,17 @@
             mode: (document.querySelector('input[name="watermarkMode"]:checked') || {}).value || 'classification',
             customText: document.getElementById('watermarkCustomText').value
         };
-        return { findings, currentLogo, blocksHtml, tocEnabled, brandPrimary, brandAccent, brandHeadline, companyName, clientName, contactName, contactEmail, classifications, watermark, assessmentType: currentAssessmentType };
+        // Form values are stored explicitly (BUG-002): the HTML attributes inside blocksHtml only
+        // reflect fields the user changed by hand this session, not values restored at startup.
+        const classSelect = document.getElementById('meta-classification');
+        const metaBg = document.getElementById('toggleMetaBg');
+        const meta = {
+            startDate: (document.getElementById('meta-start-date') || {}).value || '',
+            endDate: (document.getElementById('meta-end-date') || {}).value || '',
+            classification: classSelect ? classSelect.value : '',
+            showMetaBackground: metaBg ? metaBg.checked : true,
+        };
+        return { schemaVersion: REPORT_SCHEMA_VERSION, findings, currentLogo, blocksHtml, tocEnabled, brandPrimary, brandAccent, brandHeadline, companyName, clientName, contactName, contactEmail, classifications, watermark, assessmentType: currentAssessmentType, meta, actionPlannersGloballyVisible };
     }
 
     // Shared by Import Report (loads a .json file) and autosave restore (loads the localStorage
@@ -2898,29 +3018,72 @@
     // caller can show its own contextual error message. `markSaved` controls whether this payload
     // counts as "saved" afterward: true for an explicit file import (its own file is now the saved
     // copy), false for an autosave restore (the whole point is that draft was never exported).
+    //
+    // All-or-nothing (BUG-003): an invalid payload throws ReportValidationError before anything is
+    // touched, and if applying a valid one still fails halfway, the previous report is put back.
     function applyReportPayload(data, { markSaved } = { markSaved: true }) {
-        findings = data.findings || [];
+        const errors = validateReportPayload(data);
+        if (errors.length) throw new ReportValidationError(errors);
+        const migrated = migrateReportPayload(data);
+
+        const backup = buildReportPayload();
+        const backupHadUnsavedChanges = hasUnsavedChanges;
+        try {
+            applyValidatedReportPayload(migrated, { markSaved });
+        } catch (err) {
+            try {
+                applyValidatedReportPayload(backup, { markSaved: !backupHadUnsavedChanges });
+            } catch (rollbackErr) {
+                console.error('Rolling back a failed import also failed', rollbackErr);
+            }
+            throw err;
+        }
+    }
+
+    function setSelectValuePersistently(select, value) {
+        select.value = value;
+        Array.from(select.options).forEach(opt => {
+            if (opt.value === select.value) opt.setAttribute('selected', 'selected');
+            else opt.removeAttribute('selected');
+        });
+    }
+
+    function applyValidatedReportPayload(data, { markSaved }) {
+        findings = data.findings;
         // Repair token damage left by older versions of this app (BUG-001) in the finding data itself,
         // not just in the rendered cards, so the next export is clean too.
-        if (Array.isArray(findings)) {
-            findings.forEach(f => {
-                if (!f || typeof f !== 'object') return;
-                f.description = normalizeTokensInHtml(f.description);
-                f.remediation = normalizeTokensInHtml(f.remediation);
-            });
-        }
+        findings.forEach(f => {
+            f.description = normalizeTokensInHtml(f.description);
+            f.remediation = normalizeTokensInHtml(f.remediation);
+        });
         currentLogo = data.currentLogo || "";
-        if (data.blocksHtml) document.getElementById('reportBlocksContainer').innerHTML = data.blocksHtml;
+        actionPlannersGloballyVisible = !!data.actionPlannersGloballyVisible;
+        updateActionPlannerToggleIcon();
+        document.getElementById('reportBlocksContainer').innerHTML = data.blocksHtml;
         document.querySelectorAll('#reportBlocksContainer .editable-section').forEach(el => convertLiteralTokensToSpans(el));
         renderLogo(); createMatrix(); renderAll(); setupDragAndDrop(); setupStateLockListeners();
 
+        if (Array.isArray(data.classifications) && data.classifications.length > 0) {
+            classifications = data.classifications.slice();
+        }
+        const meta = data.meta || {};
+        if (meta.classification && !classifications.includes(meta.classification)) {
+            classifications.push(meta.classification); // keep a classification the file uses even if its list lacks it
+        }
+        renderClassificationSelect();
+
         const startEl = document.getElementById('meta-start-date');
         const endEl = document.getElementById('meta-end-date');
-        if (startEl && startEl.getAttribute('value')) startEl.value = startEl.getAttribute('value');
-        if (endEl && endEl.getAttribute('value')) endEl.value = endEl.getAttribute('value');
+        if (startEl) { startEl.value = meta.startDate || ''; startEl.setAttribute('value', startEl.value); }
+        if (endEl) { endEl.value = meta.endDate || ''; endEl.setAttribute('value', endEl.value); }
+        const classSelect = document.getElementById('meta-classification');
+        if (classSelect) setSelectValuePersistently(classSelect, meta.classification || '');
 
         const check = document.getElementById('toggleMetaBg');
-        if (check) toggleMetadataBackground(check);
+        if (check) {
+            check.checked = meta.showMetaBackground !== false;
+            toggleMetadataBackground(check);
+        }
 
         const tocCheck = document.getElementById('toggleTOC');
         if (tocCheck) { tocCheck.checked = !!data.tocEnabled; toggleTOC(tocCheck); }
@@ -2935,11 +3098,6 @@
         document.getElementById('input-contact-name').value = data.contactName || '';
         document.getElementById('input-contact-email').value = data.contactEmail || '';
         syncTokens();
-
-        if (Array.isArray(data.classifications) && data.classifications.length > 0) {
-            classifications = data.classifications;
-        }
-        renderClassificationSelect();
 
         const wm = data.watermark || {};
         document.getElementById('watermarkEnabled').checked = !!wm.enabled;
@@ -2982,7 +3140,10 @@
             try {
                 applyReportPayload(data, { markSaved: true });
             } catch (err) {
-                await showAlert("Import failed: the file's structure could not be applied to the report.");
+                const details = err instanceof ReportValidationError
+                    ? '\n\n• ' + err.errors.slice(0, 8).join('\n• ') + (err.errors.length > 8 ? `\n• …and ${err.errors.length - 8} more` : '')
+                    : '';
+                await showAlert("Import failed: this file isn't a report this app can open. Your current report has not been changed." + details);
             } finally {
                 input.value = '';
             }
