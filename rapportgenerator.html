@@ -3,9 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- SEC-005: defense in depth behind the HTML sanitizer. Even if injected markup ever ran, it could
+         not send report data anywhere: no requests or images to other origins, no frames, no plugins.
+         'unsafe-inline' scripts are still needed for the inline on* handlers (see ARCH-001). -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net data:; img-src 'self' data: blob:; connect-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
     <title>Professional Security Assessment Reporter</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <!-- PERF-008 / SEC-004: local copies first (works offline, no CDN at run time); if the vendor/
+         folder isn't there (e.g. only this HTML file was copied), fall back to the same files on
+         jsDelivr. The integrity hash is checked on both paths. See vendor/README.md. -->
+    <link rel="stylesheet" href="vendor/bootstrap-5.3.0/bootstrap.min.css"
+          integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous"
+          onerror="this.onerror=null; this.href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css';">
+    <link rel="stylesheet" href="vendor/bootstrap-icons-1.11.3/bootstrap-icons.min.css"
+          integrity="sha384-XGjxtQfXaH2tnPFa9x+ruJTuLE3Aa6LhHSWRr1XeTyhezb4abCG4ccI5AkVDxqC+" crossorigin="anonymous"
+          onerror="this.onerror=null; this.href='https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css';">
     <style>
         :root { --primary: #2c3e50; --accent: #3498db; --bg: #f4f7f6; --headline-color: #333333; }
 
@@ -105,7 +116,11 @@
         /* Library Result List */
         #libraryResults { max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 6px; background: #fff; }
         .library-item { cursor: pointer; padding: 8px 12px; border-bottom: 1px solid #f1f1f1; transition: background 0.2s; font-size: 0.85rem; text-align: left; width: 100%; background: none; border: none; display: block; }
-        .library-item:hover { background-color: #e9f5ff; color: var(--accent); }
+        .library-item:hover, .library-item.active { background-color: #e9f5ff; color: var(--accent); }
+        .library-item.active { box-shadow: inset 3px 0 0 var(--accent); }
+        .library-item mark { padding: 0 1px; background: #fff3a6; color: inherit; }
+        .asset-badge .badge-del { background: none; border: none; line-height: 1; }
+        .asset-entry-input { width: 260px; max-width: 100%; height: 26px; font-size: 0.78rem; margin: 2px 4px; }
 
         /* Report Paper Layout Grid */
         .report-paper { background: white; box-shadow: 0 0 30px rgba(0,0,0,0.1); min-height: 29.7cm; padding: 2.2cm; margin: 30px auto; max-width: 950px; border-radius: 2px; position: relative; }
@@ -148,6 +163,34 @@
 
         /* Editable Areas and Buffer Target Space Padding Adjustments */
         .editable-section { border: 1px dashed transparent; transition: 0.2s; padding: 6px 20px 6px 8px; border-radius: 6px; min-height: 1.2em; white-space: pre-wrap; }
+        .finding-number { padding: 6px 0 6px 8px; white-space: nowrap; }
+        /* Evidence figures (FEAT-005): numbered automatically in document order, renumbered as they move. */
+        #printableReport { counter-reset: report-figure; }
+        .editable-section figure { margin: 14px 0; counter-increment: report-figure; break-inside: avoid; page-break-inside: avoid; }
+        .editable-section figure img { margin: 0 auto 6px; }
+        .editable-section figcaption { font-size: 0.82rem; color: #555; text-align: center; }
+        .editable-section figcaption::before { content: "Figure " counter(report-figure) ": "; font-weight: 600; color: #333; }
+        #imageSelectionOutline { position: absolute; display: none; border: 2px solid var(--accent); border-radius: 9px; pointer-events: none; z-index: 1400; }
+        .redact-box { max-width: 900px; }
+        .redact-stage { background: #f1f3f5; border-radius: 8px; padding: 8px; text-align: center; margin-bottom: 12px; }
+        #redactCanvas { max-width: 100%; max-height: 60vh; cursor: crosshair; touch-action: none; }
+        .app-toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); background: #212529; color: #fff; padding: 10px 16px; border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,0.25); font-size: 0.85rem; z-index: 7000; opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; display: flex; align-items: center; max-width: calc(100vw - 32px); }
+        .app-toast.visible { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+        .app-toast .btn-link { color: #8ec5ff; font-weight: 600; text-decoration: none; }
+        .icon-btn:disabled { opacity: 0.35; cursor: default; background: none; border-color: transparent; }
+        .findings-toolbar { display: flex; justify-content: flex-end; margin: 0 0 6px; }
+        .retest-original { font-size: 0.8rem; margin-top: 6px; }
+        .retest-totals { font-size: 0.85rem; margin: 6px 0 8px; }
+        .retest-table { font-size: 0.8rem; }
+        .retest-table td, .retest-table th { vertical-align: middle; }
+        .retest-table .crit-badge, .retest-table .status-badge { font-size: 0.68rem; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .retest-table tr { break-inside: avoid; page-break-inside: avoid; }
+        ::highlight(find-match) { background-color: #ffe066; color: inherit; }
+        .save-status { font-size: 0.72rem; line-height: 1.3; padding-left: 2px; }
+        .save-status.is-clean { color: #6c757d; }
+        .save-status.is-dirty { color: #8a6d00; }
+        .save-status.is-error { color: #b02a37; font-weight: 600; }
+        .finding-title { padding-left: 6px; }
         .editable-section:hover { border-color: var(--accent); background: #f0f9ff; cursor: text; }
         .editable-section:focus { outline: none; border-color: var(--accent); background: #f0f9ff; }
         .editable-section img { max-width: 100%; height: auto; border-radius: 6px; border: 1px solid #ddd; margin: 12px auto; display: block; }
@@ -295,6 +338,27 @@
 
         .print-score-text { display: none; }
 
+        /* UI-006: phones (tablets and up keep the desktop layout, which already fits at 768px).
+           Screen only: print output is unchanged. */
+        @media screen and (max-width: 767.98px) {
+            /* print-sized margins (2.2cm) left ~220px for text on a phone */
+            .report-paper { padding: 20px 14px; margin: 64px 0 24px; min-height: 0; border-radius: 0; box-shadow: none; }
+            h1 { font-size: clamp(1.35rem, 7.2vw, 2.1rem); }
+            h1, h2, h3 { overflow-wrap: break-word; }
+            /* the section control rail sat outside the paper's left edge, i.e. off-screen */
+            .block-controls { position: static; flex-direction: row; justify-content: flex-end; opacity: 1; margin-bottom: 2px; }
+            .report-block { padding: 6px 4px; }
+            .vuln-drag-handle { display: none; }     /* HTML drag-and-drop doesn't work with touch; the ↑/↓ buttons do */
+            .vuln-card .d-flex { flex-wrap: wrap; row-gap: 6px; }
+            .vuln-card input[style*="min-width"] { min-width: 0 !important; width: 100% !important; }
+            .matrix-wrapper { width: 100%; max-width: 340px; padding-left: 32px; }
+            .risk-matrix td { height: 44px; }
+            .editor-toolbar { flex-wrap: wrap; max-width: calc(100vw - 16px); }
+            /* the sidebar opens as a full-screen panel instead of pushing the report off-screen */
+            body:not(.sidebar-collapsed) .sidebar { position: fixed; inset: 0; width: 100%; max-width: 100%; height: 100%; z-index: 2500; }
+            .app-modal-overlay { padding: 8px; }
+        }
+
         @media print {
             .no-print, .editor-toolbar, .block-controls, .vuln-drag-handle, .color-tray { display: none !important; }
 
@@ -415,6 +479,7 @@
                 <button class="icon-btn" onclick="openAddSectionModal()" data-tooltip="Add a custom text section, or another Detailed Findings section, to the report" aria-label="Add New Section"><i class="bi bi-file-earmark-plus"></i></button>
                 <button class="icon-btn" onclick="openAddFindingModal()" data-tooltip="Pick a template from your library, or fill in the fields manually, then append it to the report" aria-label="Add New Finding"><i class="bi bi-bug"></i></button>
                 <button class="icon-btn" id="omitPlannersIcon" onclick="toggleAllActionPlanners()" data-tooltip="Show the Remediation Action Planner on every finding" aria-label="Toggle All Action Planners"><i class="bi bi-clipboard-check"></i></button>
+                <button class="icon-btn" id="undoBtn" onclick="undoLastChange()" data-tooltip="Nothing to undo" aria-label="Nothing to undo" disabled><i class="bi bi-arrow-counterclockwise"></i></button>
                 <button class="icon-btn" onclick="openFindReplace()" data-tooltip="Search and replace text across the entire report" aria-label="Find & Replace"><i class="bi bi-search"></i></button>
                 <button class="icon-btn" onclick="handlePrint()" data-tooltip="Open the browser print dialog to export this report as a PDF" aria-label="Print / Export PDF"><i class="bi bi-printer"></i></button>
             </div>
@@ -447,6 +512,9 @@
                     <button class="btn btn-outline-dark btn-sm" onclick="document.getElementById('importReportFile').click()" data-tooltip="Load a previously exported report JSON file, replacing everything in the editor"><i class="bi bi-upload"></i> Import Report</button>
                 </div>
                 <button class="btn btn-outline-danger btn-sm" onclick="startNewReport()" data-tooltip="Wipe findings, section text, the logo, and all remembered profile details (client, company, contact, dates, classification) — starts completely blank"><i class="bi bi-file-earmark"></i> New Report</button>
+                <div id="saveStatus" class="save-status is-clean" role="status" aria-live="polite">No unsaved changes</div>
+                <button id="retestStartBtn" class="btn btn-outline-secondary btn-sm mt-1" onclick="startRetest()" data-tooltip="Record each finding's current severity and status as the original result, and add a Retest Summary section"><i class="bi bi-arrow-repeat"></i> Start Retest</button>
+                <div id="retestStatus" class="save-status is-clean" style="display:none"></div>
             </div>
             <input type="file" id="importReportFile" class="d-none" onchange="importReportJson(this)">
 
@@ -609,7 +677,8 @@
                 <button class="btn btn-sm btn-light border" onmousedown="event.preventDefault(); toggleColorTray();" title="Text Color"><i class="bi bi-palette"></i></button>
                 <div class="vr mx-1"></div>
 
-                <button class="btn btn-sm btn-light border" onmousedown="event.preventDefault(); document.getElementById('toolbarImageInput').click();" title="Insert Image Box"><i class="bi bi-image"></i></button>
+                <button class="btn btn-sm btn-light border" onmousedown="event.preventDefault(); document.getElementById('toolbarImageInput').click();" title="Insert image (or paste a screenshot with Ctrl/Cmd+V)"><i class="bi bi-image"></i></button>
+                <button class="btn btn-sm btn-light border" onmousedown="event.preventDefault(); openRedactModal();" title="Redact the selected image (click an image first)"><i class="bi bi-eraser-fill"></i></button>
                 <div class="vr mx-1"></div>
 
                 <button class="btn btn-sm btn-light border" onmousedown="event.preventDefault(); formatDoc('insertUnorderedList')" title="Bullet List"><i class="bi bi-list-ul"></i></button>
@@ -912,8 +981,25 @@
 </div>
 
 <!-- Generic Confirm/Alert Modal (replaces native confirm()/alert()) -->
+<div id="imageSelectionOutline" class="no-print" aria-hidden="true"></div>
+<div id="appToast" class="app-toast no-print" role="status" aria-live="polite"><span id="appToastText"></span><button id="appToastUndo" type="button" class="btn btn-sm btn-link p-0 ms-3">Undo</button></div>
+
+<div id="redactModalOverlay" class="app-modal-overlay no-print">
+    <div class="app-modal-box app-modal-wide redact-box" role="dialog" aria-modal="true" aria-labelledby="redactTitle">
+        <h5 id="redactTitle" class="mb-1">Redact image</h5>
+        <p class="small text-muted mb-2">Drag over passwords, tokens or personal data to cover them with black boxes. <strong>Apply</strong> burns the boxes into the image, so the covered content can't be recovered from the report or its exports.</p>
+        <div class="redact-stage"><canvas id="redactCanvas" aria-label="Image being redacted. Drag to draw a black box."></canvas></div>
+        <div class="app-modal-actions align-items-center">
+            <span id="redactBoxCount" class="small text-muted me-auto">0 boxes</span>
+            <button class="btn btn-sm btn-outline-secondary" onclick="undoRedactBox()"><i class="bi bi-arrow-counterclockwise"></i> Undo box</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="closeRedactModal()">Cancel</button>
+            <button id="redactApplyBtn" class="btn btn-sm btn-dark" onclick="applyRedaction()">Apply redaction</button>
+        </div>
+    </div>
+</div>
+
 <div id="appModalOverlay" class="app-modal-overlay no-print">
-    <div class="app-modal-box" role="alertdialog" aria-modal="true">
+    <div class="app-modal-box" role="alertdialog" aria-modal="true" aria-describedby="appModalMessage">
         <div id="appModalMessage" class="app-modal-message"></div>
         <div class="app-modal-actions">
             <button id="appModalCancelBtn" class="btn btn-sm btn-outline-dark" onclick="resolveAppModal(false)">Cancel</button>
@@ -924,25 +1010,26 @@
 
 <!-- Find & Replace Modal -->
 <div id="findReplaceOverlay" class="app-modal-overlay no-print">
-    <div class="app-modal-box" role="dialog" aria-modal="true">
-        <h5 class="mb-3">Find &amp; Replace</h5>
-        <input type="text" id="frFindInput" class="form-control form-control-sm mb-2" placeholder="Find...">
+    <div class="app-modal-box" role="dialog" aria-modal="true" aria-labelledby="findReplaceTitle">
+        <h5 class="mb-3" id="findReplaceTitle">Find &amp; Replace</h5>
+        <input type="text" id="frFindInput" class="form-control form-control-sm mb-2" placeholder="Find..." oninput="updateFindReplacePreview()" autocomplete="off">
         <input type="text" id="frReplaceInput" class="form-control form-control-sm mb-2" placeholder="Replace with...">
+        <div id="frPreview" class="small text-muted mb-2" aria-live="polite"></div>
         <div class="form-check mb-3">
-            <input class="form-check-input" type="checkbox" id="frCaseSensitive">
+            <input class="form-check-input" type="checkbox" id="frCaseSensitive" onchange="updateFindReplacePreview()">
             <label class="form-check-label small text-secondary" for="frCaseSensitive">Case sensitive</label>
         </div>
         <div class="app-modal-actions">
             <button class="btn btn-sm btn-outline-dark" onclick="closeFindReplace()">Cancel</button>
-            <button class="btn btn-sm btn-primary" onclick="runFindReplace()">Replace All</button>
+            <button class="btn btn-sm btn-primary" id="frReplaceBtn" onclick="runFindReplace()" disabled>Replace All</button>
         </div>
     </div>
 </div>
 
 <!-- Add New Section Modal -->
 <div id="addSectionModalOverlay" class="app-modal-overlay no-print">
-    <div class="app-modal-box" role="dialog" aria-modal="true">
-        <h5 class="mb-3"><i class="bi bi-file-earmark-plus"></i> Add New Section</h5>
+    <div class="app-modal-box" role="dialog" aria-modal="true" aria-labelledby="addSectionTitle">
+        <h5 class="mb-3" id="addSectionTitle"><i class="bi bi-file-earmark-plus"></i> Add New Section</h5>
         <div class="mb-3">
             <input type="text" id="newHeadline" class="form-control form-control-sm mb-2" placeholder="Headline Name">
             <button class="btn btn-dark btn-sm w-100" onclick="addNewSection()" data-tooltip="Adds a new heading + free-text block, placed just before the Conclusion">+ Add Text Section</button>
@@ -960,10 +1047,10 @@
 
 <!-- Add New Finding Modal -->
 <div id="addFindingModalOverlay" class="app-modal-overlay no-print">
-    <div class="app-modal-box app-modal-wide" role="dialog" aria-modal="true">
-        <h5 class="mb-3"><i class="bi bi-bug"></i> Add New Finding</h5>
+    <div class="app-modal-box app-modal-wide" role="dialog" aria-modal="true" aria-labelledby="addFindingTitle">
+        <h5 class="mb-3" id="addFindingTitle"><i class="bi bi-bug"></i> Add New Finding</h5>
         <div class="mb-3">
-            <input type="text" id="librarySearch" class="form-control form-control-sm mb-2" placeholder="Search templates..." oninput="filterLibrary()">
+            <input type="text" id="librarySearch" class="form-control form-control-sm mb-2" placeholder="Search title, CWE, category or text… (↑ ↓ to pick, Enter to load)" oninput="filterLibrary()" role="combobox" aria-controls="libraryResults" aria-expanded="true" aria-autocomplete="list" autocomplete="off">
 
             <select id="libraryCategoryFilter" class="form-select form-select-sm mb-2" onchange="filterLibrary()">
                 <option value="">All Categories</option>
@@ -999,7 +1086,8 @@
                 <option value="IAM">IAM</option>
             </select>
 
-            <div id="libraryResults" class="mb-3"></div>
+            <div id="libraryResultCount" class="small text-muted mb-1" aria-live="polite"></div>
+            <div id="libraryResults" class="mb-3" role="listbox" aria-label="Finding templates"></div>
         </div>
 
         <div class="mb-3">
@@ -1028,10 +1116,14 @@
         <input type="text" id="vCWE" class="form-control mb-2" placeholder="CWE ID (e.g. CWE-89)">
 
         <!-- Asset Tag Mapping Form Selector -->
-        <input type="text" id="vAssets" class="form-control mb-2" placeholder="Affected Assets (split with commas)">
+        <input type="text" id="vAssets" class="form-control mb-2" placeholder="Affected assets (separate with commas or semicolons, or paste a list)">
 
         <textarea id="vDesc" class="form-control mb-2" rows="2" placeholder="General Vulnerability Description"></textarea>
         <textarea id="vRem" class="form-control mb-2" rows="2" placeholder="Remediation" oninput="lastLoadedRemediation = null;"></textarea>
+        <div class="target-section-row d-flex align-items-center gap-2 mb-2">
+            <label for="vTargetSection" class="form-label small fw-bold mb-0 text-nowrap">Add to section</label>
+            <select id="vTargetSection" class="form-select form-select-sm"></select>
+        </div>
         <button class="btn btn-success w-100 shadow-sm mb-2" onclick="addFinding()">Append to Report</button>
         <button class="btn btn-outline-success w-100 shadow-sm mb-3" onclick="saveAsLibraryTemplate()" data-tooltip="Saves the fields above as a reusable template in your library, instead of (or as well as) appending to the report"><i class="bi bi-save"></i> Save as Library Template</button>
 
@@ -1051,7 +1143,11 @@
     let actionPlannersGloballyVisible = false;
     let hasUnsavedChanges = false;
 
-    function markUnsaved() { hasUnsavedChanges = true; }
+    function markUnsaved() {
+        hasUnsavedChanges = true;
+        scheduleAutosave();
+        updateSaveStatus();
+    }
 
     // Announces structural changes (finding/section added, removed, reordered, etc.) to screen
     // readers via the visually-hidden #srAnnouncer aria-live region — these actions have no other
@@ -1072,6 +1168,10 @@
         { value: 'False Positive', cls: 'status-falsepositive' }
     ];
 
+    // Findings with these statuses stay in the report but are left out of the risk matrix and the
+    // executive severity counts (BUG-007). Add 'Remediated' here to report only outstanding risk.
+    const STATUSES_EXCLUDED_FROM_RISK_TOTALS = new Set(['False Positive']);
+
     function escapeHtml(str) {
         return String(str)
             .replaceAll('&', '&amp;')
@@ -1085,18 +1185,78 @@
     // showConfirm() resolves true/false; showAlert() resolves once the user dismisses it.
     let appModalResolver = null;
 
+    // ---- Dialog behavior (UI-001) ------------------------------------------------------------------
+    // Every dialog opens/closes through openModal()/closeModal(): Escape cancels the top-most dialog,
+    // Tab/Shift+Tab stay inside it, and focus returns to whatever opened it. A stack, because a
+    // confirm can open on top of another dialog (e.g. overwriting the Add Finding form).
+    const MODAL_CANCEL_ACTIONS = {
+        appModalOverlay: () => resolveAppModal(false),
+        findReplaceOverlay: () => closeFindReplace(),
+        addSectionModalOverlay: () => closeAddSectionModal(),
+        addFindingModalOverlay: () => closeAddFindingModal(),
+        redactModalOverlay: () => closeRedactModal(),
+    };
+    const openModalStack = [];
+
+    function focusableElementsIn(root) {
+        return [...root.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+            .filter(el => !el.disabled && el.getClientRects().length > 0);
+    }
+
+    function openModal(overlayId, focusTarget) {
+        const overlay = document.getElementById(overlayId);
+        if (!openModalStack.some(m => m.overlay === overlay)) {
+            openModalStack.push({ overlay, returnFocus: document.activeElement });
+        }
+        overlay.style.display = 'flex';
+        const target = focusTarget || focusableElementsIn(overlay)[0];
+        if (target) target.focus();
+    }
+
+    function closeModal(overlayId) {
+        const overlay = document.getElementById(overlayId);
+        overlay.style.display = 'none';
+        const i = openModalStack.findIndex(m => m.overlay === overlay);
+        if (i < 0) return;
+        const [{ returnFocus }] = openModalStack.splice(i, 1);
+        if (returnFocus && returnFocus.isConnected && typeof returnFocus.focus === 'function' && returnFocus !== document.body) {
+            returnFocus.focus({ preventScroll: true });
+        }
+    }
+
+    function setupModalKeyboard() {
+        document.addEventListener('keydown', (e) => {
+            const top = openModalStack[openModalStack.length - 1];
+            if (!top) return;
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                (MODAL_CANCEL_ACTIONS[top.overlay.id] || (() => closeModal(top.overlay.id)))();
+            } else if (e.key === 'Tab') {
+                const items = focusableElementsIn(top.overlay);
+                if (!items.length) { e.preventDefault(); return; }
+                const first = items[0], last = items[items.length - 1];
+                if (!top.overlay.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+                else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+                else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+            } else if (e.key === 'Enter' && e.target.matches && e.target.matches('input[type="text"]')) {
+                if (top.overlay.id === 'findReplaceOverlay') { e.preventDefault(); runFindReplace(); }
+                else if (e.target.id === 'newHeadline') { e.preventDefault(); addNewSection(); }
+            }
+        }, true);
+    }
+
     function showAppModal(message, showCancel) {
         return new Promise((resolve) => {
             appModalResolver = resolve;
             document.getElementById('appModalMessage').innerText = message;
             document.getElementById('appModalCancelBtn').style.display = showCancel ? 'inline-block' : 'none';
-            document.getElementById('appModalOverlay').style.display = 'flex';
-            document.getElementById('appModalOkBtn').focus();
+            openModal('appModalOverlay', document.getElementById('appModalOkBtn'));
         });
     }
 
     function resolveAppModal(result) {
-        document.getElementById('appModalOverlay').style.display = 'none';
+        closeModal('appModalOverlay');
         if (appModalResolver) { const r = appModalResolver; appModalResolver = null; r(result); }
     }
 
@@ -1118,7 +1278,22 @@
     // Loads a local image file (settings.json's logo path, or an auto-detected logo.png/jpg) and
     // converts it to a base64 data URL via canvas, so it round-trips through report JSON export
     // the same way an uploaded logo does. Resolves null if the file doesn't exist or can't load.
-    function loadImageAsDataUrl(path) {
+    // PERF-006: read the file's own bytes (a logo.jpg stays a JPEG) instead of redrawing it on a
+    // canvas, which re-encoded everything as PNG — often several times larger. The canvas route
+    // remains as a fallback for when fetch() isn't allowed (file://).
+    async function loadImageAsDataUrl(path) {
+        try {
+            const res = await fetch(path);
+            if (!res.ok) return null;                              // no such file
+            const blob = await res.blob();
+            if (blob.type.startsWith('image/')) return await readBlobAsDataUrl(blob);
+            return null;
+        } catch (err) {
+            return loadImageAsDataUrlViaCanvas(path);
+        }
+    }
+
+    function loadImageAsDataUrlViaCanvas(path) {
         return new Promise((resolve) => {
             const img = new Image();
             img.onload = () => {
@@ -1188,9 +1363,11 @@
             select.value = currentAssessmentType;
             return;
         }
+        recordUndoPoint('Switch assessment type');
         applyAssessmentTemplate(nextKey);
         markUnsaved();
         renderChecklist();
+        showToast(`Section text switched to "${(reportTemplates[nextKey] || {}).label || nextKey}".`, { undo: true });
     }
 
     async function loadReportDefaults() {
@@ -1250,50 +1427,165 @@
 
     // Crash/tab-close recovery: findings, section text, the logo, branding, etc. only ever live in
     // page memory until an explicit Export Report, so closing the tab or a browser crash before that
-    // would otherwise lose everything since the last export. Periodically snapshot the same payload
-    // Export Report would produce into localStorage (buildReportPayload/applyReportPayload — defined
-    // further down, alongside exportReportJson/importReportJson which share them — are plain function
-    // declarations, so they're hoisted and safe to call from here) so it can be offered back on the
-    // next visit. Only fires while hasUnsavedChanges is true, so a pristine or already-exported report
-    // isn't needlessly rewritten to storage every tick.
-    const AUTOSAVE_KEY = 'rapportgen:autosave';
+    // would otherwise lose everything since the last export. The same payload Export Report builds is
+    // snapshotted as a draft and offered back on the next visit.
+    //
+    // Drafts live in IndexedDB (BUG-005): localStorage's ~5 MB quota was exceeded by a few screenshots,
+    // and the failure was silent. localStorage is only a fallback where IndexedDB is unavailable.
+    // A save runs ~2 s after the last change, every 20 s while there are unsaved changes, and when the
+    // tab is hidden or closed (visibilitychange/pagehide are where browsers let the write finish).
+    // All writes and deletes go through one queue, so an export's "clear the draft" can never be
+    // overtaken by an older save still in flight (BUG-004).
+    const AUTOSAVE_KEY = 'rapportgen:autosave';           // localStorage location (fallback, and where old versions saved)
+    const AUTOSAVE_DB = 'rapportgen';
+    const AUTOSAVE_STORE = 'drafts';
+    const AUTOSAVE_RECORD = 'autosave';
     const AUTOSAVE_INTERVAL_MS = 20000;
+    const AUTOSAVE_IDLE_MS = 2000;
+
+    const saveStatus = { autosavedAt: null, exportedAt: null, autosaveFailed: false };
+    let autosaveIdleTimer = null;
+    let autosaveQueue = Promise.resolve();
+    let autosaveDbPromise = null;
+
+    function openAutosaveDb() {
+        if (!autosaveDbPromise) {
+            autosaveDbPromise = new Promise((resolve, reject) => {
+                if (!window.indexedDB) { reject(new Error('IndexedDB unavailable')); return; }
+                const req = indexedDB.open(AUTOSAVE_DB, 1);
+                req.onupgradeneeded = () => req.result.createObjectStore(AUTOSAVE_STORE);
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+                req.onblocked = () => reject(new Error('IndexedDB open blocked'));
+            });
+            autosaveDbPromise.catch(() => { autosaveDbPromise = null; }); // allow a retry next time
+        }
+        return autosaveDbPromise;
+    }
+
+    async function draftStore(mode, operation) {
+        const db = await openAutosaveDb();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(AUTOSAVE_STORE, mode);
+            const req = operation(tx.objectStore(AUTOSAVE_STORE));
+            let result;
+            req.onsuccess = () => { result = req.result; };
+            tx.oncomplete = () => resolve(result);
+            tx.onerror = () => reject(tx.error || req.error);
+            tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
+        });
+    }
+
+    function enqueueDraftOperation(operation) {
+        autosaveQueue = autosaveQueue.then(operation, operation);
+        return autosaveQueue;
+    }
+
+    function scheduleAutosave() {
+        clearTimeout(autosaveIdleTimer);
+        autosaveIdleTimer = setTimeout(autosaveReport, AUTOSAVE_IDLE_MS);
+    }
 
     function autosaveReport() {
-        try {
-            localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ savedAt: Date.now(), data: buildReportPayload() }));
-        } catch (err) { /* localStorage unavailable (private mode, quota, etc.) — this tick's autosave is skipped */ }
+        clearTimeout(autosaveIdleTimer);
+        autosaveIdleTimer = null;
+        return enqueueDraftOperation(async () => {
+            if (!hasUnsavedChanges) return; // exported/imported since this save was requested
+            const snapshot = { savedAt: Date.now(), data: buildReportPayload() };
+            try {
+                await draftStore('readwrite', store => store.put(snapshot, AUTOSAVE_RECORD));
+                try { localStorage.removeItem(AUTOSAVE_KEY); } catch (err) { /* nothing to clean up */ }
+                saveStatus.autosaveFailed = false;
+                saveStatus.autosavedAt = snapshot.savedAt;
+            } catch (idbErr) {
+                try {
+                    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(snapshot));
+                    saveStatus.autosaveFailed = false;
+                    saveStatus.autosavedAt = snapshot.savedAt;
+                } catch (lsErr) {
+                    // Neither store took it. Don't leave an older, smaller draft behind to be restored
+                    // later as if it were current — and tell the user (status line turns red).
+                    saveStatus.autosaveFailed = true;
+                    try { localStorage.removeItem(AUTOSAVE_KEY); } catch (err) { /* ignore */ }
+                    try { await draftStore('readwrite', store => store.delete(AUTOSAVE_RECORD)); } catch (err) { /* ignore */ }
+                    console.error('Autosave failed', idbErr, lsErr);
+                }
+            }
+            updateSaveStatus();
+        });
     }
 
     function clearAutosave() {
-        try { localStorage.removeItem(AUTOSAVE_KEY); } catch (err) { /* nothing to clear */ }
+        clearTimeout(autosaveIdleTimer);
+        autosaveIdleTimer = null;
+        return enqueueDraftOperation(async () => {
+            try { localStorage.removeItem(AUTOSAVE_KEY); } catch (err) { /* nothing to clear */ }
+            try { await draftStore('readwrite', store => store.delete(AUTOSAVE_RECORD)); } catch (err) { /* nothing to clear */ }
+            saveStatus.autosavedAt = null;
+            saveStatus.autosaveFailed = false;
+            updateSaveStatus();
+        });
+    }
+
+    async function loadAutosaveSnapshot() {
+        try {
+            const snapshot = await draftStore('readonly', store => store.get(AUTOSAVE_RECORD));
+            if (snapshot && snapshot.data) return snapshot;
+        } catch (err) { /* fall through to localStorage */ }
+        try {
+            const raw = localStorage.getItem(AUTOSAVE_KEY);   // fallback store, or a draft from an older version
+            const snapshot = raw ? JSON.parse(raw) : null;
+            if (snapshot && snapshot.data) return snapshot;
+        } catch (err) { /* unreadable */ }
+        return null;
     }
 
     function setupAutosave() {
         setInterval(() => { if (hasUnsavedChanges) autosaveReport(); }, AUTOSAVE_INTERVAL_MS);
-        window.addEventListener('beforeunload', () => { if (hasUnsavedChanges) autosaveReport(); });
+        const saveNow = () => { if (hasUnsavedChanges) autosaveReport(); };
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveNow(); });
+        window.addEventListener('pagehide', saveNow);
+        window.addEventListener('beforeunload', saveNow);
+        updateSaveStatus();
+    }
+
+    // UI-009: one line in the Save/Load panel that says where the work stands.
+    function updateSaveStatus() {
+        const el = document.getElementById('saveStatus');
+        if (!el) return;
+        const time = ts => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        let text, state;
+        if (hasUnsavedChanges && saveStatus.autosaveFailed) {
+            text = 'Autosave failed — use Export Report now to keep your changes'; state = 'is-error';
+        } else if (hasUnsavedChanges) {
+            text = 'Not exported' + (saveStatus.autosavedAt ? ` · draft kept in this browser ${time(saveStatus.autosavedAt)}` : ' · unsaved changes');
+            state = 'is-dirty';
+        } else if (saveStatus.exportedAt) {
+            text = `All changes exported ${time(saveStatus.exportedAt)}`; state = 'is-clean';
+        } else {
+            text = 'No unsaved changes'; state = 'is-clean';
+        }
+        if (el.textContent !== text) el.textContent = text;
+        el.className = 'save-status ' + state;
     }
 
     // Offered once at startup, after the rest of the page has loaded, so an accepted restore has a
     // fully-initialized report to apply itself onto.
     async function maybeRestoreAutosaveDraft() {
-        let raw;
-        try { raw = localStorage.getItem(AUTOSAVE_KEY); } catch (err) { return; }
-        if (!raw) return;
-
-        let snapshot;
-        try { snapshot = JSON.parse(raw); } catch (err) { clearAutosave(); return; }
-        if (!snapshot || !snapshot.data) { clearAutosave(); return; }
+        const snapshot = await loadAutosaveSnapshot();
+        if (!snapshot) return;
 
         const when = new Date(snapshot.savedAt || Date.now()).toLocaleString();
-        const restore = await showConfirm(`Found an autosaved draft from ${when}, saved automatically because a previous session ended without exporting. Click OK to restore it, or Cancel to discard it and start blank.`);
-        if (!restore) { clearAutosave(); return; }
+        const restore = await showConfirm(`Found a draft from ${when} that was never exported (it was saved automatically in this browser). Click OK to restore it, or Cancel to discard it and start blank.`);
+        if (!restore) { await clearAutosave(); return; }
 
         try {
             applyReportPayload(snapshot.data, { markSaved: false });
+            saveStatus.autosavedAt = snapshot.savedAt || null;
+            updateSaveStatus();
         } catch (err) {
-            await showAlert("Couldn't restore the autosaved draft — it appears to be corrupted, so it has been discarded.");
-            clearAutosave();
+            await showAlert("Couldn't restore the draft — it appears to be damaged, so it has been discarded.");
+            await clearAutosave();
         }
     }
 
@@ -1306,8 +1598,8 @@
         try {
             PERSISTED_FIELD_IDS.forEach(id => localStorage.removeItem(PERSIST_PREFIX + id));
         } catch (err) { /* localStorage unavailable — nothing to clear */ }
-        clearAutosave();
         hasUnsavedChanges = false; // we already confirmed above; don't also trigger the beforeunload prompt
+        await clearAutosave();
         location.reload();
     }
 
@@ -1392,8 +1684,7 @@
                 customText: document.getElementById('watermarkCustomText').value
             }
         };
-        const blob = new Blob([JSON.stringify(settings, null, 2)], {type: 'application/json'});
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'settings.json'; a.click();
+        downloadFile('settings.json', JSON.stringify(settings, null, 2));
     }
 
     let library = [];
@@ -1413,6 +1704,8 @@
     }
 
     function init() {
+        const summaryBlock = document.getElementById('block-summary');
+        if (summaryBlock) PRISTINE_SUMMARY_BLOCK_HTML = summaryBlock.outerHTML;
         setupStateLockListeners();
         setupDynamicTokenParsers();
         createMatrix();
@@ -1422,6 +1715,14 @@
         setupSelectionListeners();
         setupKeyboardPrintInterceptors();
         setupGlobalTooltips();
+        setupEvidenceHandling();
+        setupModalKeyboard();
+        setupLibraryKeyboard();
+        setupAssetEditing();
+        setupUndoKeyboard();
+        setupSortButtons();
+        updateRetestControls();
+        setupRedactCanvas();
         setupUnsavedChangesTracking();
         setupAutosave();
         updateWatermarkPreview();
@@ -1439,10 +1740,47 @@
     // covers them without needing a markUnsaved() call in every single field handler; actions that
     // mutate state programmatically (add/remove/reorder finding or section, toggles, etc.) call
     // markUnsaved() explicitly since they don't fire a native input/change event.
+    // BUG-013: finding fields used to reach `findings` only on blur, so autosave/export taken while
+    // a field still had focus missed what was typed. Edits are now committed as you type, debounced so
+    // a large description isn't re-serialized on every keystroke; buildReportPayload() flushes first.
+    // Committing does not re-render, so the caret stays where it is.
+    const FINDING_EDIT_DEBOUNCE_MS = 300;
+    let pendingFindingEdit = null;
+
+    function commitFindingEdit(el) {
+        if (!el.isConnected) return;                       // card was re-rendered meanwhile; its blur already saved it
+        const card = el.closest('.vuln-card');
+        const finding = card && findings[parseInt(card.dataset.index, 10)];
+        if (!finding) return;
+        const field = el.dataset.field;
+        if (field === 'title') finding.title = el.innerText.trim() || 'New Finding';
+        else if (field === 'description' || field === 'remediation') {
+            finding[field] = el.innerHTML;
+            if (field === 'remediation') finding.remediationIsDefault = false;
+        }
+    }
+
+    function flushPendingFindingEdit() {
+        if (!pendingFindingEdit) return;
+        clearTimeout(pendingFindingEdit.timer);
+        const { el } = pendingFindingEdit;
+        pendingFindingEdit = null;
+        commitFindingEdit(el);
+    }
+
+    function scheduleFindingEdit(e) {
+        const el = e.target.closest && e.target.closest('.vuln-card [data-field]');
+        if (!el) return;
+        if (pendingFindingEdit && pendingFindingEdit.el !== el) flushPendingFindingEdit();
+        if (pendingFindingEdit) clearTimeout(pendingFindingEdit.timer);
+        pendingFindingEdit = { el, timer: setTimeout(flushPendingFindingEdit, FINDING_EDIT_DEBOUNCE_MS) };
+    }
+
     function setupUnsavedChangesTracking() {
         const container = document.getElementById('reportBlocksContainer');
         if (container) {
             container.addEventListener('input', markUnsaved);
+            container.addEventListener('input', scheduleFindingEdit);
             container.addEventListener('change', markUnsaved);
         }
         window.addEventListener('beforeunload', (e) => {
@@ -1502,7 +1840,12 @@
         });
     }
 
+    // #reportBlocksContainer itself survives imports (only its innerHTML is replaced), so this
+    // delegated listener must be installed once, not on every import (PERF-001).
+    let stateLockListenersInstalled = false;
     function setupStateLockListeners() {
+        if (stateLockListenersInstalled) return;
+        stateLockListenersInstalled = true;
         document.getElementById('reportBlocksContainer').addEventListener('change', (e) => {
             if (e.target.tagName === 'SELECT') {
                 Array.from(e.target.options).forEach(opt => {
@@ -1528,31 +1871,281 @@
         });
     }
 
-    function convertLiteralTokensToSpans(element) {
-        let html = element.innerHTML;
-        const companyVal = document.getElementById('input-company-name').value || "[COMPANY NAME]";
-        const clientVal = document.getElementById('input-client-name').value || "[CLIENT NAME]";
-        const contactNameVal = document.getElementById('input-contact-name').value || "[CONTACT NAME]";
-        const contactEmailVal = document.getElementById('input-contact-email').value || "[CONTACT EMAIL]";
-        let mutated = false;
+    // Live tokens: literal "[CLIENT NAME]"-style text becomes a <span class="token-*"> whose text
+    // syncTokens() keeps in step with the sidebar field.
+    const TOKEN_DEFS = [
+        { placeholder: '[CLIENT NAME]',   cls: 'token-client',        inputId: 'input-client-name' },
+        { placeholder: '[COMPANY NAME]',  cls: 'token-company',       inputId: 'input-company-name' },
+        { placeholder: '[CONTACT NAME]',  cls: 'token-contact-name',  inputId: 'input-contact-name' },
+        { placeholder: '[CONTACT EMAIL]', cls: 'token-contact-email', inputId: 'input-contact-email' },
+    ];
+    const TOKEN_SELECTOR = TOKEN_DEFS.map(d => '.' + d.cls).join(', ');
+    const RAW_TEXT_SELECTOR = 'iframe, script, style, textarea, title, noscript, noembed, noframes, xmp';
+    // Non-global: used with .test() and with matchAll() via a fresh /g copy, so no lastIndex state
+    // leaks between calls (a shared /g regex makes matchAll() resume after the previous .test() match).
+    const TOKEN_LITERAL_RE = /\[(?:CLIENT NAME|COMPANY NAME|CONTACT NAME|CONTACT EMAIL)\]/;
 
-        if (html.includes('[CLIENT NAME]')) {
-            html = html.replaceAll('[CLIENT NAME]', `<span class="token-client" data-placeholder="[CLIENT NAME]">${clientVal}</span>`);
-            mutated = true;
+    function tokenDisplayValue(def) {
+        return document.getElementById(def.inputId).value || def.placeholder;
+    }
+
+    function createTokenSpan(def) {
+        const span = document.createElement('span');
+        span.className = def.cls;
+        span.dataset.placeholder = def.placeholder;
+        span.textContent = tokenDisplayValue(def);
+        return span;
+    }
+
+    // Converts literal placeholders by walking TEXT NODES only and building spans with DOM APIs.
+    // Idempotent: text already inside a token span is skipped and attribute values are never
+    // touched. (The old version ran replaceAll() over innerHTML, which also matched the
+    // data-placeholder="[CLIENT NAME]" attribute of spans it had created on an earlier pass and
+    // corrupted the text into 'Acme Corp">Acme Corp' — BUG-001 — and inserted the sidebar values
+    // as raw HTML — BUG-010.) Also repairs content already damaged by that old version.
+    function convertLiteralTokensToSpans(element) {
+        repairCorruptedTokens(element);
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+        const textNodes = [];
+        let node;
+        while ((node = walker.nextNode())) {
+            if (!node.nodeValue.includes('[')) continue;
+            if (node.parentElement && node.parentElement.closest(TOKEN_SELECTOR)) continue;
+            // Raw-text elements serialize their children as literal text, so a span inserted there
+            // would come back as "<span …[CLIENT NAME]…>" text on the next parse and convert again.
+            if (node.parentElement && node.parentElement.closest(RAW_TEXT_SELECTOR)) continue;
+            if (TOKEN_LITERAL_RE.test(node.nodeValue)) textNodes.push(node);
         }
-        if (html.includes('[COMPANY NAME]')) {
-            html = html.replaceAll('[COMPANY NAME]', `<span class="token-company" data-placeholder="[COMPANY NAME]">${companyVal}</span>`);
-            mutated = true;
+        for (const textNode of textNodes) {
+            const text = textNode.nodeValue;
+            const frag = document.createDocumentFragment();
+            let last = 0;
+            for (const match of text.matchAll(new RegExp(TOKEN_LITERAL_RE.source, 'g'))) {
+                if (match.index > last) frag.appendChild(document.createTextNode(text.slice(last, match.index)));
+                frag.appendChild(createTokenSpan(TOKEN_DEFS.find(d => d.placeholder === match[0])));
+                last = match.index + match[0].length;
+            }
+            if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+            textNode.replaceWith(frag);
         }
-        if (html.includes('[CONTACT NAME]')) {
-            html = html.replaceAll('[CONTACT NAME]', `<span class="token-contact-name" data-placeholder="[CONTACT NAME]">${contactNameVal}</span>`);
-            mutated = true;
+    }
+
+    // Undoes the damage the old string-based conversion left in saved reports. A damaged token is
+    // a span whose data-placeholder isn't one of the four placeholders (it starts with '<span class='),
+    // followed by a text node beginning with '">'. Two shapes occur:
+    //   (a) '">' then another token span of the same type  → the damaged span is a duplicate; drop both it and the '">'
+    //   (b) '">' then the old value as plain text            → turn the damaged span back into a real token and strip '">' + value
+    // Damaged spans can nest, so repeat until none remain.
+    function repairCorruptedTokens(root) {
+        const isValidPlaceholder = (p) => TOKEN_DEFS.some(d => d.placeholder === p);
+        for (let guard = 0; guard < 1000; guard++) {
+            const bad = [...root.querySelectorAll('span[data-placeholder]')].find(s => !isValidPlaceholder(s.dataset.placeholder));
+            if (!bad) return;
+            const def = TOKEN_DEFS.find(d => bad.classList.contains(d.cls)) || TOKEN_DEFS[0];
+            const next = bad.nextSibling;
+            if (next && next.nodeType === Node.TEXT_NODE && next.nodeValue.startsWith('">')) {
+                const rest = next.nodeValue.slice(2);
+                const following = next.nextSibling;
+                if (rest === '' && following && following.nodeType === Node.ELEMENT_NODE && following.classList.contains(def.cls)) {
+                    next.remove();                                   // shape (a)
+                    bad.remove();
+                    continue;
+                }
+                const oldValue = bad.textContent;                    // shape (b)
+                next.nodeValue = (oldValue && rest.startsWith(oldValue)) ? rest.slice(oldValue.length) : rest;
+                if (next.nodeValue === '') next.remove();
+            }
+            bad.replaceWith(createTokenSpan(def));
         }
-        if (html.includes('[CONTACT EMAIL]')) {
-            html = html.replaceAll('[CONTACT EMAIL]', `<span class="token-contact-email" data-placeholder="[CONTACT EMAIL]">${contactEmailVal}</span>`);
-            mutated = true;
+    }
+
+    // Applies token conversion + repair to an HTML string without ever attaching it to the live
+    // page. Parsing happens in an inert <template>, so <img onerror> etc. in the string can't fire
+    // during the conversion (a detached <div> would still start loading images).
+    function normalizeTokensInHtml(html) {
+        if (typeof html !== 'string' || html === '') return html;
+        const tpl = document.createElement('template');
+        tpl.innerHTML = html;
+        convertLiteralTokensToSpans(tpl.content);
+        return tpl.innerHTML;
+    }
+
+    // ---- HTML sanitizer (SEC-001) ----------------------------------------------------------------
+    // Imported report files, autosaved drafts and library templates are untrusted input: a
+    // report.json from a colleague or client could carry <img onerror=…>, javascript: links, etc.
+    // Their HTML goes through sanitizeHtml() before it reaches the page. Two policies apply,
+    // depending on WHERE an element sits:
+    //   • RICH_TEXT_POLICY — inside an editable region (section text, finding description and
+    //     remediation): the formatting a report author can produce.
+    //   • APP_STRUCTURE_POLICY — the report's own skeleton outside editable regions (section control
+    //     rail, metadata form, tables). Fixed: inline handlers survive only when they are exactly one
+    //     of the strings this app itself generates, so a file can't smuggle in its own code.
+    // Disallowed tags are unwrapped (their text is kept); dangerous elements are removed entirely.
+
+    // What formatting may survive an import inside editable text. Covers what the floating toolbar
+    // (document.execCommand) and typing/pasting produce in Chrome/Edge/Firefox/Safari:
+    //   tags:            element names allowed inside editable text
+    //   attributes:      { tagName: ['attr', …] }. No 'class' — content must not borrow the app's own
+    //                    CSS classes (e.g. Bootstrap's fixed-top could overlay the UI); live-token spans
+    //                    are preserved separately.
+    //   styleProperties: CSS properties kept in style="" attributes. Layout properties such as position,
+    //                    display or z-index are deliberately absent so a file can't draw over the page.
+    // href/src values are checked separately (only http(s)/mailto/#anchors and data:image URLs pass),
+    // and on* event-handler attributes are always removed here, whatever is listed.
+    const RICH_TEXT_POLICY = {
+        tags: ['b', 'strong', 'i', 'em', 'u', 's', 'strike', 'sub', 'sup', 'font', 'span', 'div', 'p', 'br',
+               'h3', 'h4', 'blockquote', 'pre', 'code', 'ul', 'ol', 'li', 'img', 'a', 'figure', 'figcaption',
+               'table', 'thead', 'tbody', 'tr', 'th', 'td'],
+        attributes: {
+            font: ['size', 'color', 'face'],
+            img: ['src', 'alt', 'width', 'height'],
+            a: ['href', 'title'],
+            ol: ['start'],
+            td: ['colspan', 'rowspan'], th: ['colspan', 'rowspan'],
+            '*': ['style'],
+        },
+        styleProperties: ['text-align', 'color', 'background-color', 'font-weight', 'font-style', 'font-size',
+                          'text-decoration', 'text-decoration-line'],
+    };
+
+    const APP_STRUCTURE_POLICY = {
+        tags: new Set(['div', 'h1', 'h2', 'h3', 'h4', 'p', 'span', 'strong', 'small', 'br', 'i', 'a', 'button', 'input', 'select', 'option', 'label',
+                       'table', 'thead', 'tbody', 'tr', 'th', 'td']),
+        attributes: {
+            '*': ['class', 'id', 'style', 'contenteditable', 'draggable', 'data-tooltip', 'data-placeholder', 'title', 'aria-label', 'role', 'tabindex'],
+            input: ['type', 'value', 'checked', 'placeholder', 'disabled'],
+            option: ['value', 'selected'], label: ['for'], a: ['href'], button: ['type'], td: ['colspan', 'rowspan'], th: ['colspan', 'rowspan'],
+        },
+        styleProperties: '*', // any property, but dangerous values (url(), expression(), …) are still stripped
+        handlers: new Set([
+            'moveSectionUp(this)', 'moveSectionDown(this)', 'insertPageBreakAfter(this)', 'removeSection(this)',
+            'toggleMetadataBackground(this)', "persistField('meta-start-date');", "persistField('meta-end-date');",
+            "renderChecklist(); updateWatermarkPreview(); persistField('meta-classification');",
+        ]),
+        handlerAttributes: new Set(['onclick', 'onchange']),
+        inputTypes: new Set(['date', 'checkbox', 'text', 'radio']),
+    };
+
+    const COMPILED_RICH_TEXT_POLICY = {
+        tags: new Set(RICH_TEXT_POLICY.tags.map(t => t.toLowerCase())),
+        attributes: RICH_TEXT_POLICY.attributes,
+        styleProperties: new Set(RICH_TEXT_POLICY.styleProperties.map(p => p.toLowerCase())),
+        handlers: new Set(), handlerAttributes: new Set(), inputTypes: new Set(),
+    };
+
+    const SANITIZER_DROP_WITH_CONTENT = new Set(['script', 'style', 'iframe', 'frame', 'frameset', 'object', 'embed', 'applet', 'noscript', 'template',
+        'link', 'meta', 'base', 'form', 'textarea', 'title', 'xmp', 'noembed', 'noframes', 'audio', 'video', 'source', 'track', 'canvas', 'portal', 'dialog']);
+    const SAFE_HREF_RE = /^(https?:|mailto:|#)/i;
+    const SAFE_IMG_SRC_RE = /^data:image\/(png|jpe?g|gif|webp|bmp|svg\+xml);base64,/i;
+    const UNSAFE_CSS_VALUE_RE = /url\s*\(|expression|javascript:|@import|behavior|-moz-binding|\\/i;
+
+    function sanitizeStyle(value, policy) {
+        const kept = [];
+        for (const decl of value.split(';')) {
+            const colon = decl.indexOf(':');
+            if (colon < 0) continue;
+            const prop = decl.slice(0, colon).trim().toLowerCase();
+            const val = decl.slice(colon + 1).trim();
+            if (!prop || !val || UNSAFE_CSS_VALUE_RE.test(val)) continue;
+            if (policy.styleProperties !== '*' && !policy.styleProperties.has(prop)) continue;
+            kept.push(`${prop}: ${val}`);
         }
-        if (mutated) { element.innerHTML = html; }
+        return kept.join('; ');
+    }
+
+    // Returns false if the element itself must be removed.
+    function sanitizeAttributes(el, policy, reservedIds) {
+        const tag = el.localName;
+        const allowedHere = new Set([...(policy.attributes['*'] || []), ...(policy.attributes[tag] || [])].map(a => a.toLowerCase()));
+        for (const attr of [...el.attributes]) {
+            const name = attr.name.toLowerCase();
+            const value = attr.value.trim();
+            if (name.startsWith('on')) {
+                if (!(policy.handlerAttributes.has(name) && policy.handlers.has(attr.value))) el.removeAttribute(attr.name);
+                continue;
+            }
+            if (!allowedHere.has(name)) { el.removeAttribute(attr.name); continue; }
+            if (name === 'href' && !SAFE_HREF_RE.test(value)) { el.removeAttribute(attr.name); continue; }
+            if (name === 'src' && !SAFE_IMG_SRC_RE.test(value)) { el.removeAttribute(attr.name); continue; }
+            if (name === 'id' && reservedIds.has(value)) { el.removeAttribute(attr.name); continue; } // no DOM clobbering of app controls
+            if (name === 'style') {
+                const clean = sanitizeStyle(attr.value, policy);
+                if (clean) el.setAttribute('style', clean); else el.removeAttribute('style');
+            }
+        }
+        if (tag === 'input' && !policy.inputTypes.has((el.getAttribute('type') || 'text').toLowerCase())) return false;
+        if (tag === 'img' && !el.hasAttribute('src')) return false;
+        if (tag === 'a' && el.getAttribute('href')) el.setAttribute('rel', 'noopener noreferrer');
+        return true;
+    }
+
+    function sanitizeChildren(parent, mode, reservedIds) {
+        for (const node of [...parent.childNodes]) {
+            if (node.nodeType === Node.COMMENT_NODE || node.nodeType === Node.PROCESSING_INSTRUCTION_NODE) { node.remove(); continue; }
+            if (node.nodeType !== Node.ELEMENT_NODE) continue;
+            const tag = node.localName;
+            if (node.namespaceURI !== 'http://www.w3.org/1999/xhtml' || SANITIZER_DROP_WITH_CONTENT.has(tag)) { node.remove(); continue; }
+            // Live-token spans are app structure wherever they appear, independent of the rich-text policy.
+            if (tag === 'span' && TOKEN_DEFS.some(d => node.classList.contains(d.cls))) {
+                const def = TOKEN_DEFS.find(d => node.classList.contains(d.cls));
+                for (const attr of [...node.attributes]) node.removeAttribute(attr.name);
+                node.className = def.cls;
+                node.dataset.placeholder = def.placeholder;
+                node.textContent = node.textContent;               // flatten: a token holds plain text only
+                continue;
+            }
+            const policy = mode === 'app' ? APP_STRUCTURE_POLICY : COMPILED_RICH_TEXT_POLICY;
+            if (!policy.tags.has(tag)) {
+                sanitizeChildren(node, mode, reservedIds);
+                node.replaceWith(...node.childNodes);            // unwrap: keep the text, lose the tag
+                continue;
+            }
+            if (!sanitizeAttributes(node, policy, reservedIds)) { node.remove(); continue; }
+            // Inside an editable region only author formatting is allowed.
+            const childMode = (mode === 'app' && node.hasAttribute('contenteditable')) ? 'rich' : mode;
+            sanitizeChildren(node, childMode, reservedIds);
+        }
+    }
+
+    // `structure: true` for the report skeleton (blocksHtml); false for a plain rich-text field.
+    function sanitizeHtml(html, { structure = false } = {}) {
+        if (typeof html !== 'string' || html === '') return '';
+        const tpl = document.createElement('template');
+        tpl.innerHTML = html;
+        // ids used by the app outside the report container must not be re-declared by imported content
+        const container = document.getElementById('reportBlocksContainer');
+        const reservedIds = new Set([...document.querySelectorAll('[id]')]
+            .filter(el => !container || !container.contains(el)).map(el => el.id));
+        sanitizeChildren(tpl.content, structure ? 'app' : 'rich', reservedIds);
+        return tpl.innerHTML;
+    }
+
+    const SAFE_LOGO_RE = /^(data:image\/(png|jpe?g|gif|webp|svg\+xml);base64,[A-Za-z0-9+/=\s]+|[\w.\/-]+\.(png|jpe?g|gif|webp|svg))$/i;
+    const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+    // Returns a copy of a (validated, migrated) report payload that is safe to put on the page.
+    // Token repair (BUG-001) must see the damaged spans before the sanitizer normalizes them away,
+    // so it runs first — safely, since both work on inert templates.
+    function repairTokensInHtml(html) {
+        if (typeof html !== 'string' || html === '') return html;
+        const tpl = document.createElement('template');
+        tpl.innerHTML = html;
+        repairCorruptedTokens(tpl.content);
+        return tpl.innerHTML;
+    }
+
+    function sanitizeReportPayload(data) {
+        return {
+            ...data,
+            blocksHtml: sanitizeHtml(repairTokensInHtml(data.blocksHtml), { structure: true }),
+            currentLogo: (typeof data.currentLogo === 'string' && SAFE_LOGO_RE.test(data.currentLogo)) ? data.currentLogo : '',
+            findings: data.findings.map(f => ({
+                ...f,
+                description: sanitizeHtml(normalizeTokensInHtml(f.description)),
+                remediation: sanitizeHtml(normalizeTokensInHtml(f.remediation)),
+                retestDate: (typeof f.retestDate === 'string' && ISO_DATE_RE.test(f.retestDate)) ? f.retestDate : '',
+            })),
+        };
     }
 
     function syncTokens() {
@@ -1594,21 +2187,40 @@
     }
 
     function openAddSectionModal() {
-        document.getElementById('addSectionModalOverlay').style.display = 'flex';
-        document.getElementById('newHeadline').focus();
+        openModal('addSectionModalOverlay', document.getElementById('newHeadline'));
     }
 
     function closeAddSectionModal() {
-        document.getElementById('addSectionModalOverlay').style.display = 'none';
+        closeModal('addSectionModalOverlay');
     }
 
-    function openAddFindingModal() {
-        document.getElementById('addFindingModalOverlay').style.display = 'flex';
-        document.getElementById('librarySearch').focus();
+    // UI-003: which Detailed Findings section a new finding goes into. Defaults to the section the
+    // dialog was opened from ("Add a finding here"), else the one used last, else the first.
+    let lastTargetSectionId = null;
+
+    function populateTargetSectionSelect(preferredId) {
+        const select = document.getElementById('vTargetSection');
+        const sections = [...document.querySelectorAll('.details-block')];
+        select.innerHTML = '';
+        sections.forEach(sec => {
+            const opt = document.createElement('option');
+            opt.value = sec.id;
+            opt.textContent = (sec.querySelector('.details-title') || {}).innerText?.trim() || 'Detailed Findings';
+            select.appendChild(opt);
+        });
+        const ids = sections.map(s => s.id);
+        select.value = ids.includes(preferredId) ? preferredId : (ids.includes(lastTargetSectionId) ? lastTargetSectionId : ids[0]);
+        // With a single findings section there is nothing to choose.
+        select.closest('.target-section-row').classList.toggle('d-none', sections.length < 2);
+    }
+
+    function openAddFindingModal(sectionId) {
+        populateTargetSectionSelect(typeof sectionId === 'string' ? sectionId : null);
+        openModal('addFindingModalOverlay', document.getElementById('librarySearch'));
     }
 
     function closeAddFindingModal() {
-        document.getElementById('addFindingModalOverlay').style.display = 'none';
+        closeModal('addFindingModalOverlay');
     }
 
     function updateBrandColors() {
@@ -1673,12 +2285,36 @@
         document.getElementById('frFindInput').value = '';
         document.getElementById('frReplaceInput').value = '';
         document.getElementById('frCaseSensitive').checked = false;
-        document.getElementById('findReplaceOverlay').style.display = 'flex';
-        document.getElementById('frFindInput').focus();
+        updateFindReplacePreview();
+        openModal('findReplaceOverlay', document.getElementById('frFindInput'));
     }
 
     function closeFindReplace() {
-        document.getElementById('findReplaceOverlay').style.display = 'none';
+        closeModal('findReplaceOverlay');
+        if (window.CSS && CSS.highlights) CSS.highlights.delete('find-match');
+    }
+
+    // UI-005: the dialog previews how many matches a replacement will change (and highlights them
+    // in the report) before anything is touched; the replacement itself can be undone.
+    function updateFindReplacePreview() {
+        const findText = document.getElementById('frFindInput').value;
+        const caseSensitive = document.getElementById('frCaseSensitive').checked;
+        const preview = document.getElementById('frPreview');
+        const button = document.getElementById('frReplaceBtn');
+        highlightFindMatches(findText, caseSensitive);
+        if (!findText) {
+            preview.textContent = '';
+            button.disabled = true;
+            button.textContent = 'Replace All';
+            return;
+        }
+        const { total, inFindings, inSections } = findAndReplaceInReport(findText, '', caseSensitive, { dryRun: true });
+        const parts = [];
+        if (inFindings) parts.push(`${inFindings} in findings`);
+        if (inSections) parts.push(`${inSections} in sections`);
+        preview.textContent = total === 0 ? 'No matches.' : `${total} match${total === 1 ? '' : 'es'}: ${parts.join(', ')}`;
+        button.disabled = total === 0;
+        button.textContent = total === 0 ? 'Replace All' : `Replace ${total}`;
     }
 
     async function runFindReplace() {
@@ -1687,78 +2323,389 @@
         const caseSensitive = document.getElementById('frCaseSensitive').checked;
         if (!findText) { closeFindReplace(); return; }
 
-        const count = findAndReplaceInReport(findText, replaceText, caseSensitive);
-        if (count > 0) markUnsaved();
+        const { total } = findAndReplaceInReport(findText, replaceText, caseSensitive, { dryRun: true });
         closeFindReplace();
-        await showAlert(count > 0 ? `Replaced ${count} occurrence${count === 1 ? '' : 's'}.` : 'No matches found.');
+        if (total === 0) { showToast('No matches found.'); return; }
+        recordUndoPoint(`Replace "${findText}"`);
+        findAndReplaceInReport(findText, replaceText, caseSensitive);
+        markUnsaved();
+        showToast(`Replaced ${total} occurrence${total === 1 ? '' : 's'}.`, { undo: true });
     }
 
-    // Walks a live DOM subtree and replaces matches only inside text nodes, never inside
-    // tags/attributes, so a search term that happens to look like markup can't corrupt the HTML.
-    function replaceTextNodesInElement(root, pattern, replaceText, counter) {
+    function findPattern(findText, caseSensitive) {
+        return new RegExp(findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), caseSensitive ? 'g' : 'gi');
+    }
+
+    // Text nodes Find & Replace may touch inside `root`. Dynamic tokens (company/client/contact) are
+    // controlled by the sidebar fields and overwritten by syncTokens() on the next render, so they
+    // are skipped rather than reported as fake matches.
+    function findableTextNodes(root) {
         const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
-        const textNodes = [];
+        const nodes = [];
         let node;
-        while (node = walker.nextNode()) { textNodes.push(node); }
-        textNodes.forEach(textNode => {
-            // Dynamic tokens (company/client/contact) are controlled by the Target Profiles sidebar
-            // fields and get overwritten by syncTokens() on the very next render, so editing their
-            // displayed text here would silently revert — skip them rather than report a fake match.
-            if (textNode.parentElement && textNode.parentElement.closest('.token-company, .token-client, .token-contact-name, .token-contact-email')) {
-                return;
-            }
+        while ((node = walker.nextNode())) {
+            if (node.parentElement && node.parentElement.closest(TOKEN_SELECTOR)) continue;
+            nodes.push(node);
+        }
+        return nodes;
+    }
+
+    // Walks a DOM subtree and replaces matches only inside text nodes, never inside tags/attributes,
+    // so a search term that happens to look like markup can't corrupt the HTML.
+    function replaceTextNodesInElement(root, pattern, replaceText, counter, dryRun = false) {
+        findableTextNodes(root).forEach(textNode => {
             const matches = textNode.nodeValue.match(pattern);
-            if (matches) {
-                counter.count += matches.length;
-                textNode.nodeValue = textNode.nodeValue.replace(pattern, replaceText);
-            }
+            if (!matches) return;
+            counter.count += matches.length;
+            // A function replacement inserts replaceText literally; a string would expand $&, $1, $$ … (BUG-008)
+            if (!dryRun) textNode.nodeValue = textNode.nodeValue.replace(pattern, () => replaceText);
         });
     }
 
-    function findAndReplaceInReport(findText, replaceText, caseSensitive) {
-        if (!findText) return 0;
-        const flags = caseSensitive ? 'g' : 'gi';
-        const escapedFind = findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const pattern = new RegExp(escapedFind, flags);
+    // Returns { total, inFindings, inSections }. With dryRun nothing is changed — used for the preview.
+    function findAndReplaceInReport(findText, replaceText, caseSensitive, { dryRun = false } = {}) {
+        if (!findText) return { total: 0, inFindings: 0, inSections: 0 };
+        const pattern = findPattern(findText, caseSensitive);
         const counter = { count: 0 };
 
         const replacePlainText = (str) => {
             if (typeof str !== 'string' || !str) return str;
             const matches = str.match(pattern);
             if (matches) counter.count += matches.length;
-            return str.replace(pattern, replaceText);
+            return dryRun ? str : str.replace(pattern, () => replaceText);
         };
 
-        // HTML-bearing finding fields: parse into a detached element, replace text nodes only, re-serialize.
+        // HTML-bearing finding fields: parse into an inert <template> (a detached <div> would still
+        // load images and fire their handlers), replace text nodes only, re-serialize.
         const replaceHtmlText = (htmlString) => {
             if (typeof htmlString !== 'string' || !htmlString) return htmlString;
-            const container = document.createElement('div');
+            const container = document.createElement('template');
             container.innerHTML = htmlString;
-            replaceTextNodesInElement(container, pattern, replaceText, counter);
-            return container.innerHTML;
+            replaceTextNodesInElement(container.content, pattern, replaceText, counter, dryRun);
+            return dryRun ? htmlString : container.innerHTML;
         };
 
         // Finding data is the source of truth for finding cards — renderAll() rebuilds the DOM from it.
         findings.forEach(f => {
-            f.title = replacePlainText(f.title);
-            f.category = replacePlainText(f.category);
-            f.cwe = replacePlainText(f.cwe);
-            f.description = replaceHtmlText(f.description);
-            f.remediation = replaceHtmlText(f.remediation);
-            if (Array.isArray(f.assets)) {
-                f.assets = f.assets.map(a => replacePlainText(a));
-            }
+            const updated = {
+                title: replacePlainText(f.title),
+                category: replacePlainText(f.category),
+                cwe: replacePlainText(f.cwe),
+                description: replaceHtmlText(f.description),
+                remediation: replaceHtmlText(f.remediation),
+                assets: Array.isArray(f.assets) ? f.assets.map(a => replacePlainText(a)) : f.assets,
+            };
+            if (!dryRun) Object.assign(f, updated);
         });
+        const inFindings = counter.count;
 
         // Static/custom section content (headings, narrative text, metadata fields, matrix legend, etc.)
         // has no separate JS state — the DOM is the source of truth, so edit it directly.
         document.querySelectorAll('#printableReport [contenteditable="true"]').forEach(el => {
             if (el.closest('.findings-container')) return; // handled via the findings array above
-            replaceTextNodesInElement(el, pattern, replaceText, counter);
+            replaceTextNodesInElement(el, pattern, replaceText, counter, dryRun);
         });
 
+        if (!dryRun) renderAll();
+        return { total: counter.count, inFindings, inSections: counter.count - inFindings };
+    }
+
+    // Marks matches in the report with the CSS Custom Highlight API: nothing is added to the DOM, so
+    // nothing can leak into the saved report. Browsers without it just get the count.
+    function highlightFindMatches(findText, caseSensitive) {
+        if (!(window.CSS && CSS.highlights && typeof Highlight === 'function')) return;
+        CSS.highlights.delete('find-match');
+        if (!findText) return;
+        const pattern = findPattern(findText, caseSensitive);
+        const ranges = [];
+        document.querySelectorAll('#printableReport [contenteditable="true"], #printableReport .asset-badge').forEach(root => {
+            findableTextNodes(root).forEach(node => {
+                for (const m of node.nodeValue.matchAll(pattern)) {
+                    const range = new Range();
+                    range.setStart(node, m.index);
+                    range.setEnd(node, m.index + m[0].length);
+                    ranges.push(range);
+                }
+            });
+        });
+        if (ranges.length) CSS.highlights.set('find-match', new Highlight(...ranges));
+    }
+
+    // ---- Undo (UI-005) -----------------------------------------------------------------------------
+    // Before each destructive action — deleting a finding or section, Find & Replace, switching the
+    // assessment type, importing a report, redacting an image — the whole report is snapshotted (the
+    // same payload Export Report writes). Undo puts the latest snapshot back. Typing is not recorded
+    // here: inside a text field Ctrl/Cmd+Z stays the browser's own text undo.
+    const UNDO_LIMIT = 20;
+    const UNDO_MAX_CHARS = 60 * 1000 * 1000;   // ~120 MB of snapshots at most; screenshots make them big
+    const undoStack = [];                      // [{ label, snapshot }]
+
+    function recordUndoPoint(label) {
+        undoStack.push({ label, snapshot: JSON.stringify(buildReportPayload()) });
+        let total = undoStack.reduce((n, e) => n + e.snapshot.length, 0);
+        while (undoStack.length > 1 && (undoStack.length > UNDO_LIMIT || total > UNDO_MAX_CHARS)) {
+            total -= undoStack.shift().snapshot.length;
+        }
+        updateUndoButton();
+    }
+
+    function discardLastUndoPoint() {
+        undoStack.pop();
+        updateUndoButton();
+    }
+
+    function undoLastChange() {
+        const entry = undoStack.pop();
+        updateUndoButton();
+        if (!entry) { showToast('Nothing to undo.'); return; }
+        try {
+            applyReportPayload(JSON.parse(entry.snapshot), { markSaved: false });
+        } catch (err) {
+            console.error('Undo failed', err);
+            showToast("Couldn't undo that change.");
+            return;
+        }
+        markUnsaved();
+        selectEvidenceImage(null);
+        showToast(`Undone: ${entry.label}`);
+        announce(`Undone: ${entry.label}.`);
+    }
+
+    function updateUndoButton() {
+        const btn = document.getElementById('undoBtn');
+        if (!btn) return;
+        const last = undoStack[undoStack.length - 1];
+        btn.disabled = !last;
+        const tip = last ? `Undo: ${last.label} (Ctrl/Cmd+Z)` : 'Nothing to undo';
+        btn.setAttribute('data-tooltip', tip);
+        btn.setAttribute('aria-label', tip);
+    }
+
+    function setupUndoKeyboard() {
+        document.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() !== 'z' || !(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
+            if (openModalStack.length) return;
+            const t = e.target;
+            if (t && (t.isContentEditable || (t.matches && t.matches('input, textarea, select')))) return; // native text undo
+            e.preventDefault();
+            undoLastChange();
+        });
+        document.getElementById('appToastUndo').addEventListener('click', () => { hideToast(); undoLastChange(); });
+        updateUndoButton();
+    }
+
+    // Small, non-blocking notice at the bottom of the screen (optionally with an Undo button).
+    let toastTimer = null;
+    function showToast(message, { undo = false } = {}) {
+        const toast = document.getElementById('appToast');
+        document.getElementById('appToastText').textContent = message;
+        document.getElementById('appToastUndo').style.display = undo ? '' : 'none';
+        toast.classList.add('visible');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(hideToast, undo ? 8000 : 4000);
+    }
+
+    function hideToast() {
+        clearTimeout(toastTimer);
+        document.getElementById('appToast').classList.remove('visible');
+    }
+
+    // ---- Stable finding ids (ARCH-003) -------------------------------------------------------------
+    // Display numbers ("3.") follow the order in the report and change when findings move; the id
+    // never changes. Retests match findings by id.
+    function newFindingId() {
+        if (window.crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+        return 'f-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+    }
+
+    // Gives every finding a unique id: backfills old files, and re-issues duplicates (e.g. a finding
+    // copied by hand inside a JSON file).
+    function ensureFindingIds() {
+        const seen = new Set();
+        findings.forEach(f => {
+            if (typeof f.id !== 'string' || !f.id || seen.has(f.id)) f.id = newFindingId();
+            seen.add(f.id);
+        });
+    }
+
+    function severityLabel(f) {
+        if (f.impact === null || f.impact === undefined || f.exploit === null || f.exploit === undefined) return 'Not Scored';
+        const score = f.impact * f.exploit;
+        return score >= 16 ? 'Critical' : score >= 10 ? 'High' : score >= 5 ? 'Medium' : 'Low';
+    }
+
+    const SEVERITY_BADGE_CLASS = { Critical: 'badge-crit', High: 'badge-high', Medium: 'badge-med', Low: 'badge-low', 'Not Scored': 'badge-unscored' };
+
+    function todayIso() {
+        const d = new Date(), pad = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    }
+
+    // ---- Retest workflow (FEAT-004) ----------------------------------------------------------------
+    // "Start retest" freezes each finding's current severity and status as its original result
+    // (retestState.baseline, keyed by finding id) and adds a Retest Summary section whose table
+    // compares original and retest results. Deleting that section ends the retest.
+    let retestState = null;   // { startedAt: 'YYYY-MM-DD', baseline: { [findingId]: { title, severity, status } } }
+
+    async function startRetest() {
+        if (retestState) { document.getElementById('block-retest')?.scrollIntoView({ block: 'start', behavior: 'smooth' }); return; }
+        if (!findings.length) {
+            await showAlert("Add the report's findings first: starting a retest records each finding's current severity and status as its original result.");
+            return;
+        }
+        const ok = await showConfirm('Start a retest?\n\nEach finding\'s current severity and status are saved as its original result, and a "Retest Summary" section is added to the report. Then update each finding\'s status and retest date as you verify the fixes. The summary table updates as you go.');
+        if (!ok) return;
+        recordUndoPoint('Start retest');
+        ensureFindingIds();
+        retestState = {
+            startedAt: todayIso(),
+            baseline: Object.fromEntries(findings.map(f => [f.id, { title: f.title, severity: severityLabel(f), status: f.status || '' }])),
+        };
+        insertRetestBlock();
+        markUnsaved();
         renderAll();
-        return counter.count;
+        updateRetestControls();
+        document.getElementById('block-retest').scrollIntoView({ block: 'start', behavior: 'smooth' });
+        showToast('Retest started: original results recorded.', { undo: true });
+    }
+
+    async function endRetest() {
+        if (!retestState) return;
+        const ok = await showConfirm('End the retest?\n\nThe recorded original results and the Retest Summary section are removed. Finding statuses and retest dates stay as they are.');
+        if (!ok) return;
+        recordUndoPoint('End retest');
+        retestState = null;
+        document.getElementById('block-retest')?.remove();
+        markUnsaved();
+        renderAll();
+        updateRetestControls();
+        showToast('Retest ended.', { undo: true });
+    }
+
+    // The section's controls use the same allow-listed inline handlers as every other section, so it
+    // survives export/import; its table is regenerated by renderRetestSummary() on each render.
+    function insertRetestBlock() {
+        if (document.getElementById('block-retest')) return;
+        const block = document.createElement('div');
+        block.className = 'report-block';
+        block.id = 'block-retest';
+        block.setAttribute('draggable', 'false');
+        block.innerHTML = `<div class="block-controls no-print">
+                <div class="drag-handle" draggable="true"><i class="bi bi-grip-vertical"></i></div>
+                <button class="block-control-btn" onclick="moveSectionUp(this)" data-tooltip="Move section up"><i class="bi bi-chevron-up"></i></button>
+                <button class="block-control-btn" onclick="moveSectionDown(this)" data-tooltip="Move section down"><i class="bi bi-chevron-down"></i></button>
+                <button class="block-control-btn" onclick="insertPageBreakAfter(this)" data-tooltip="Insert page break below this block"><i class="bi bi-scissors"></i></button>
+                <button class="block-control-btn control-danger" onclick="removeSection(this)" data-tooltip="Delete this section (ends the retest)"><i class="bi bi-trash"></i></button>
+            </div>
+            <h2 class="editable-section section-edit" contenteditable="true">Retest Summary</h2>
+            <div class="editable-section section-edit mb-2" contenteditable="true">A retest was performed on [insert retest date or date range] to verify the remediation of the findings reported in the original assessment. The table below compares each finding's original result with its status at retest.</div>
+            <div id="retestSummaryTable" class="retest-summary"></div>`;
+        const anchor = document.getElementById('block-summary') || document.querySelector('.details-block');
+        const container = document.getElementById('reportBlocksContainer');
+        if (anchor && anchor.parentNode === container) container.insertBefore(block, anchor.nextSibling);
+        else container.appendChild(block);
+        convertLiteralTokensToSpans(block);
+        setupDragAndDrop(); // refreshes aria-labels for the new controls
+    }
+
+    function updateRetestControls() {
+        const startBtn = document.getElementById('retestStartBtn');
+        const status = document.getElementById('retestStatus');
+        if (!startBtn || !status) return;
+        if (retestState) {
+            startBtn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Retest in progress';
+            startBtn.setAttribute('data-tooltip', 'Jump to the Retest Summary section');
+            status.innerHTML = `Started ${escapeHtml(retestState.startedAt || '')} · <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="endRetest()">End retest</button>`;
+            status.style.display = '';
+        } else {
+            startBtn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Start Retest';
+            startBtn.setAttribute('data-tooltip', "Record each finding's current severity and status as the original result, and add a Retest Summary section");
+            status.textContent = '';
+            status.style.display = 'none';
+        }
+    }
+
+    // Shown on a finding card (and in print) while a retest is in progress.
+    function retestOriginalHtml(f) {
+        if (!retestState) return '';
+        const b = retestState.baseline[f.id];
+        if (!b) return `<div class="retest-original"><strong>Original result:</strong> <span class="fst-italic">new in this retest</span></div>`;
+        return `<div class="retest-original"><strong>Original result:</strong> ${escapeHtml(b.severity)} · ${escapeHtml(b.status || 'status not set')}</div>`;
+    }
+
+    function statusBadgeHtml(status) {
+        const meta = FINDING_STATUSES.find(s => s.value === status);
+        return meta ? `<span class="status-badge ${meta.cls}">${escapeHtml(meta.value)}</span>` : '<span class="status-badge status-unset">Not set</span>';
+    }
+
+    function renderRetestSummary() {
+        const target = document.getElementById('retestSummaryTable');
+        if (!target) return;
+        if (!retestState) { target.innerHTML = ''; return; }
+        const base = retestState.baseline || {};
+        const presentIds = new Set(findings.map(f => f.id));
+        const rows = findings.map((f, i) => {
+            const b = base[f.id];
+            const original = b
+                ? `<span class="crit-badge ${SEVERITY_BADGE_CLASS[b.severity] || 'badge-unscored'}">${escapeHtml(b.severity)}</span> ${statusBadgeHtml(b.status)}`
+                : '<span class="text-muted fst-italic">New in retest</span>';
+            return `<tr><td>${i + 1}</td><td>${escapeHtml(f.title)}</td><td>${original}</td><td>${statusBadgeHtml(f.status)}</td><td>${escapeHtml(f.retestDate || '—')}</td></tr>`;
+        });
+        Object.entries(base).filter(([id]) => !presentIds.has(id)).forEach(([, b]) => {
+            rows.push(`<tr class="text-muted"><td>—</td><td>${escapeHtml(b.title)}</td><td><span class="crit-badge ${SEVERITY_BADGE_CLASS[b.severity] || 'badge-unscored'}">${escapeHtml(b.severity)}</span> ${statusBadgeHtml(b.status)}</td><td colspan="2" class="fst-italic">Removed from this report</td></tr>`);
+        });
+
+        const originals = findings.filter(f => base[f.id]);
+        const count = (st) => originals.filter(f => (f.status || '') === st).length;
+        const parts = [
+            [count('Remediated'), 'remediated'], [count('Partially Remediated'), 'partially remediated'],
+            [count('Open'), 'still open'], [count('Accepted Risk'), 'accepted as risk'],
+            [count('False Positive'), 'false positive'], [count(''), 'not yet retested'],
+        ].filter(([n]) => n > 0).map(([n, label]) => `<strong>${n}</strong> ${label}`);
+        const summary = originals.length
+            ? `Of the ${originals.length} original finding${originals.length === 1 ? '' : 's'}: ${parts.join(', ')}.`
+            : 'None of the original findings are in the report any more.';
+
+        target.innerHTML = `<p class="retest-totals">${summary}</p>
+            <table class="table table-sm table-bordered retest-table">
+                <thead class="table-light"><tr><th style="width:2.5rem">#</th><th>Finding</th><th>Original result</th><th>Retest status</th><th style="width:7.5rem">Retest date</th></tr></thead>
+                <tbody>${rows.join('')}</tbody>
+            </table>`;
+    }
+
+    // ---- Sort by severity (FEAT-008) ----------------------------------------------------------------
+    // Orders one Detailed Findings section Critical → Low (ties: higher CVSS score first, then the
+    // current order), unscored findings after that and false positives last. Other sections keep
+    // their order: the section's findings are re-slotted into the positions they already occupied.
+    function severitySortKey(f) {
+        if (f.status === 'False Positive') return -2;
+        if (f.impact === null || f.impact === undefined || f.exploit === null || f.exploit === undefined) return -1;
+        return f.impact * f.exploit;
+    }
+
+    function sortSectionBySeverity(sectionId) {
+        const slots = [];
+        findings.forEach((f, i) => { if (f.sectionId === sectionId) slots.push(i); });
+        if (slots.length < 2) return;
+        const sorted = slots.map(i => findings[i]).map((f, order) => ({ f, order }))
+            .sort((a, b) => (severitySortKey(b.f) - severitySortKey(a.f))
+                || ((parseFloat(b.f.cvssScore) || 0) - (parseFloat(a.f.cvssScore) || 0))
+                || (a.order - b.order))
+            .map(x => x.f);
+        if (sorted.every((f, k) => f === findings[slots[k]])) { showToast('Already sorted by severity.'); return; }
+        recordUndoPoint('Sort by severity');
+        slots.forEach((slot, k) => { findings[slot] = sorted[k]; });
+        markUnsaved();
+        renderAll();
+        showToast('Findings sorted by severity.', { undo: true });
+        announce('Findings sorted by severity.');
+    }
+
+    function setupSortButtons() {
+        document.getElementById('reportBlocksContainer').addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-sort-section]');
+            if (btn) sortSectionBySeverity(btn.dataset.sortSection);
+        });
     }
 
     // Single shared tooltip element appended to <body>, positioned via getBoundingClientRect and
@@ -1889,22 +2836,280 @@
         document.execCommand(cmd, false, val);
     }
 
-    async function insertImageFromToolbar(input) {
-        if (input.files && input.files[0]) {
-            const base64 = await toBase64(input.files[0]);
-            if (lastSavedRange) {
-                const sel = window.getSelection();
-                let node = lastSavedRange.startContainer; if (node.nodeType === 3) node = node.parentNode;
-                const targetBlock = node.closest('.section-edit');
-                
-                if (targetBlock) { targetBlock.focus(); }
-                sel.removeAllRanges(); sel.addRange(lastSavedRange);
+    // ---- Evidence images (PERF-003, FEAT-005) -----------------------------------------------------
+    // Screenshots are the bulk of a report's weight. Every inserted image (toolbar, paste, file drop,
+    // redaction) goes through prepareImageForReport(): scaled down to print width and re-encoded in
+    // whichever format is smallest — but screenshots are mostly text, so lossless PNG is kept unless a
+    // lossy format is much smaller. Images are inserted as numbered <figure>s with an editable caption.
+    const IMAGE_MAX_WIDTH = 1600;                  // ~200 dpi across an A4 text column
+    const IMAGE_KEEP_ORIGINAL_BYTES = 250 * 1024;  // already small and not oversized: keep the exact bytes
+    const PNG_ALWAYS_OK_BYTES = 400 * 1024;        // a PNG this small is kept even if lossy would be smaller
 
-                const imgHtml = `<img src="${base64}">`;
-                document.execCommand('insertHTML', false, imgHtml);
-                input.value = ''; document.getElementById('floatingToolbar').style.display = 'none';
-            }
+    function readBlobAsDataUrl(blob) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(blob);
+        });
+    }
+
+    function decodeImage(src) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error('This file is not an image the browser can read.'));
+            img.src = src;
+        });
+    }
+
+    function canvasHasTransparency(canvas) {
+        const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+        for (let i = 3; i < data.length; i += 4) if (data[i] < 255) return true;
+        return false;
+    }
+
+    // Encodes a canvas as the smallest sensible data URL (PNG / WebP / JPEG). JPEG is never used for
+    // images with transparency (it would turn transparent areas black).
+    function encodeCanvasForReport(canvas) {
+        const png = canvas.toDataURL('image/png');
+        const candidates = [png];
+        const webp = canvas.toDataURL('image/webp', 0.9);
+        if (webp.startsWith('data:image/webp')) candidates.push(webp);   // browsers without WebP encoding return PNG
+        if (!canvasHasTransparency(canvas)) candidates.push(canvas.toDataURL('image/jpeg', 0.88));
+        const smallest = candidates.reduce((a, b) => (b.length < a.length ? b : a));
+        const pngBytes = png.length * 0.75;
+        return (pngBytes <= PNG_ALWAYS_OK_BYTES || png.length <= smallest.length * 1.5) ? png : smallest;
+    }
+
+    // Accepts a File/Blob or a data URL; resolves to a data URL ready to embed in the report.
+    async function prepareImageForReport(source, { maxWidth = IMAGE_MAX_WIDTH } = {}) {
+        const srcUrl = typeof source === 'string' ? source : await readBlobAsDataUrl(source);
+        const type = (srcUrl.match(/^data:([^;,]+)/) || [])[1] || '';
+        if (!type.startsWith('image/')) throw new Error('This file is not an image.');
+        if (type === 'image/gif' || type === 'image/svg+xml') return srcUrl; // keep animation / vector as-is
+        const img = await decodeImage(srcUrl);
+        const scale = Math.min(1, maxWidth / img.naturalWidth);
+        if (scale === 1 && srcUrl.length * 0.75 <= IMAGE_KEEP_ORIGINAL_BYTES) return srcUrl;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const encoded = encodeCanvasForReport(canvas);
+        return (scale === 1 && encoded.length >= srcUrl.length) ? srcUrl : encoded;
+    }
+
+    function evidenceFigureHtml(dataUrl) {
+        // The caption starts as an [insert …] placeholder, which the Pre-Export Checklist flags until it's written.
+        return `<figure><img src="${escapeHtml(dataUrl)}" alt="Evidence screenshot"><figcaption>[insert figure caption]</figcaption></figure><p><br></p>`;
+    }
+
+    // Headings and finding titles are single-line text; images go into body text only.
+    function acceptsEvidenceImages(editable) {
+        return !!editable && !editable.matches('h1, h2, h3, h4, [data-field="title"]');
+    }
+
+    async function insertEvidenceImages(files, range) {
+        const urls = [];
+        for (const file of files) {
+            try { urls.push(await prepareImageForReport(file)); }
+            catch (err) { await showAlert(`Couldn't insert "${file.name || 'image'}": ${err.message}`); }
         }
+        if (!urls.length || !range) return;
+        let node = range.startContainer; if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
+        const editable = node.closest && node.closest('.section-edit');
+        if (!acceptsEvidenceImages(editable)) return;
+        editable.focus();
+        const sel = window.getSelection();
+        sel.removeAllRanges(); sel.addRange(range);
+        document.execCommand('insertHTML', false, urls.map(evidenceFigureHtml).join('')); // fires 'input' → saved like typing
+        announce(urls.length === 1 ? 'Image inserted.' : `${urls.length} images inserted.`);
+    }
+
+    async function insertImageFromToolbar(input) {
+        const files = [...(input.files || [])];
+        input.value = '';
+        document.getElementById('floatingToolbar').style.display = 'none';
+        if (!files.length) return;
+        if (!lastSavedRange) { await showAlert('Click into a text section or finding first, then insert the image.'); return; }
+        await insertEvidenceImages(files, lastSavedRange.cloneRange());
+    }
+
+    function imageFilesFrom(dataTransfer) {
+        if (!dataTransfer) return [];
+        const fromItems = [...(dataTransfer.items || [])]
+            .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
+            .map(item => item.getAsFile()).filter(Boolean);
+        return fromItems.length ? fromItems : [...(dataTransfer.files || [])].filter(f => f.type.startsWith('image/'));
+    }
+
+    function caretRangeAtPoint(x, y) {
+        if (document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y);
+        const pos = document.caretPositionFromPoint && document.caretPositionFromPoint(x, y);
+        if (!pos) return null;
+        const range = document.createRange();
+        range.setStart(pos.offsetNode, pos.offset); range.collapse(true);
+        return range;
+    }
+
+    // Paste (Ctrl/Cmd+V of a screenshot) and drop of image files into body text; selecting an image
+    // for redaction. All delegated from the report, installed once.
+    function setupEvidenceHandling() {
+        const report = document.getElementById('printableReport');
+
+        report.addEventListener('paste', (e) => {
+            const editable = e.target.closest && e.target.closest('.section-edit');
+            if (!acceptsEvidenceImages(editable)) return;
+            const files = imageFilesFrom(e.clipboardData);
+            if (!files.length) return;          // ordinary text paste: leave it to the browser
+            e.preventDefault();
+            const sel = window.getSelection();
+            insertEvidenceImages(files, sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null);
+        });
+
+        report.addEventListener('dragover', (e) => {
+            if (dragState || !e.dataTransfer || ![...e.dataTransfer.types].includes('Files')) return;
+            if (!acceptsEvidenceImages(e.target.closest && e.target.closest('.section-edit'))) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+        });
+        report.addEventListener('drop', (e) => {
+            if (dragState) return;
+            const files = imageFilesFrom(e.dataTransfer);
+            if (!files.length) return;
+            e.preventDefault();                 // never let the browser navigate to the dropped file
+            if (!acceptsEvidenceImages(e.target.closest && e.target.closest('.section-edit'))) return;
+            insertEvidenceImages(files, caretRangeAtPoint(e.clientX, e.clientY));
+        });
+
+        report.addEventListener('click', (e) => {
+            const img = e.target.closest && e.target.closest('.section-edit img');
+            selectEvidenceImage(img || null);
+        });
+        window.addEventListener('resize', positionImageSelectionOutline);
+    }
+
+    // The selected image is marked with an outline drawn over it (not a class on the <img>, which
+    // would end up in the saved report).
+    let selectedEvidenceImage = null;
+
+    function selectEvidenceImage(img) {
+        selectedEvidenceImage = img;
+        positionImageSelectionOutline();
+    }
+
+    function positionImageSelectionOutline() {
+        const outline = document.getElementById('imageSelectionOutline');
+        if (!outline) return;
+        if (!selectedEvidenceImage || !selectedEvidenceImage.isConnected) { outline.style.display = 'none'; return; }
+        const r = selectedEvidenceImage.getBoundingClientRect();
+        Object.assign(outline.style, {
+            display: 'block', top: `${window.scrollY + r.top - 4}px`, left: `${window.scrollX + r.left - 4}px`,
+            width: `${r.width + 8}px`, height: `${r.height + 8}px`,
+        });
+    }
+
+    // ---- Redaction: black boxes flattened into the image pixels ----
+    const redactState = { img: null, source: null, boxes: [], drawing: null };
+
+    async function openRedactModal() {
+        const img = selectedEvidenceImage;
+        if (!img || !img.isConnected) {
+            await showAlert('Click an image in the report first, then choose Redact to black out sensitive parts of it.');
+            return;
+        }
+        let source;
+        try { source = await decodeImage(img.src); }
+        catch (err) { await showAlert("This image can't be redacted: " + err.message); return; }
+        Object.assign(redactState, { img, source, boxes: [], drawing: null });
+        const canvas = document.getElementById('redactCanvas');
+        canvas.width = source.naturalWidth;
+        canvas.height = source.naturalHeight;
+        drawRedactCanvas();
+        openModal('redactModalOverlay', document.getElementById('redactApplyBtn'));
+    }
+
+    function closeRedactModal() {
+        closeModal('redactModalOverlay');
+        Object.assign(redactState, { img: null, source: null, boxes: [], drawing: null });
+    }
+
+    function normalizedBox(b) {
+        return { x: Math.min(b.x0, b.x1), y: Math.min(b.y0, b.y1), w: Math.abs(b.x1 - b.x0), h: Math.abs(b.y1 - b.y0) };
+    }
+
+    function drawRedactCanvas({ preview = true } = {}) {
+        const canvas = document.getElementById('redactCanvas');
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(redactState.source, 0, 0);
+        ctx.fillStyle = '#000';
+        redactState.boxes.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
+        if (preview && redactState.drawing) {
+            const b = normalizedBox(redactState.drawing);
+            ctx.fillStyle = 'rgba(0,0,0,0.55)';
+            ctx.fillRect(b.x, b.y, b.w, b.h);
+        }
+        document.getElementById('redactBoxCount').textContent =
+            redactState.boxes.length === 1 ? '1 box' : `${redactState.boxes.length} boxes`;
+    }
+
+    function redactPointFromEvent(e) {
+        const canvas = document.getElementById('redactCanvas');
+        const r = canvas.getBoundingClientRect();
+        return {
+            x: Math.max(0, Math.min(canvas.width, (e.clientX - r.left) * canvas.width / r.width)),
+            y: Math.max(0, Math.min(canvas.height, (e.clientY - r.top) * canvas.height / r.height)),
+        };
+    }
+
+    function setupRedactCanvas() {
+        const canvas = document.getElementById('redactCanvas');
+        canvas.addEventListener('pointerdown', (e) => {
+            if (!redactState.source) return;
+            const p = redactPointFromEvent(e);
+            redactState.drawing = { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
+            canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId);
+            e.preventDefault();
+        });
+        canvas.addEventListener('pointermove', (e) => {
+            if (!redactState.drawing) return;
+            const p = redactPointFromEvent(e);
+            redactState.drawing.x1 = p.x; redactState.drawing.y1 = p.y;
+            drawRedactCanvas();
+        });
+        const finish = () => {
+            if (!redactState.drawing) return;
+            const b = normalizedBox(redactState.drawing);
+            redactState.drawing = null;
+            if (b.w >= 3 && b.h >= 3) redactState.boxes.push(b);   // ignore stray clicks
+            drawRedactCanvas();
+        };
+        canvas.addEventListener('pointerup', finish);
+        canvas.addEventListener('pointercancel', finish);
+    }
+
+    function undoRedactBox() {
+        redactState.boxes.pop();
+        drawRedactCanvas();
+    }
+
+    function applyRedaction() {
+        const { img, boxes } = redactState;
+        if (!img || !boxes.length) { closeRedactModal(); return; }
+        recordUndoPoint('Redact image');
+        drawRedactCanvas({ preview: false });
+        // The boxes are now part of the pixels; the original image is replaced, not layered over,
+        // so what was under them is gone from the report and from every later export.
+        img.src = encodeCanvasForReport(document.getElementById('redactCanvas'));
+        const editable = img.closest('[contenteditable="true"]');
+        if (editable) editable.dispatchEvent(new Event('input', { bubbles: true })); // save like any edit
+        closeRedactModal();
+        positionImageSelectionOutline();
+        announce('Image redacted.');
+        showToast('Image redacted.', { undo: true });
     }
 
     function moveSectionUp(btn) {
@@ -1926,10 +3131,23 @@
             await showAlert("At least one Detailed Findings section must remain in the report.");
             return;
         }
+        // BUG-011: the risk matrix, severity table and findings list live in this block; removing it
+        // used to make every later render throw.
+        if (targetBlock.id === 'block-retest') { await endRetest(); return; } // deleting it ends the retest
+        if (targetBlock.id === 'block-summary') {
+            await showAlert("The Findings Summary section can't be deleted: it holds the risk matrix and the severity table. You can move it with the arrows or the drag handle instead.");
+            return;
+        }
         const isBreak = targetBlock.classList.contains('page-break-block');
-        const promptText = isBreak ? "Remove this printable page split barrier?" : "Permanently delete this text section?";
+        const heading = targetBlock.querySelector('h2');
+        const name = heading ? heading.innerText.trim() : '';
+        const promptText = isBreak ? "Remove this page break?"
+            : isDetails ? `Delete the section "${name}"? Its findings move to the first Detailed Findings section.`
+            : `Delete the section "${name}"?`;
         if (await showConfirm(promptText)) {
+            recordUndoPoint(isBreak ? 'Remove page break' : `Delete section "${name}"`);
             targetBlock.remove();
+            showToast(isBreak ? 'Page break removed.' : 'Section deleted.', { undo: true });
             document.getElementById('floatingToolbar').style.display = 'none';
             markUnsaved();
             renderAll();
@@ -1953,7 +3171,7 @@
                 <button class="block-control-btn control-danger" onclick="removeSection(this)" data-tooltip="Delete this section"><i class="bi bi-trash"></i></button>
             </div>
             <div class="d-flex justify-content-between align-items-center">
-                <h2 class="editable-section section-edit flex-grow-1 details-title" contenteditable="true">${headline}</h2>
+                <h2 class="editable-section section-edit flex-grow-1 details-title" contenteditable="true">${escapeHtml(headline)}</h2>
             </div>
             <div class="findings-container" style="position: relative; min-height: 50px; padding-left: 20px;"></div>`;
             
@@ -1988,7 +3206,7 @@
                 <button class="block-control-btn control-danger" onclick="removeSection(this)" data-tooltip="Delete this section"><i class="bi bi-trash"></i></button>
             </div>
             <div class="d-flex justify-content-between align-items-center">
-                <h2 class="editable-section section-edit flex-grow-1" contenteditable="true">${headline}</h2>
+                <h2 class="editable-section section-edit flex-grow-1" contenteditable="true">${escapeHtml(headline)}</h2>
             </div>
             <div class="editable-section section-edit" contenteditable="true">Enter content here...</div>`;
         
@@ -2022,138 +3240,287 @@
         announce('Page break inserted.');
     }
 
-    function setupDragAndDrop() {
-        const container = document.getElementById('reportBlocksContainer');
-        const blocks = container.querySelectorAll('.report-block');
-        
-        blocks.forEach(block => {
-            const handle = block.querySelector('.drag-handle');
-            if (handle) {
-                handle.addEventListener('mousedown', () => { block.setAttribute('draggable', 'true'); });
-                handle.addEventListener('mouseup', () => { block.setAttribute('draggable', 'false'); });
-                handle.addEventListener('dragend', () => { block.setAttribute('draggable', 'false'); });
-            }
-            block.addEventListener('dragstart', (e) => {
-                if (block.getAttribute('draggable') !== 'true') { e.preventDefault(); return; }
-                block.classList.add('dragging');
-            });
-            block.addEventListener('dragend', () => {
-                block.classList.remove('dragging'); block.setAttribute('draggable', 'false');
-                renderAll();
-            });
-        });
-        
-        container.addEventListener('dragover', e => {
-            const draggable = document.querySelector('.dragging'); if (!draggable) return;
-            e.preventDefault();
-            const afterElement = getDragAfterElement(container, e.clientY);
-            if (afterElement == null) { container.appendChild(draggable); }
-            else { container.insertBefore(draggable, afterElement); }
-        });
+    // Drag-and-drop for both sections and finding cards, via ONE set of listeners delegated from
+    // #reportBlocksContainer and installed once (PERF-001). The old code attached fresh listeners to
+    // every block on each section add/import and to every findings container on each renderAll(), so
+    // they piled up without bound (50 renders → 51 dragover handlers, each measuring every card).
+    // Delegation also covers sections and cards created later, with no re-wiring.
+    //
+    // Kept for its many existing callers: installs the delegation the first time, then only refreshes
+    // aria-labels for newly added icon buttons.
+    let dragAndDropInstalled = false;
+    let dragState = null;          // { kind: 'block' | 'card', el }
+    let pendingDragMove = null;    // latest pointer position, applied once per animation frame (PERF-007)
 
+    function setupDragAndDrop() {
+        if (!dragAndDropInstalled) {
+            dragAndDropInstalled = true;
+            const container = document.getElementById('reportBlocksContainer');
+
+            // Only a press on a grip handle arms its card/section for dragging, so text selection
+            // and image drags inside editable content keep working normally.
+            container.addEventListener('mousedown', (e) => {
+                const vulnHandle = e.target.closest('.vuln-drag-handle');
+                const target = vulnHandle ? vulnHandle.closest('.vuln-card')
+                    : (e.target.closest('.drag-handle') || {}).closest?.('.report-block');
+                if (target) target.setAttribute('draggable', 'true');
+            });
+            document.addEventListener('mouseup', disarmDraggables);
+
+            container.addEventListener('dragstart', (e) => {
+                const card = e.target.closest('.vuln-card');
+                if (card && card.getAttribute('draggable') === 'true') {
+                    dragState = { kind: 'card', el: card };
+                    card.classList.add('vuln-dragging');
+                    return;
+                }
+                const block = e.target.closest('#reportBlocksContainer > .report-block');
+                if (!card && block && block.getAttribute('draggable') === 'true') {
+                    dragState = { kind: 'block', el: block };
+                    block.classList.add('dragging');
+                    return;
+                }
+                e.preventDefault(); // not started from a grip handle
+            });
+
+            container.addEventListener('dragover', (e) => {
+                if (!dragState) return;
+                const findingsContainer = dragState.kind === 'card' ? e.target.closest('.findings-container') : null;
+                if (dragState.kind === 'card' && !findingsContainer) return; // cards only drop into findings lists
+                e.preventDefault();
+                const wasPending = pendingDragMove !== null;
+                pendingDragMove = { y: e.clientY, findingsContainer };
+                if (!wasPending) requestAnimationFrame(applyPendingDragMove);
+            });
+
+            container.addEventListener('drop', (e) => { if (dragState) e.preventDefault(); }); // never insert drag data as text
+
+            container.addEventListener('dragend', () => {
+                if (!dragState) return;
+                const { kind, el } = dragState;
+                dragState = null;
+                pendingDragMove = null;
+                el.classList.remove('dragging', 'vuln-dragging');
+                disarmDraggables();
+                if (kind === 'card') reorderFindingsFromDom();
+                markUnsaved(); // reordering is an edit (it didn't count as one before)
+                renderAll();
+                announce(kind === 'card' ? 'Finding moved.' : 'Section moved.');
+            });
+        }
         syncAriaLabelsFromTooltips();
     }
 
-    function getDragAfterElement(container, y) {
-        const draggableElements = [...container.querySelectorAll('.report-block:not(.dragging)')];
-        return draggableElements.reduce((closest, child) => {
-            const box = child.getBoundingClientRect(); const offset = y - box.top - box.height / 2;
-            if (offset < 0 && offset > closest.offset) { return { offset: offset, element: child }; } 
-            else { return closest; }
-        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    function disarmDraggables() {
+        if (dragState) return; // mouseup fires before dragend in some browsers; dragend disarms
+        document.querySelectorAll('#reportBlocksContainer [draggable="true"].report-block, #reportBlocksContainer [draggable="true"].vuln-card')
+            .forEach(el => el.setAttribute('draggable', 'false'));
     }
 
-    function setupVulnDragAndDrop() {
-        const containers = document.querySelectorAll('.findings-container');
-        const cards = document.querySelectorAll('.vuln-card');
+    function applyPendingDragMove() {
+        const move = pendingDragMove;
+        pendingDragMove = null;
+        if (!move || !dragState) return;
+        const { el } = dragState;
+        const parent = dragState.kind === 'card' ? move.findingsContainer : document.getElementById('reportBlocksContainer');
+        const after = dragState.kind === 'card' ? getDragAfterVulnElement(parent, move.y) : getDragAfterElement(parent, move.y);
+        if (after === el || (after ? after.previousElementSibling === el && el.parentNode === parent : parent.lastElementChild === el)) return; // already there
+        if (after == null) parent.appendChild(el);
+        else parent.insertBefore(el, after);
+    }
 
-        cards.forEach(card => {
-            const handle = card.querySelector('.vuln-drag-handle');
-            if (handle) {
-                handle.addEventListener('mousedown', () => { card.setAttribute('draggable', 'true'); });
-                handle.addEventListener('mouseup', () => { card.setAttribute('draggable', 'false'); });
-                handle.addEventListener('dragend', () => { card.setAttribute('draggable', 'false'); });
-            }
-            card.addEventListener('dragstart', (e) => {
-                if (card.getAttribute('draggable') !== 'true') { e.preventDefault(); return; }
-                e.stopPropagation(); card.classList.add('vuln-dragging');
-            });
-            card.addEventListener('dragend', (e) => {
-                e.stopPropagation(); card.classList.remove('vuln-dragging'); card.setAttribute('draggable', 'false');
-                
-                const reorderedFindings = [];
-                document.querySelectorAll('.findings-container').forEach(container => {
-                    const parentBlock = container.closest('.details-block');
-                    const sectionId = parentBlock ? parentBlock.id : 'block-details';
-                    const containerCards = [...container.querySelectorAll('.vuln-card')];
-                    
-                    containerCards.forEach(c => {
-                        const originalIndex = parseInt(c.getAttribute('data-index'));
-                        const finding = findings[originalIndex];
-                        if (finding) {
-                            finding.sectionId = sectionId;
-                            reorderedFindings.push(finding);
-                        }
-                    });
-                });
-                findings = reorderedFindings;
-                renderAll(); 
+    // Finding order (and section membership) after a card drop is read back from the DOM.
+    function reorderFindingsFromDom() {
+        const reordered = [];
+        document.querySelectorAll('.findings-container').forEach(container => {
+            const parentBlock = container.closest('.details-block');
+            const sectionId = parentBlock ? parentBlock.id : 'block-details';
+            container.querySelectorAll('.vuln-card').forEach(c => {
+                const finding = findings[parseInt(c.getAttribute('data-index'), 10)];
+                if (finding && !reordered.includes(finding)) {
+                    finding.sectionId = sectionId;
+                    reordered.push(finding);
+                }
             });
         });
+        findings.forEach(f => { if (!reordered.includes(f)) reordered.push(f); }); // never lose a finding
+        findings = reordered;
+    }
 
-        containers.forEach(container => {
-            container.addEventListener('dragover', e => {
-                const draggable = document.querySelector('.vuln-dragging'); if (!draggable) return; 
-                e.preventDefault(); e.stopPropagation();
-                const afterElement = getDragAfterVulnElement(container, e.clientY);
-                if (afterElement == null) { container.appendChild(draggable); } 
-                else { container.insertBefore(draggable, afterElement); }
-            });
-        });
+    function getDragAfterElement(container, y) {
+        // Direct children only: finding page breaks inside a findings list also carry .report-block,
+        // and inserting relative to one of those (not a child of this container) threw.
+        const draggableElements = [...container.querySelectorAll(':scope > .report-block:not(.dragging)')];
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect(); const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) { return { offset: offset, element: child }; }
+            else { return closest; }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
     }
 
     function getDragAfterVulnElement(container, y) {
-        const draggableElements = [...container.querySelectorAll('.vuln-card:not(.vuln-dragging)')];
+        const draggableElements = [...container.querySelectorAll(':scope > .vuln-card:not(.vuln-dragging)')];
         return draggableElements.reduce((closest, child) => {
             const box = child.getBoundingClientRect(); const offset = y - box.top - box.height / 2;
-            if (offset < 0 && offset > closest.offset) { return { offset: offset, element: child }; } 
+            if (offset < 0 && offset > closest.offset) { return { offset: offset, element: child }; }
             else { return closest; }
         }, { offset: Number.NEGATIVE_INFINITY }).element;
     }
 
+    // ---- Library search (UI-004) -------------------------------------------------------------------
+    // Every word typed must appear somewhere in a template — title, CWE, category (code or its label,
+    // e.g. "Web Application"), or the description/remediation text — so "kerberoast" or "s3 bucket"
+    // finds templates whose title doesn't contain the word. Results are ranked: title hits first.
+    // ↑/↓ move through the results from the search box, Enter loads the highlighted one.
+    // Library entries come from a user-supplied, often shared, file: fields may be missing or
+    // non-strings (BUG-006), and are only ever rendered as text (SEC-002).
+    let libraryMatches = [];          // [{ idx, score }] currently shown
+    let libraryActiveIndex = -1;      // position in libraryMatches highlighted for keyboard selection
+    const librarySearchCache = new WeakMap();
+
+    function libraryText(value) {
+        return (value === undefined || value === null) ? '' : String(value);
+    }
+
+    function libraryCategoryLabel(code) {
+        const opt = [...document.getElementById('libraryCategoryFilter').options].find(o => o.value === code);
+        return opt ? opt.textContent : '';
+    }
+
+    function librarySearchFields(v) {
+        let fields = librarySearchCache.get(v);
+        if (!fields) {
+            fields = {
+                title: libraryText(v.title).toLowerCase(),
+                meta: `${libraryText(v.cwe)} ${libraryText(v.category)} ${libraryCategoryLabel(libraryText(v.category))}`.toLowerCase(),
+                body: `${libraryText(v.description)} ${libraryText(v.remediation)}`.toLowerCase(),
+            };
+            if (v && typeof v === 'object') librarySearchCache.set(v, fields);
+        }
+        return fields;
+    }
+
+    function scoreLibraryTemplate(v, words) {
+        const f = librarySearchFields(v);
+        let score = 0;
+        for (const w of words) {
+            if (f.title.startsWith(w)) score += 8;
+            else if (f.title.includes(w)) score += 5;
+            else if (f.meta.includes(w)) score += 3;
+            else if (f.body.includes(w)) score += 1;
+            else return 0;               // every word has to match somewhere
+        }
+        return score || 1;
+    }
+
+    // Appends text to `parent`, wrapping occurrences of any search word in <mark>.
+    function appendHighlighted(parent, text, words) {
+        const lower = text.toLowerCase();
+        let i = 0;
+        while (i < text.length) {
+            let best = null;
+            for (const w of words) {
+                const at = lower.indexOf(w, i);
+                if (at >= 0 && (!best || at < best.at || (at === best.at && w.length > best.len))) best = { at, len: w.length };
+            }
+            if (!best) { parent.append(text.slice(i)); return; }
+            if (best.at > i) parent.append(text.slice(i, best.at));
+            const mark = document.createElement('mark');
+            mark.textContent = text.slice(best.at, best.at + best.len);
+            parent.append(mark);
+            i = best.at + best.len;
+        }
+    }
+
     function filterLibrary() {
-        const term = document.getElementById('librarySearch').value.toLowerCase();
+        const words = document.getElementById('librarySearch').value.toLowerCase().split(/\s+/).filter(Boolean);
         const selectedCat = document.getElementById('libraryCategoryFilter').value;
-        const fontResults = document.getElementById('libraryResults'); fontResults.innerHTML = '';
+        const results = document.getElementById('libraryResults');
+        results.innerHTML = '';
 
-        const matches = library.map((v, idx) => ({ v, idx })).filter(({ v }) => {
-            const matchesSearch = v.title.toLowerCase().includes(term) || v.cwe.toLowerCase().includes(term);
-            const matchesCategory = !selectedCat || v.category === selectedCat;
-            return matchesSearch && matchesCategory;
-        });
+        libraryMatches = library
+            .map((v, idx) => ({ v, idx, score: words.length ? scoreLibraryTemplate(v, words) : 1 }))
+            .filter(m => m.score > 0 && (!selectedCat || libraryText(m.v.category) === selectedCat));
+        if (words.length) libraryMatches.sort((a, b) => b.score - a.score || libraryText(a.v.title).localeCompare(libraryText(b.v.title)));
+        libraryActiveIndex = -1;
 
-        if (matches.length === 0) {
-            fontResults.innerHTML = `<div class="library-empty-state">No matching templates found.</div>`;
+        const count = document.getElementById('libraryResultCount');
+        if (count) count.textContent = libraryMatches.length === 1 ? '1 template' : `${libraryMatches.length} templates`;
+
+        if (libraryMatches.length === 0) {
+            results.innerHTML = `<div class="library-empty-state">No matching templates found.</div>`;
             return;
         }
 
-        matches.forEach(({ v, idx }) => {
-            const btn = document.createElement('button'); btn.className = 'library-item';
-            btn.innerHTML = `<strong>${v.title}</strong> <br><small class="text-secondary">${v.category} | ${v.cwe}</small>`;
+        libraryMatches.forEach(({ v, idx }, pos) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'library-item';
+            btn.id = `library-option-${pos}`;
+            btn.setAttribute('role', 'option');
+            btn.setAttribute('aria-selected', 'false');
+            btn.tabIndex = -1;            // reached with ↑/↓ from the search box, not Tab
+            const title = document.createElement('strong');
+            appendHighlighted(title, libraryText(v.title) || '(untitled template)', words);
+            const meta = document.createElement('small');
+            meta.className = 'text-secondary';
+            const cat = libraryText(v.category);
+            meta.textContent = `${libraryCategoryLabel(cat) || cat || 'General'} | ${libraryText(v.cwe) || 'N/A'}`;
+            btn.append(title, document.createElement('br'), meta);
             btn.onclick = () => loadTemplate(idx);
-            fontResults.appendChild(btn);
+            results.appendChild(btn);
         });
     }
 
-    function loadTemplate(idx) {
+    function setLibraryActive(pos) {
+        const items = document.querySelectorAll('#libraryResults .library-item');
+        if (!items.length) return;
+        libraryActiveIndex = Math.max(0, Math.min(items.length - 1, pos));
+        items.forEach((el, i) => {
+            el.classList.toggle('active', i === libraryActiveIndex);
+            el.setAttribute('aria-selected', i === libraryActiveIndex ? 'true' : 'false');
+        });
+        items[libraryActiveIndex].scrollIntoView({ block: 'nearest' });
+        document.getElementById('librarySearch').setAttribute('aria-activedescendant', items[libraryActiveIndex].id);
+    }
+
+    function setupLibraryKeyboard() {
+        document.getElementById('librarySearch').addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowDown') { e.preventDefault(); setLibraryActive(libraryActiveIndex + 1); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); setLibraryActive(libraryActiveIndex - 1); }
+            else if (e.key === 'Enter') {
+                e.preventDefault();
+                const match = libraryMatches[libraryActiveIndex >= 0 ? libraryActiveIndex : 0];
+                if (match) loadTemplate(match.idx);
+            }
+        });
+    }
+
+    // The form fields a template fills in, used to tell whether the user has typed something a
+    // template would overwrite.
+    const TEMPLATE_FORM_FIELDS = ['vTitle', 'vCWE', 'vCategory', 'vDesc', 'vRem'];
+    let lastLoadedTemplateValues = null;
+
+    function templateFormValues() {
+        return TEMPLATE_FORM_FIELDS.map(id => document.getElementById(id).value);
+    }
+
+    async function loadTemplate(idx) {
         const v = library[idx];
-        document.getElementById('vTitle').value = v.title;
-        document.getElementById('vCWE').value = v.cwe || "";
-        document.getElementById('vCategory').value = v.category || "";
-        document.getElementById('vDesc').value = v.description;
-        document.getElementById('vRem').value = v.remediation;
-        document.getElementById('vAssets').value = "";
-        lastLoadedRemediation = v.remediation;
+        if (!v) return;
+        const current = templateFormValues();
+        const hasOwnEdits = current.some(x => x.trim() !== '') &&
+            (!lastLoadedTemplateValues || current.some((x, i) => x !== lastLoadedTemplateValues[i]));
+        if (hasOwnEdits && !(await showConfirm(`Replace what you've typed in the form with the "${libraryText(v.title)}" template?`))) return;
+        document.getElementById('vTitle').value = libraryText(v.title);
+        document.getElementById('vCWE').value = libraryText(v.cwe);
+        document.getElementById('vCategory').value = libraryText(v.category);
+        document.getElementById('vDesc').value = libraryText(v.description);
+        document.getElementById('vRem').value = libraryText(v.remediation);
+        // Affected assets are about this engagement, not the template, so they're kept.
+        lastLoadedRemediation = libraryText(v.remediation);
+        lastLoadedTemplateValues = templateFormValues();
+        announce(`Template loaded: ${libraryText(v.title)}.`);
     }
 
     async function saveAsLibraryTemplate() {
@@ -2174,8 +3541,7 @@
     }
 
     function exportLibraryJson() {
-        const blob = new Blob([JSON.stringify(library, null, 2)], {type: 'application/json'});
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'library.json'; a.click();
+        downloadFile('library.json', JSON.stringify(library, null, 2));
     }
 
     async function importLibraryJson(input) {
@@ -2207,11 +3573,14 @@
     }
 
     async function addFinding() {
-        const rawAssets = document.getElementById('vAssets').value;
-        const assetsArr = rawAssets ? rawAssets.split(',').map(item => item.trim()).filter(item => item.length > 0) : [];
+        const assetsArr = parseAssetList(document.getElementById('vAssets').value);
 
-        const firstSec = document.querySelector('.details-block');
-        const sectionId = firstSec ? firstSec.id : 'block-details';
+        // UI-003: the finding goes into the section chosen in the form (remembered for next time),
+        // instead of always into the first Detailed Findings section.
+        const sectionIds = [...document.querySelectorAll('.details-block')].map(sec => sec.id);
+        const chosen = (document.getElementById('vTargetSection') || {}).value;
+        const sectionId = sectionIds.includes(chosen) ? chosen : (sectionIds[0] || 'block-details');
+        lastTargetSectionId = sectionId;
 
         const remediationVal = document.getElementById('vRem').value;
         const remediationIsDefault = lastLoadedRemediation !== null && remediationVal === lastLoadedRemediation;
@@ -2229,19 +3598,24 @@
             exploit: exploitRaw ? parseInt(exploitRaw) : null,
             cvssVector: document.getElementById('vCvssVector').value.trim(),
             cvssScore: document.getElementById('vCvssScore').value.trim(),
-            description: document.getElementById('vDesc').value,
-            remediation: remediationVal,
+            // BUG-015 / SEC-002: the form and the library hold plain text, but finding fields are HTML.
+            // Escape on the way in, so "sc config <name>" shows as written and template text can never
+            // become markup. Line breaks still render: .editable-section uses white-space: pre-wrap.
+            description: escapeHtml(document.getElementById('vDesc').value),
+            remediation: escapeHtml(remediationVal),
             remediationIsDefault: remediationIsDefault,
             showPlanner: actionPlannersGloballyVisible,
             plannerManuallyHidden: false,
             status: '',
             retestDate: '',
-            sectionId: sectionId
+            sectionId: sectionId,
+            id: newFindingId()
         });
         markUnsaved();
         renderAll();
         announce('Finding added.');
         ['vTitle', 'vCWE', 'vCategory', 'vAssets', 'vCvssVector', 'vCvssScore', 'vDesc', 'vRem'].forEach(id => document.getElementById(id).value = '');
+        lastLoadedTemplateValues = null;
     }
 
     function updateFindingScore(idx, field, value) {
@@ -2290,28 +3664,117 @@
     }
 
 
-    function deleteInlineAsset(vulnIdx, assetIdx) {
-        findings[vulnIdx].assets.splice(assetIdx, 1);
-        markUnsaved();
-        renderAll();
+    // ---- Affected assets (UI-002) ------------------------------------------------------------------
+    // Inline entry instead of the browser's prompt(): "+" opens a small input on the card; Enter or a
+    // comma adds what's typed and keeps the input open for the next one; pasting a list (one per
+    // line, or separated by commas/semicolons) adds them all at once; Escape or clicking away closes
+    // it. Double-clicking an asset puts it back into the input to edit.
+    let assetEntry = null;            // { finding, prefill } while a card's asset input is open
+    let assetEntryRendering = false;  // renderAll() removing the input must not count as "clicked away"
+
+    function parseAssetList(text) {
+        return String(text || '').split(/[\n\r,;]+/).map(s => s.trim()).filter(Boolean);
     }
 
-    function addInlineAsset(vulnIdx) {
-        const name = prompt("Enter asset tracking identification tag:");
-        if (name && name.trim().length > 0) {
-            findings[vulnIdx].assets.push(name.trim());
-            markUnsaved();
-            renderAll();
+    function addAssetsToFinding(finding, names) {
+        if (!Array.isArray(finding.assets)) finding.assets = [];
+        let added = 0;
+        for (const name of names) {
+            if (!finding.assets.some(a => a.toLowerCase() === name.toLowerCase())) { finding.assets.push(name); added++; }
         }
+        return added;
     }
 
-    function editInlineAsset(vulnIdx, assetIdx, currentText) {
-        const name = prompt("Update asset designation reference:", currentText);
-        if (name && name.trim().length > 0) {
-            findings[vulnIdx].assets[assetIdx] = name.trim();
-            markUnsaved();
-            renderAll();
+    function renderWithAssetEntry(finding, prefill = '') {
+        assetEntry = finding ? { finding, prefill } : null;
+        assetEntryRendering = true;
+        try { renderAll(); } finally { assetEntryRendering = false; }
+        if (!assetEntry) return;
+        const card = document.querySelector(`.vuln-card[data-index="${findings.indexOf(finding)}"]`);
+        const input = card && card.querySelector('.asset-entry-input');
+        if (input) { input.value = assetEntry.prefill; input.focus(); }
+    }
+
+    function commitAssetEntry(input, { keepOpen, extraText = '' }) {
+        const finding = assetEntry && assetEntry.finding;
+        if (!finding) return;
+        // extraText: pasted text, parsed directly — writing it into the input first would lose its
+        // line breaks (a text input's value setter strips them), merging a pasted list into one name.
+        const names = parseAssetList(input.value).concat(parseAssetList(extraText));
+        if (names.length) {
+            const added = addAssetsToFinding(finding, names);
+            if (added) { markUnsaved(); announce(added === 1 ? 'Asset added.' : `${added} assets added.`); }
         }
+        renderWithAssetEntry(keepOpen ? finding : null);
+    }
+
+    function setupAssetEditing() {
+        const container = document.getElementById('reportBlocksContainer');
+        const findingOf = (el) => {
+            const card = el.closest('.vuln-card');
+            return card ? findings[parseInt(card.dataset.index, 10)] : null;
+        };
+        container.addEventListener('click', (e) => {
+            const add = e.target.closest('[data-asset-add]');
+            const remove = e.target.closest('[data-asset-remove]');
+            if (add) {
+                const f = findingOf(add);
+                if (f) renderWithAssetEntry(f);
+            } else if (remove) {
+                const f = findingOf(remove);
+                if (!f) return;
+                f.assets.splice(parseInt(remove.dataset.assetRemove, 10), 1);
+                markUnsaved();
+                renderWithAssetEntry(assetEntry && assetEntry.finding);
+                announce('Asset removed.');
+            }
+        });
+        container.addEventListener('dblclick', (e) => {
+            const name = e.target.closest('[data-asset-edit]');
+            if (!name) return;
+            const f = findingOf(name);
+            if (!f) return;
+            const [old] = f.assets.splice(parseInt(name.dataset.assetEdit, 10), 1);
+            markUnsaved();
+            renderWithAssetEntry(f, old);
+        });
+        container.addEventListener('keydown', (e) => {
+            if (!e.target.classList || !e.target.classList.contains('asset-entry-input')) return;
+            if (e.key === 'Enter' || (e.key === ',' && e.target.value.trim())) {
+                e.preventDefault();
+                commitAssetEntry(e.target, { keepOpen: true });
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                renderWithAssetEntry(null);
+            }
+        });
+        container.addEventListener('paste', (e) => {
+            if (!e.target.classList || !e.target.classList.contains('asset-entry-input')) return;
+            const text = e.clipboardData && e.clipboardData.getData('text/plain');
+            if (!text || parseAssetList(text).length < 2) return;   // a single name pastes normally
+            e.preventDefault();
+            commitAssetEntry(e.target, { keepOpen: true, extraText: text });
+        });
+        container.addEventListener('focusout', (e) => {
+            if (assetEntryRendering || !e.target.classList || !e.target.classList.contains('asset-entry-input')) return;
+            commitAssetEntry(e.target, { keepOpen: false });
+        });
+
+        // The Add Finding form's asset field: a pasted multi-line list becomes a comma-separated one.
+        document.getElementById('vAssets').addEventListener('paste', (e) => {
+            const text = e.clipboardData && e.clipboardData.getData('text/plain');
+            if (!text || !/[\r\n]/.test(text)) return;
+            e.preventDefault();
+            const input = e.target;
+            const merged = parseAssetList(input.value).concat(parseAssetList(text));
+            input.value = merged.join(', ');
+        });
+
+        // "Add a finding here" in an empty Detailed Findings section.
+        container.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-add-finding-to]');
+            if (btn) openAddFindingModal(btn.dataset.addFindingTo);
+        });
     }
 
     function parseCweLinkBadge(cweValue) {
@@ -2441,6 +3904,10 @@
             items.push({ warnLabel: 'Findings missing risk score', okLabel: 'All findings have a risk score', count: missingScore });
             items.push({ warnLabel: 'Findings missing status', okLabel: 'All findings have a status', count: missingStatus });
             items.push({ warnLabel: 'Findings still using default remediation text', okLabel: 'All remediation text has been customized', count: defaultRemediation });
+            if (retestState) {
+                const notRetested = findings.filter(f => retestState.baseline[f.id] && !f.retestDate).length;
+                items.push({ warnLabel: 'Original findings without a retest date', okLabel: 'All original findings have a retest date', count: notRetested });
+            }
         }
 
         body.innerHTML = items.map(item => {
@@ -2485,6 +3952,7 @@
             f.exploit = normalizeScoreValue(f.exploit);
             if (!FINDING_STATUSES.some(s => s.value === f.status)) { f.status = ''; }
         });
+        ensureFindingIds();
 
         // Grouped summary list rendering
         const sl = document.getElementById('summaryList');
@@ -2536,7 +4004,11 @@
             const hasScore = f.impact !== null && f.exploit !== null;
             const hasCvss = !!(f.cvssVector || f.cvssScore);
 
-            if (hasScore) {
+            // BUG-007: a false positive isn't a risk, so it isn't plotted or counted in the executive
+            // severity table. Remediated / Accepted Risk findings still are — they were real findings,
+            // and their status badge shows where they stand.
+            const countsTowardRisk = !STATUSES_EXCLUDED_FROM_RISK_TOTALS.has(f.status);
+            if (hasScore && countsTowardRisk) {
                 const cell = document.getElementById(`cell-${f.impact}-${f.exploit}`);
                 if (cell) {
                     const dot = document.createElement('div'); dot.className = 'finding-dot'; dot.innerText = id; cell.appendChild(dot);
@@ -2547,10 +4019,11 @@
             if (!hasScore) { badgeClass = 'badge-unscored'; badgeText = 'Not Scored'; }
             else {
                 const score = f.impact * f.exploit;
-                if (score >= 16) { badgeClass = 'badge-crit'; badgeText = 'Critical'; counts.crit++; }
-                else if (score >= 10) { badgeClass = 'badge-high'; badgeText = 'High'; counts.high++; }
-                else if (score >= 5) { badgeClass = 'badge-med'; badgeText = 'Medium'; counts.med++; }
-                else { badgeClass = 'badge-low'; badgeText = 'Low'; counts.low++; }
+                const bump = (key) => { if (countsTowardRisk) counts[key]++; };
+                if (score >= 16) { badgeClass = 'badge-crit'; badgeText = 'Critical'; bump('crit'); }
+                else if (score >= 10) { badgeClass = 'badge-high'; badgeText = 'High'; bump('high'); }
+                else if (score >= 5) { badgeClass = 'badge-med'; badgeText = 'Medium'; bump('med'); }
+                else { badgeClass = 'badge-low'; badgeText = 'Low'; bump('low'); }
             }
 
             let impactOptions = `<option value="" ${f.impact === null ? 'selected' : ''}>Impact</option>`;
@@ -2568,20 +4041,20 @@
             let assetsHtmlString = "";
             
             assetsHtmlString = `<div class="mt-2${assetsDataList.length === 0 ? ' print-fallback-hidden' : ''}"><strong>Affected Assets:</strong> `;
+            // UI-002: handled by the delegated listeners in setupAssetEditing()
             if (assetsDataList.length > 0) {
-                assetsHtmlString += assetsDataList.map((asset, aIdx) => {
-                    const assetJsArg = escapeHtml(JSON.stringify(String(asset)));
-                    return `
-                    <span class="asset-badge" title="Double click to edit string name" ondblclick="event.stopPropagation(); editInlineAsset(${i}, ${aIdx}, ${assetJsArg})">
-                        <span>${escapeHtml(asset)}</span>
-                        <span class="badge-del no-print" onclick="event.stopPropagation(); deleteInlineAsset(${i}, ${aIdx})">×</span>
-                    </span>
-                `;
-                }).join('');
-            } else {
+                assetsHtmlString += assetsDataList.map((asset, aIdx) => `
+                    <span class="asset-badge">
+                        <span data-asset-edit="${aIdx}" title="Double-click to edit">${escapeHtml(asset)}</span>
+                        <button type="button" class="badge-del no-print" data-asset-remove="${aIdx}" aria-label="Remove asset ${escapeHtml(asset)}">×</button>
+                    </span>`).join('');
+            } else if (!(assetEntry && assetEntry.finding === f)) {
                 assetsHtmlString += `<span class="text-muted small print-fallback-hidden me-2">No specific target assets linked.</span>`;
             }
-            assetsHtmlString += `<button class="btn-add-asset-inline no-print" title="Link New Affected Asset" onclick="addInlineAsset(${i})">+</button></div>`;
+            assetsHtmlString += (assetEntry && assetEntry.finding === f)
+                ? `<input type="text" class="asset-entry-input form-control form-control-sm d-inline-block no-print" aria-label="Add affected asset" placeholder="Host, IP or URL — Enter to add, or paste a list">`
+                : `<button type="button" class="btn-add-asset-inline no-print" data-asset-add aria-label="Add affected assets" title="Add affected assets">+</button>`;
+            assetsHtmlString += `</div>`;
 
             let plannerHtml = "";
             const plannerIsShown = f.showPlanner !== false;
@@ -2636,12 +4109,12 @@
                 </div>`;
 
             const cardHtml = `
-            <div class="card mb-4 border-0 border-bottom pb-4 vuln-card" draggable="false" data-index="${i}">
+            <div class="card mb-4 border-0 border-bottom pb-4 vuln-card" draggable="false" data-index="${i}" data-finding-id="${escapeHtml(f.id)}">
                 <div class="vuln-drag-handle no-print"><i class="bi bi-grip-vertical"></i></div>
                 <div class="card-body p-0">
                     ${topControlsHtml}
                     <div class="d-flex justify-content-between align-items-center mb-1 gap-2">
-                        <h3 class="editable-section section-edit mb-0 fw-bold flex-grow-1" contenteditable="true" onblur="updateFindingData(${i}, 'title', this.innerText)">${id}. ${escapeHtml(f.title)}</h3>
+                        <h3 class="mb-0 fw-bold flex-grow-1 d-flex align-items-baseline"><span class="finding-number">${id}.</span><span class="editable-section section-edit flex-grow-1 finding-title" contenteditable="true" data-field="title" onblur="updateFindingData(${i}, 'title', this.innerText)">${escapeHtml(f.title)}</span></h3>
                         <span class="crit-badge ${badgeClass}">${badgeText}</span>
                     </div>
 
@@ -2670,21 +4143,22 @@
                             </div>
                             <div class="d-flex align-items-center gap-2 no-print">
                                 <span class="fw-bold text-secondary">Retest Date:</span>
-                                <input type="date" class="form-control form-control-sm" style="width:auto;" value="${f.retestDate || ''}" onchange="updateFindingRetestDate(${i}, this.value)">
+                                <input type="date" class="form-control form-control-sm" style="width:auto;" value="${escapeHtml(f.retestDate || '')}" onchange="updateFindingRetestDate(${i}, this.value)">
                             </div>
                             <div class="print-score-text">${f.retestDate ? `Retest Date: ${escapeHtml(f.retestDate)}` : ''}</div>
                         </div>
                         ${assetsHtmlString}
+                        ${retestOriginalHtml(f)}
                     </div>
 
                     <div class="mb-3">
                         <div class="fw-bold small text-secondary text-uppercase">General Vulnerability Description</div>
-                        <div class="editable-section section-edit" contenteditable="true" onblur="updateFindingData(${i}, 'description', this.innerHTML)">${f.description}</div>
+                        <div class="editable-section section-edit" contenteditable="true" data-field="description" onblur="updateFindingData(${i}, 'description', this.innerHTML)">${f.description}</div>
                     </div>
 
                     <div class="mb-3">
                         <div class="fw-bold small text-secondary text-uppercase">Remediation</div>
-                        <div class="editable-section section-edit" contenteditable="true" onblur="updateFindingData(${i}, 'remediation', this.innerHTML)">${f.remediation}</div>
+                        <div class="editable-section section-edit" contenteditable="true" data-field="remediation" onblur="updateFindingData(${i}, 'remediation', this.innerHTML)">${f.remediation}</div>
                     </div>
 
                     ${plannerHtml}
@@ -2699,9 +4173,14 @@
 
         Object.keys(containerBuffers).forEach(secId => {
             const html = containerBuffers[secId];
+            // FEAT-008: a "Sort by severity" button above any section with two or more findings
+            // (generated here, so it isn't part of the saved report).
+            const sortBar = findings.filter(f => f.sectionId === secId).length >= 2
+                ? `<div class="findings-toolbar no-print"><button type="button" class="btn btn-sm btn-outline-secondary" data-sort-section="${escapeHtml(secId)}" data-tooltip="Order this section Critical → Low; unscored next, false positives last"><i class="bi bi-sort-down"></i> Sort by severity</button></div>`
+                : '';
             containersMap[secId].innerHTML = (html && html.trim().length > 0)
-                ? html
-                : `<div class="findings-empty-state no-print">No findings in this section yet — add one from the "Add Finding" library in the sidebar.</div>`;
+                ? sortBar + html
+                : `<div class="findings-empty-state no-print">No findings in this section yet. <button type="button" class="btn btn-sm btn-outline-secondary ms-1" data-add-finding-to="${escapeHtml(secId)}"><i class="bi bi-plus-lg"></i> Add a finding here</button></div>`;
         });
 
         // Finding text is rebuilt from `findings` on every renderAll() (add/remove/reorder/score
@@ -2735,7 +4214,9 @@
             </table>`;
         }
         
-        syncTokens(); setupVulnDragAndDrop();
+        syncTokens();
+        renderRetestSummary();
+        positionImageSelectionOutline(); // a re-rendered card replaced the selected image, or moved it
         if (tocEnabled) renderTOC();
         renderChecklist();
         syncAriaLabelsFromTooltips();
@@ -2756,7 +4237,9 @@
 
     function updateFindingData(idx, field, val) {
         if (field === 'title') {
-            val = val.replace(/^\d+\.\s*/, ''); findings[idx][field] = val; renderAll();
+            // The display number lives in its own non-editable span, so the edited text is the title
+            // itself — nothing to strip (stripping /^\d+\./ used to turn "802.1X…" into "1X…", BUG-009).
+            findings[idx][field] = val.trim() || 'New Finding'; renderAll();
         } else {
             findings[idx][field] = val;
             if (field === 'remediation') { findings[idx].remediationIsDefault = false; }
@@ -2765,31 +4248,178 @@
     }
     
     function createMatrix() {
-        const m = document.getElementById('matrix'); m.innerHTML = '';
-        if(m) {
-            for (let r = 5; r >= 1; r--) {
-                let row = m.insertRow();
-                for (let c = 1; c <= 5; c++) {
-                    let cell = row.insertCell(); cell.id = `cell-${r}-${c}`;
-                    let s = r * c; cell.className = s >= 16 ? 'm-crit' : s >= 10 ? 'm-high' : s >= 5 ? 'm-med' : 'm-low';
-                }
+        const m = document.getElementById('matrix');
+        if (!m) return; // BUG-011: must not throw, or every renderAll() after it fails too
+        m.innerHTML = '';
+        for (let r = 5; r >= 1; r--) {
+            let row = m.insertRow();
+            for (let c = 1; c <= 5; c++) {
+                let cell = row.insertCell(); cell.id = `cell-${r}-${c}`;
+                let s = r * c; cell.className = s >= 16 ? 'm-crit' : s >= 10 ? 'm-high' : s >= 5 ? 'm-med' : 'm-low';
             }
         }
     }
 
     const toBase64 = file => new Promise((res) => { const r = new FileReader(); r.readAsDataURL(file); r.onload = () => res(r.result); });
-    async function removeFinding(i) { if (await showConfirm(`Delete Finding #${i+1}?`)) { findings.splice(i, 1); markUnsaved(); renderAll(); announce('Finding deleted.'); } }
-    async function updateLogo(input) { if(input.files[0]) { currentLogo = await toBase64(input.files[0]); configuredLogoPath = ''; markUnsaved(); renderLogo(); renderChecklist(); } }
+    async function removeFinding(i) {
+        if (!(await showConfirm(`Delete Finding #${i+1}?`))) return;
+        recordUndoPoint(`Delete finding "${findings[i].title}"`);
+        findings.splice(i, 1); markUnsaved(); renderAll();
+        announce('Finding deleted.');
+        showToast(`Finding #${i + 1} deleted.`, { undo: true });
+    }
+    async function updateLogo(input) {
+        const file = input.files && input.files[0];
+        input.value = '';
+        if (!file) return;
+        try {
+            // Logos print at most ~160px tall; 1200px wide is plenty and keeps oversized uploads out of every export.
+            currentLogo = await prepareImageForReport(file, { maxWidth: 1200 });
+        } catch (err) {
+            await showAlert(`Couldn't use "${file.name}" as the logo: ${err.message}`);
+            return;
+        }
+        configuredLogoPath = ''; markUnsaved(); renderLogo(); renderChecklist();
+    }
+
+    // PERF-005: one download helper; the object URL is released afterwards instead of pinning a
+    // report-sized Blob in memory for the rest of the session.
+    function downloadFile(filename, content, type = 'application/json') {
+        const url = URL.createObjectURL(new Blob([content], { type }));
+        const a = document.createElement('a');
+        a.href = url; a.download = filename; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 10000); // give the browser time to start the download
+    }
     function renderLogo() {
         const lc = document.getElementById('logoContainer');
-        if(lc) lc.innerHTML = currentLogo ? `<img src="${currentLogo}" class="report-logo mx-auto">` : `<div class="logo-placeholder no-print">Click to Upload Company Logo
+        if(lc) lc.innerHTML = currentLogo ? `<img src="${escapeHtml(currentLogo)}" class="report-logo mx-auto">` : `<div class="logo-placeholder no-print">Click to Upload Company Logo
                 <span class="info-tip" onclick="event.stopPropagation()" data-tooltip="Best practice: PNG or SVG with a transparent background. Displays at up to 160px tall / 80% of the page width, so a wide logo (roughly 3:1 to 4:1 aspect ratio) fits best. Keep the file small (under ~500KB) for fast loading and PDF export.">ⓘ</span>
             </div>`;
     }
 
+    // ---- Report file format -------------------------------------------------------------------
+    // v1: no schemaVersion; metadata (dates, classification) only survived as HTML attributes inside
+    //     blocksHtml, and only if the user had changed them during the session (BUG-002).
+    // v2: adds schemaVersion, an explicit `meta` object and actionPlannersGloballyVisible (BUG-012).
+    // v3: every finding has a stable `id` (ARCH-003), and an optional `retest` block (FEAT-004).
+    const REPORT_SCHEMA_VERSION = 3;
+
+    class ReportValidationError extends Error {
+        constructor(errors) { super(errors.join(' ')); this.errors = errors; }
+    }
+
+    // Returns a list of human-readable problems; empty means the payload is safe to apply. Checks
+    // shape and types only — HTML content is handled separately (SEC-001).
+    function validateReportPayload(data) {
+        const isObject = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+        const isOptionalText = v => v === undefined || v === null || typeof v === 'string';
+        if (!isObject(data)) return ['The file does not contain a report.'];
+        const errors = [];
+
+        if (data.schemaVersion !== undefined) {
+            if (!Number.isInteger(data.schemaVersion) || data.schemaVersion < 1) errors.push('Its format version is invalid.');
+            else if (data.schemaVersion > REPORT_SCHEMA_VERSION) errors.push(`It was saved by a newer version of this app (format v${data.schemaVersion}); this version can read up to v${REPORT_SCHEMA_VERSION}.`);
+        }
+
+        if (!Array.isArray(data.findings)) {
+            errors.push('Its list of findings is missing or not a list.');
+        } else {
+            data.findings.forEach((f, i) => {
+                const at = `Finding ${i + 1}`;
+                if (!isObject(f)) { errors.push(`${at} is not a finding.`); return; }
+                for (const k of ['title', 'cwe', 'category', 'description', 'remediation', 'status', 'retestDate', 'cvssVector', 'cvssScore', 'sectionId']) {
+                    if (!isOptionalText(f[k])) errors.push(`${at}: "${k}" must be text.`);
+                }
+                for (const k of ['impact', 'exploit']) {
+                    if (f[k] !== undefined && f[k] !== null && f[k] !== '' && !Number.isFinite(Number(f[k]))) errors.push(`${at}: "${k}" must be a number.`);
+                }
+                if (f.assets !== undefined && !(Array.isArray(f.assets) && f.assets.every(a => typeof a === 'string'))) errors.push(`${at}: "assets" must be a list of text.`);
+            });
+        }
+
+        if (typeof data.blocksHtml !== 'string') {
+            errors.push('Its report sections are missing.');
+        } else {
+            const tpl = document.createElement('template');
+            tpl.innerHTML = data.blocksHtml;
+            if (!tpl.content.querySelector('.details-block .findings-container')) errors.push('Its report sections contain no Detailed Findings section.');
+        }
+
+        for (const k of ['currentLogo', 'companyName', 'clientName', 'contactName', 'contactEmail', 'assessmentType', 'brandPrimary', 'brandAccent', 'brandHeadline']) {
+            if (!isOptionalText(data[k])) errors.push(`"${k}" must be text.`);
+        }
+        if (data.classifications !== undefined && !(Array.isArray(data.classifications) && data.classifications.every(c => typeof c === 'string'))) {
+            errors.push('Its classification list must be a list of text.');
+        }
+        if (data.meta !== undefined) {
+            if (!isObject(data.meta)) errors.push('Its metadata block is invalid.');
+            else for (const k of ['startDate', 'endDate', 'classification']) {
+                if (!isOptionalText(data.meta[k])) errors.push(`Metadata "${k}" must be text.`);
+            }
+        }
+        if (data.watermark !== undefined && !isObject(data.watermark)) errors.push('Its watermark settings are invalid.');
+        if (Array.isArray(data.findings)) {
+            data.findings.forEach((f, i) => { if (isObject(f) && !isOptionalText(f.id)) errors.push(`Finding ${i + 1}: "id" must be text.`); });
+        }
+        if (data.retest !== undefined && data.retest !== null) {
+            if (!isObject(data.retest) || !isObject(data.retest.baseline) || !isOptionalText(data.retest.startedAt)) {
+                errors.push('Its retest information is invalid.');
+            } else {
+                for (const b of Object.values(data.retest.baseline)) {
+                    if (!isObject(b) || !['title', 'severity', 'status'].every(k => isOptionalText(b[k]))) { errors.push('Its retest information is invalid.'); break; }
+                }
+            }
+        }
+        return errors;
+    }
+
+    // Brings an older payload up to the current format. Never mutates its input.
+    function migrateReportPayload(data) {
+        const d = { ...data };
+        const tpl = document.createElement('template');
+        tpl.innerHTML = d.blocksHtml;
+
+        if (!d.schemaVersion || d.schemaVersion < 2) {
+            // v1 kept metadata only as attributes, which were set only if the user had touched the field.
+            if (!d.meta) {
+                const start = tpl.content.querySelector('#meta-start-date');
+                const end = tpl.content.querySelector('#meta-end-date');
+                const selected = [...tpl.content.querySelectorAll('#meta-classification option[selected]')].map(o => o.value).filter(Boolean);
+                const bg = tpl.content.querySelector('#toggleMetaBg');
+                d.meta = {
+                    startDate: (start && start.getAttribute('value')) || '',
+                    endDate: (end && end.getAttribute('value')) || '',
+                    classification: selected.length ? selected[selected.length - 1] : '',
+                    showMetaBackground: bg ? bg.hasAttribute('checked') : true,
+                };
+            }
+            if (d.actionPlannersGloballyVisible === undefined) {
+                d.actionPlannersGloballyVisible = d.findings.some(f => f && f.showPlanner === true);
+            }
+            d.schemaVersion = 2;
+        }
+        if (d.schemaVersion < 3) {
+            // v3 only adds fields: finding ids are backfilled when the payload is applied.
+            d.schemaVersion = 3;
+        }
+
+        // Files saved after the Findings Summary section was deleted (possible before BUG-011 was
+        // fixed) have no risk matrix; put the standard block back in front of the first findings section.
+        if (!tpl.content.querySelector('#matrix') && PRISTINE_SUMMARY_BLOCK_HTML) {
+            const firstDetails = tpl.content.querySelector('.details-block');
+            firstDetails.insertAdjacentHTML('beforebegin', PRISTINE_SUMMARY_BLOCK_HTML);
+            d.blocksHtml = tpl.innerHTML;
+        }
+        return d;
+    }
+
+    // Captured once at startup, before any import can replace the report container.
+    let PRISTINE_SUMMARY_BLOCK_HTML = '';
+
     // Shared by Export Report (writes it to a .json file) and autosave (writes it to localStorage
     // for crash recovery) — both need the exact same snapshot of report state.
     function buildReportPayload() {
+        flushPendingFindingEdit(); // include text typed into a finding that hasn't been committed yet (BUG-013)
         // findings-container content is fully rebuilt from `findings` on import via renderAll(),
         // so strip it here (on a clone, not the live DOM) to avoid doubling up the export file size.
         const containerClone = document.getElementById('reportBlocksContainer').cloneNode(true);
@@ -2807,7 +4437,17 @@
             mode: (document.querySelector('input[name="watermarkMode"]:checked') || {}).value || 'classification',
             customText: document.getElementById('watermarkCustomText').value
         };
-        return { findings, currentLogo, blocksHtml, tocEnabled, brandPrimary, brandAccent, brandHeadline, companyName, clientName, contactName, contactEmail, classifications, watermark, assessmentType: currentAssessmentType };
+        // Form values are stored explicitly (BUG-002): the HTML attributes inside blocksHtml only
+        // reflect fields the user changed by hand this session, not values restored at startup.
+        const classSelect = document.getElementById('meta-classification');
+        const metaBg = document.getElementById('toggleMetaBg');
+        const meta = {
+            startDate: (document.getElementById('meta-start-date') || {}).value || '',
+            endDate: (document.getElementById('meta-end-date') || {}).value || '',
+            classification: classSelect ? classSelect.value : '',
+            showMetaBackground: metaBg ? metaBg.checked : true,
+        };
+        return { schemaVersion: REPORT_SCHEMA_VERSION, findings, currentLogo, blocksHtml, tocEnabled, brandPrimary, brandAccent, brandHeadline, companyName, clientName, contactName, contactEmail, classifications, watermark, assessmentType: currentAssessmentType, meta, actionPlannersGloballyVisible, retest: retestState };
     }
 
     // Shared by Import Report (loads a .json file) and autosave restore (loads the localStorage
@@ -2815,19 +4455,76 @@
     // caller can show its own contextual error message. `markSaved` controls whether this payload
     // counts as "saved" afterward: true for an explicit file import (its own file is now the saved
     // copy), false for an autosave restore (the whole point is that draft was never exported).
+    //
+    // All-or-nothing (BUG-003): an invalid payload throws ReportValidationError before anything is
+    // touched, and if applying a valid one still fails halfway, the previous report is put back.
     function applyReportPayload(data, { markSaved } = { markSaved: true }) {
-        findings = data.findings || [];
+        const errors = validateReportPayload(data);
+        if (errors.length) throw new ReportValidationError(errors);
+        const migrated = sanitizeReportPayload(migrateReportPayload(data));
+
+        const backup = buildReportPayload();
+        const backupHadUnsavedChanges = hasUnsavedChanges;
+        try {
+            applyValidatedReportPayload(migrated, { markSaved });
+        } catch (err) {
+            try {
+                applyValidatedReportPayload(backup, { markSaved: !backupHadUnsavedChanges });
+            } catch (rollbackErr) {
+                console.error('Rolling back a failed import also failed', rollbackErr);
+            }
+            throw err;
+        }
+    }
+
+    function setSelectValuePersistently(select, value) {
+        select.value = value;
+        Array.from(select.options).forEach(opt => {
+            if (opt.value === select.value) opt.setAttribute('selected', 'selected');
+            else opt.removeAttribute('selected');
+        });
+    }
+
+    function applyValidatedReportPayload(data, { markSaved }) {
+        findings = data.findings;
+        // Repair token damage left by older versions of this app (BUG-001) in the finding data itself,
+        // not just in the rendered cards, so the next export is clean too.
+        findings.forEach(f => {
+            f.description = normalizeTokensInHtml(f.description);
+            f.remediation = normalizeTokensInHtml(f.remediation);
+        });
         currentLogo = data.currentLogo || "";
-        if (data.blocksHtml) document.getElementById('reportBlocksContainer').innerHTML = data.blocksHtml;
+        actionPlannersGloballyVisible = !!data.actionPlannersGloballyVisible;
+        ensureFindingIds();
+        retestState = data.retest || null;
+        updateActionPlannerToggleIcon();
+        document.getElementById('reportBlocksContainer').innerHTML = data.blocksHtml;
+        document.querySelectorAll('#reportBlocksContainer .editable-section').forEach(el => convertLiteralTokensToSpans(el));
+        if (retestState) insertRetestBlock();          // e.g. a file whose Retest Summary block was removed by hand
+        updateRetestControls();
         renderLogo(); createMatrix(); renderAll(); setupDragAndDrop(); setupStateLockListeners();
+
+        if (Array.isArray(data.classifications) && data.classifications.length > 0) {
+            classifications = data.classifications.slice();
+        }
+        const meta = data.meta || {};
+        if (meta.classification && !classifications.includes(meta.classification)) {
+            classifications.push(meta.classification); // keep a classification the file uses even if its list lacks it
+        }
+        renderClassificationSelect();
 
         const startEl = document.getElementById('meta-start-date');
         const endEl = document.getElementById('meta-end-date');
-        if (startEl && startEl.getAttribute('value')) startEl.value = startEl.getAttribute('value');
-        if (endEl && endEl.getAttribute('value')) endEl.value = endEl.getAttribute('value');
+        if (startEl) { startEl.value = meta.startDate || ''; startEl.setAttribute('value', startEl.value); }
+        if (endEl) { endEl.value = meta.endDate || ''; endEl.setAttribute('value', endEl.value); }
+        const classSelect = document.getElementById('meta-classification');
+        if (classSelect) setSelectValuePersistently(classSelect, meta.classification || '');
 
         const check = document.getElementById('toggleMetaBg');
-        if (check) toggleMetadataBackground(check);
+        if (check) {
+            check.checked = meta.showMetaBackground !== false;
+            toggleMetadataBackground(check);
+        }
 
         const tocCheck = document.getElementById('toggleTOC');
         if (tocCheck) { tocCheck.checked = !!data.tocEnabled; toggleTOC(tocCheck); }
@@ -2843,11 +4540,6 @@
         document.getElementById('input-contact-email').value = data.contactEmail || '';
         syncTokens();
 
-        if (Array.isArray(data.classifications) && data.classifications.length > 0) {
-            classifications = data.classifications;
-        }
-        renderClassificationSelect();
-
         const wm = data.watermark || {};
         document.getElementById('watermarkEnabled').checked = !!wm.enabled;
         const wmMode = wm.mode === 'custom' ? 'custom' : 'classification';
@@ -2859,12 +4551,34 @@
         if (data.assessmentType) setAssessmentTypeSilently(data.assessmentType);
 
         hasUnsavedChanges = !markSaved;
+        if (markSaved) { clearTimeout(autosaveIdleTimer); autosaveIdleTimer = null; } // nothing new to save
+        updateSaveStatus();
+    }
+
+    // UI-008: "acme-corp_web-application-pentest_2026-11-01.json" instead of always "report.json",
+    // so exports for different clients and days don't collide as "report (3).json".
+    function filenameSlug(text) {
+        return String(text || '').normalize('NFKD').replace(/[̀-ͯ]/g, '')   // Ö→O, é→e
+            .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/, '');
+    }
+
+    function reportExportFilename(now = new Date()) {
+        const client = document.getElementById('input-client-name').value.trim();
+        const parts = [];
+        if (client && client !== '[CLIENT NAME]') parts.push(filenameSlug(client));
+        if (currentAssessmentType) parts.push(filenameSlug(currentAssessmentType));
+        const pad = n => String(n).padStart(2, '0');
+        parts.push(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`);
+        const name = parts.filter(Boolean).join('_');
+        return `${name || 'report'}.json`;
     }
 
     function exportReportJson() {
-        const blob = new Blob([JSON.stringify(buildReportPayload(), null, 2)], {type: 'application/json'});
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `report.json`; a.click();
+        downloadFile(reportExportFilename(), JSON.stringify(buildReportPayload(), null, 2));
         hasUnsavedChanges = false;
+        saveStatus.exportedAt = Date.now();
+        clearAutosave(); // the exported file is now the saved copy; no stale "restore draft?" prompt next time (BUG-004)
+        updateSaveStatus();
     }
 
     async function importReportJson(input) {
@@ -2886,10 +4600,19 @@
                 return;
             }
 
+            recordUndoPoint('Import report');
             try {
                 applyReportPayload(data, { markSaved: true });
+                showToast('Report imported.', { undo: true });
+                saveStatus.exportedAt = null;
+                clearAutosave(); // the imported file is the saved copy now; an older draft no longer applies
+                updateSaveStatus();
             } catch (err) {
-                await showAlert("Import failed: the file's structure could not be applied to the report.");
+                discardLastUndoPoint(); // nothing changed, so there's nothing to undo
+                const details = err instanceof ReportValidationError
+                    ? '\n\n• ' + err.errors.slice(0, 8).join('\n• ') + (err.errors.length > 8 ? `\n• …and ${err.errors.length - 8} more` : '')
+                    : '';
+                await showAlert("Import failed: this file isn't a report this app can open. Your current report has not been changed." + details);
             } finally {
                 input.value = '';
             }
