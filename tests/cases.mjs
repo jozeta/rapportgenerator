@@ -137,6 +137,14 @@ export const cases = [
         } }],
     },
     {
+        id: 'BUG-014', title: 'Library template titles are unique', tags: ['library', 'stage2'],
+        steps: [{ run: async () => {
+            const seen = new Map(); const dups = [];
+            library.forEach((t, i) => { const k = t.title.trim().toLowerCase(); if (seen.has(k)) dups.push(`#${seen.get(k)}/#${i} "${t.title}"`); else seen.set(k, i); });
+            __t.assert(dups.length === 0, 'duplicate titles: ' + dups.join(', '));
+        } }],
+    },
+    {
         id: 'BUG-010', title: 'Client name with < & is shown as text, not parsed as HTML', tags: ['tokens', 'stage1'],
         steps: [{ run: async () => {
             const { assert } = __t;
@@ -384,7 +392,7 @@ export const cases = [
             const desc = cardFields(0)[1];
             desc.innerHTML = 'freshly typed text 4711';
             desc.dispatchEvent(new Event('input', { bubbles: true }));
-            await sleep(600);
+            // no wait: building the payload (autosave/export) must flush the pending edit itself
             assert(JSON.stringify(buildReportPayload().findings).includes('freshly typed text 4711'), 'in-progress edit missing from the save payload');
         } }],
     },

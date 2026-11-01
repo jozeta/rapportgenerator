@@ -132,6 +132,14 @@ for (const c of selected) {
             await page.load({ fresh: i === 0 || step.fresh === true });
             const out = await page.evaluate(`(${step.run.toString()})(${JSON.stringify(ctx)})`);
             if (out && typeof out === 'object') ctx = { ...ctx, ...out };
+            // A step can return { screenshot: '/abs/path.png', clip?: {x, y, width, height} (page coords) }
+            // to capture the viewport, or just that region of the page, for a visual check.
+            if (out && typeof out.screenshot === 'string') {
+                const params = { format: 'png' };
+                if (out.clip) Object.assign(params, { clip: { ...out.clip, scale: 1 }, captureBeyondViewport: true });
+                const shot = await page.send('Page.captureScreenshot', params);
+                fs.writeFileSync(out.screenshot, Buffer.from(shot.result.data, 'base64'));
+            }
             if (page.pageErrors.length) throw new Error('Uncaught page error: ' + page.pageErrors[0].split('\n')[0]);
         }
     } catch (e) { error = String(e.message || e).split('\n')[0]; }

@@ -152,6 +152,8 @@
 
         /* Editable Areas and Buffer Target Space Padding Adjustments */
         .editable-section { border: 1px dashed transparent; transition: 0.2s; padding: 6px 20px 6px 8px; border-radius: 6px; min-height: 1.2em; white-space: pre-wrap; }
+        .finding-number { padding: 6px 0 6px 8px; white-space: nowrap; }
+        .finding-title { padding-left: 6px; }
         .editable-section:hover { border-color: var(--accent); background: #f0f9ff; cursor: text; }
         .editable-section:focus { outline: none; border-color: var(--accent); background: #f0f9ff; }
         .editable-section img { max-width: 100%; height: auto; border-radius: 6px; border: 1px solid #ddd; margin: 12px auto; display: block; }
@@ -1076,6 +1078,10 @@
         { value: 'False Positive', cls: 'status-falsepositive' }
     ];
 
+    // Findings with these statuses stay in the report but are left out of the risk matrix and the
+    // executive severity counts (BUG-007). Add 'Remediated' here to report only outstanding risk.
+    const STATUSES_EXCLUDED_FROM_RISK_TOTALS = new Set(['False Positive']);
+
     function escapeHtml(str) {
         return String(str)
             .replaceAll('&', '&amp;')
@@ -1445,10 +1451,47 @@
     // covers them without needing a markUnsaved() call in every single field handler; actions that
     // mutate state programmatically (add/remove/reorder finding or section, toggles, etc.) call
     // markUnsaved() explicitly since they don't fire a native input/change event.
+    // BUG-013: finding fields used to reach `findings` only on blur, so autosave/export taken while
+    // a field still had focus missed what was typed. Edits are now committed as you type, debounced so
+    // a large description isn't re-serialized on every keystroke; buildReportPayload() flushes first.
+    // Committing does not re-render, so the caret stays where it is.
+    const FINDING_EDIT_DEBOUNCE_MS = 300;
+    let pendingFindingEdit = null;
+
+    function commitFindingEdit(el) {
+        if (!el.isConnected) return;                       // card was re-rendered meanwhile; its blur already saved it
+        const card = el.closest('.vuln-card');
+        const finding = card && findings[parseInt(card.dataset.index, 10)];
+        if (!finding) return;
+        const field = el.dataset.field;
+        if (field === 'title') finding.title = el.innerText.trim() || 'New Finding';
+        else if (field === 'description' || field === 'remediation') {
+            finding[field] = el.innerHTML;
+            if (field === 'remediation') finding.remediationIsDefault = false;
+        }
+    }
+
+    function flushPendingFindingEdit() {
+        if (!pendingFindingEdit) return;
+        clearTimeout(pendingFindingEdit.timer);
+        const { el } = pendingFindingEdit;
+        pendingFindingEdit = null;
+        commitFindingEdit(el);
+    }
+
+    function scheduleFindingEdit(e) {
+        const el = e.target.closest && e.target.closest('.vuln-card [data-field]');
+        if (!el) return;
+        if (pendingFindingEdit && pendingFindingEdit.el !== el) flushPendingFindingEdit();
+        if (pendingFindingEdit) clearTimeout(pendingFindingEdit.timer);
+        pendingFindingEdit = { el, timer: setTimeout(flushPendingFindingEdit, FINDING_EDIT_DEBOUNCE_MS) };
+    }
+
     function setupUnsavedChangesTracking() {
         const container = document.getElementById('reportBlocksContainer');
         if (container) {
             container.addEventListener('input', markUnsaved);
+            container.addEventListener('input', scheduleFindingEdit);
             container.addEventListener('change', markUnsaved);
         }
         window.addEventListener('beforeunload', (e) => {
@@ -1966,7 +2009,8 @@
             const matches = textNode.nodeValue.match(pattern);
             if (matches) {
                 counter.count += matches.length;
-                textNode.nodeValue = textNode.nodeValue.replace(pattern, replaceText);
+                // A function replacement inserts replaceText literally; a string would expand $&, $1, $$ … (BUG-008)
+                textNode.nodeValue = textNode.nodeValue.replace(pattern, () => replaceText);
             }
         });
     }
@@ -1982,7 +2026,7 @@
             if (typeof str !== 'string' || !str) return str;
             const matches = str.match(pattern);
             if (matches) counter.count += matches.length;
-            return str.replace(pattern, replaceText);
+            return str.replace(pattern, () => replaceText);
         };
 
         // HTML-bearing finding fields: parse into an inert <template> (a detached <div> would still
@@ -2813,7 +2857,11 @@
             const hasScore = f.impact !== null && f.exploit !== null;
             const hasCvss = !!(f.cvssVector || f.cvssScore);
 
-            if (hasScore) {
+            // BUG-007: a false positive isn't a risk, so it isn't plotted or counted in the executive
+            // severity table. Remediated / Accepted Risk findings still are — they were real findings,
+            // and their status badge shows where they stand.
+            const countsTowardRisk = !STATUSES_EXCLUDED_FROM_RISK_TOTALS.has(f.status);
+            if (hasScore && countsTowardRisk) {
                 const cell = document.getElementById(`cell-${f.impact}-${f.exploit}`);
                 if (cell) {
                     const dot = document.createElement('div'); dot.className = 'finding-dot'; dot.innerText = id; cell.appendChild(dot);
@@ -2824,10 +2872,11 @@
             if (!hasScore) { badgeClass = 'badge-unscored'; badgeText = 'Not Scored'; }
             else {
                 const score = f.impact * f.exploit;
-                if (score >= 16) { badgeClass = 'badge-crit'; badgeText = 'Critical'; counts.crit++; }
-                else if (score >= 10) { badgeClass = 'badge-high'; badgeText = 'High'; counts.high++; }
-                else if (score >= 5) { badgeClass = 'badge-med'; badgeText = 'Medium'; counts.med++; }
-                else { badgeClass = 'badge-low'; badgeText = 'Low'; counts.low++; }
+                const bump = (key) => { if (countsTowardRisk) counts[key]++; };
+                if (score >= 16) { badgeClass = 'badge-crit'; badgeText = 'Critical'; bump('crit'); }
+                else if (score >= 10) { badgeClass = 'badge-high'; badgeText = 'High'; bump('high'); }
+                else if (score >= 5) { badgeClass = 'badge-med'; badgeText = 'Medium'; bump('med'); }
+                else { badgeClass = 'badge-low'; badgeText = 'Low'; bump('low'); }
             }
 
             let impactOptions = `<option value="" ${f.impact === null ? 'selected' : ''}>Impact</option>`;
@@ -2918,7 +2967,7 @@
                 <div class="card-body p-0">
                     ${topControlsHtml}
                     <div class="d-flex justify-content-between align-items-center mb-1 gap-2">
-                        <h3 class="editable-section section-edit mb-0 fw-bold flex-grow-1" contenteditable="true" onblur="updateFindingData(${i}, 'title', this.innerText)">${id}. ${escapeHtml(f.title)}</h3>
+                        <h3 class="mb-0 fw-bold flex-grow-1 d-flex align-items-baseline"><span class="finding-number">${id}.</span><span class="editable-section section-edit flex-grow-1 finding-title" contenteditable="true" data-field="title" onblur="updateFindingData(${i}, 'title', this.innerText)">${escapeHtml(f.title)}</span></h3>
                         <span class="crit-badge ${badgeClass}">${badgeText}</span>
                     </div>
 
@@ -2956,12 +3005,12 @@
 
                     <div class="mb-3">
                         <div class="fw-bold small text-secondary text-uppercase">General Vulnerability Description</div>
-                        <div class="editable-section section-edit" contenteditable="true" onblur="updateFindingData(${i}, 'description', this.innerHTML)">${f.description}</div>
+                        <div class="editable-section section-edit" contenteditable="true" data-field="description" onblur="updateFindingData(${i}, 'description', this.innerHTML)">${f.description}</div>
                     </div>
 
                     <div class="mb-3">
                         <div class="fw-bold small text-secondary text-uppercase">Remediation</div>
-                        <div class="editable-section section-edit" contenteditable="true" onblur="updateFindingData(${i}, 'remediation', this.innerHTML)">${f.remediation}</div>
+                        <div class="editable-section section-edit" contenteditable="true" data-field="remediation" onblur="updateFindingData(${i}, 'remediation', this.innerHTML)">${f.remediation}</div>
                     </div>
 
                     ${plannerHtml}
@@ -3033,7 +3082,9 @@
 
     function updateFindingData(idx, field, val) {
         if (field === 'title') {
-            val = val.replace(/^\d+\.\s*/, ''); findings[idx][field] = val; renderAll();
+            // The display number lives in its own non-editable span, so the edited text is the title
+            // itself — nothing to strip (stripping /^\d+\./ used to turn "802.1X…" into "1X…", BUG-009).
+            findings[idx][field] = val.trim() || 'New Finding'; renderAll();
         } else {
             findings[idx][field] = val;
             if (field === 'remediation') { findings[idx].remediationIsDefault = false; }
@@ -3169,6 +3220,7 @@
     // Shared by Export Report (writes it to a .json file) and autosave (writes it to localStorage
     // for crash recovery) — both need the exact same snapshot of report state.
     function buildReportPayload() {
+        flushPendingFindingEdit(); // include text typed into a finding that hasn't been committed yet (BUG-013)
         // findings-container content is fully rebuilt from `findings` on import via renderAll(),
         // so strip it here (on a clone, not the live DOM) to avoid doubling up the export file size.
         const containerClone = document.getElementById('reportBlocksContainer').cloneNode(true);
