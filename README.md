@@ -6,6 +6,10 @@ A client-side report builder for writing and exporting professional security / p
 
 The app itself — the editor, the risk matrix, the PDF export — is a single HTML file, `rapportgenerator.html`, with no separate CSS/JS files and no build step. Three optional JSON files sitting next to it — `library.json` (the vulnerability template library), `report-defaults.json` (the report's default boilerplate text), and `settings.json` (firm-wide defaults) — extend it further — see [How it works](#how-it-works) and [Firm-wide settings](#firm-wide-settings) below — but the app runs and remains useful with just the HTML file on its own.
 
+## Screenshot
+
+![The report editor: logo drop zone, report title, assessment metadata and the Executive Summary with dynamic tokens](docs/screenshots/editor.png)
+
 ## Why
 
 Most pentest reporting workflows bounce between a Word template, a spreadsheet of CVSS scores, and a folder of screenshots. This tool collapses that into one page: pick findings from a built-in library of 270+ pre-written vulnerability templates, drop them into the report, fill in the specifics, drag things into the order you want, and print straight to PDF.
