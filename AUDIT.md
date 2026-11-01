@@ -9,6 +9,27 @@
 
 ---
 
+## Implementation Status
+
+Work happens on the `audit-fixes` branch. Run `node tests/run.mjs` to check: every fixed finding has a regression case.
+
+| Status | Findings |
+|---|---|
+| ✅ Done: step 0 (foundation) | ARCH-006, TEST-001, TEST-002, TEST-003 |
+| ✅ Done: step 1 (critical) | BUG-001, BUG-010, BUG-015, BUG-002, BUG-003, BUG-011, BUG-012, ARCH-004, SEC-001, SEC-002, SEC-005 |
+| ✅ Done: step 2 (reliability) | BUG-004, BUG-005, BUG-006, BUG-007, BUG-008, BUG-009, BUG-013, BUG-014, PERF-001, PERF-007, UI-009 |
+| ⏳ Next: step 3 | PERF-003, PERF-005, PERF-006 + FEAT-005 (images and evidence) |
+| ⏳ Later: steps 4–6 | UI-001, UI-002, UI-003, UI-004, UI-005, UI-006, UI-008, PERF-008, SEC-004, FEAT-004, FEAT-008, ARCH-003 |
+| — Not selected | FEAT-001, FEAT-002, FEAT-003, FEAT-006, FEAT-007, FEAT-009, FEAT-010, FEAT-011, FEAT-012, UI-007, PERF-002, PERF-004, SEC-003, SEC-006, ARCH-001, ARCH-002, ARCH-005, ARCH-007, TEST-004–007 |
+
+**Decisions taken during implementation:**
+- **BUG-007:** only *False Positive* is excluded from the matrix and the severity totals. Add `'Remediated'` to `STATUSES_EXCLUDED_FROM_RISK_TOTALS` to report outstanding risk only.
+- **BUG-011:** the Findings Summary section can be moved but not deleted.
+- **BUG-015:** the Add Finding form and the library are plain text and are escaped into finding HTML (option A).
+- **SEC-001:** the rich-text policy keeps the editor toolbar's output (bold, italic, strike, font size and color, alignment, quote, code, lists, h3/h4, links, images, tables). It never keeps `class`, layout CSS or event handlers.
+
+---
+
 ## Executive Summary
 
 Rapportgenerator is a single-file, client-side pentest report builder: 2,906 lines of HTML, CSS and vanilla JS, plus three JSON data files. Its core proposition is that nothing leaves the browser and there is nothing to install. None of the six competitors reviewed offers that, so it is a real differentiator (COMP-007). The code is generally careful and well commented, and performance is currently fine. `renderAll()` takes **~27 ms with 150 findings** (measured).
