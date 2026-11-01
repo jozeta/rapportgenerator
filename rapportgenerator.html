@@ -2198,9 +2198,11 @@
         const selectedCat = document.getElementById('libraryCategoryFilter').value;
         const fontResults = document.getElementById('libraryResults'); fontResults.innerHTML = '';
 
+        // Library entries come from a user-supplied, often shared, file. Fields may be missing or
+        // non-strings (BUG-006), and must only ever be rendered as text, never as HTML (SEC-002).
         const matches = library.map((v, idx) => ({ v, idx })).filter(({ v }) => {
-            const matchesSearch = v.title.toLowerCase().includes(term) || v.cwe.toLowerCase().includes(term);
-            const matchesCategory = !selectedCat || v.category === selectedCat;
+            const matchesSearch = libraryText(v.title).toLowerCase().includes(term) || libraryText(v.cwe).toLowerCase().includes(term);
+            const matchesCategory = !selectedCat || libraryText(v.category) === selectedCat;
             return matchesSearch && matchesCategory;
         });
 
@@ -2211,21 +2213,30 @@
 
         matches.forEach(({ v, idx }) => {
             const btn = document.createElement('button'); btn.className = 'library-item';
-            btn.innerHTML = `<strong>${v.title}</strong> <br><small class="text-secondary">${v.category} | ${v.cwe}</small>`;
+            const title = document.createElement('strong');
+            title.textContent = libraryText(v.title) || '(untitled template)';
+            const meta = document.createElement('small');
+            meta.className = 'text-secondary';
+            meta.textContent = `${libraryText(v.category) || 'General'} | ${libraryText(v.cwe) || 'N/A'}`;
+            btn.append(title, ' ', document.createElement('br'), meta);
             btn.onclick = () => loadTemplate(idx);
             fontResults.appendChild(btn);
         });
     }
 
+    function libraryText(value) {
+        return (value === undefined || value === null) ? '' : String(value);
+    }
+
     function loadTemplate(idx) {
         const v = library[idx];
-        document.getElementById('vTitle').value = v.title;
-        document.getElementById('vCWE').value = v.cwe || "";
-        document.getElementById('vCategory').value = v.category || "";
-        document.getElementById('vDesc').value = v.description;
-        document.getElementById('vRem').value = v.remediation;
+        document.getElementById('vTitle').value = libraryText(v.title);
+        document.getElementById('vCWE').value = libraryText(v.cwe);
+        document.getElementById('vCategory').value = libraryText(v.category);
+        document.getElementById('vDesc').value = libraryText(v.description);
+        document.getElementById('vRem').value = libraryText(v.remediation);
         document.getElementById('vAssets').value = "";
-        lastLoadedRemediation = v.remediation;
+        lastLoadedRemediation = libraryText(v.remediation);
     }
 
     async function saveAsLibraryTemplate() {
