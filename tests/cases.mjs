@@ -655,7 +655,7 @@ export const cases = [
             frButton.click();
             assert(shown('findReplaceOverlay') && document.activeElement.id === 'frFindInput', 'Find & Replace did not open with focus in the find field');
             // Tab from the last control wraps to the first; Shift+Tab from the first wraps to the last
-            const items = [...document.querySelectorAll('#findReplaceOverlay button, #findReplaceOverlay input')];
+            const items = [...document.querySelectorAll('#findReplaceOverlay button, #findReplaceOverlay input')].filter(el => !el.disabled);
             items[items.length - 1].focus(); key('Tab');
             assert(document.getElementById('findReplaceOverlay').contains(document.activeElement) && document.activeElement === items[0], 'Tab escaped the dialog');
             key('Tab', { shiftKey: true });
@@ -865,6 +865,115 @@ export const cases = [
             const { assert, waitFor } = __t;
             await waitFor(() => { const p = document.createElement('div'); p.className = 'd-flex'; document.body.appendChild(p); const ok = getComputedStyle(p).display === 'flex'; p.remove(); return ok; }, 8000, 'Bootstrap CSS from the CDN fallback');
             assert([...document.querySelectorAll('link[rel="stylesheet"]')].every(l => l.href.startsWith('https://cdn.jsdelivr.net/')), 'stylesheets did not switch to the CDN');
+        } }],
+    },
+
+    // ---------------------------------------------------------------- step 5: undo
+    {
+        id: 'UI-005-finding', title: 'Deleting a finding can be undone from the notice', tags: ['undo', 'stage5'],
+        steps: [{ run: async () => {
+            const { assert, answerModal, cards } = __t;
+            for (const t of ['First', 'Second', 'Third']) { document.getElementById('vTitle').value = t; await addFinding(); }
+            assert(document.getElementById('undoBtn').disabled, 'undo available before anything was done');
+            cards()[1].querySelector('.control-danger').click();
+            await answerModal(true);
+            assert(findings.map(f => f.title).join() === 'First,Third', 'finding not deleted');
+            const toast = document.getElementById('appToast');
+            assert(toast.classList.contains('visible') && getComputedStyle(document.getElementById('appToastUndo')).display !== 'none', 'no notice with an Undo button');
+            assert(!document.getElementById('undoBtn').disabled, 'sidebar undo button not enabled');
+            document.getElementById('appToastUndo').click();
+            assert(findings.map(f => f.title).join() === 'First,Second,Third', `undo gave ${findings.map(f => f.title).join()}`);
+            assert(cards().length === 3, 'cards not re-rendered after undo');
+            assert(document.getElementById('undoBtn').disabled, 'undo still available with nothing left to undo');
+            assert(hasUnsavedChanges, 'undo did not mark the report as unsaved');
+        } }],
+    },
+    {
+        id: 'UI-005-keyboard', title: 'Ctrl/Cmd+Z undoes a section delete; inside text it stays the browser\'s text undo', tags: ['undo', 'stage5'],
+        steps: [{ run: async () => {
+            const { assert, answerModal } = __t;
+            const ctrlZ = (target) => { const ev = new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }); target.dispatchEvent(ev); return ev; };
+            const conclusionText = document.getElementById('section-conclusion').innerText;
+            document.querySelector('#block-conclusion .control-danger').click();
+            await answerModal(true);
+            assert(!document.getElementById('block-conclusion'), 'section not deleted');
+            // inside an editable field the app must not intercept Ctrl+Z
+            const ev = ctrlZ(document.getElementById('section-exec'));
+            assert(!ev.defaultPrevented && !document.getElementById('block-conclusion'), 'Ctrl+Z inside text was taken over by the app');
+            ctrlZ(document.body);
+            assert(document.getElementById('block-conclusion'), 'Ctrl+Z did not restore the section');
+            assert(document.getElementById('section-conclusion').innerText === conclusionText, 'restored section text differs');
+        } }],
+    },
+    {
+        id: 'UI-005-replace', title: 'Find & Replace previews the count, highlights matches, and can be undone', tags: ['undo', 'find-replace', 'stage5'],
+        steps: [{ run: async () => {
+            const { assert, sleep } = __t;
+            findings.push(__t.finding({ title: 'Alpha one', description: 'about alpha' })); renderAll();
+            document.getElementById('section-conclusion').insertAdjacentText('beforeend', ' Alpha.');
+            const execBefore = document.getElementById('section-conclusion').innerText;
+            openFindReplace();
+            const find = document.getElementById('frFindInput');
+            assert(document.getElementById('frReplaceBtn').disabled, 'Replace enabled with an empty search');
+            find.value = 'alpha'; find.dispatchEvent(new Event('input', { bubbles: true }));
+            const preview = document.getElementById('frPreview').textContent;
+            assert(preview === '3 matches: 2 in findings, 1 in sections', `preview: "${preview}"`);
+            assert(document.getElementById('frReplaceBtn').textContent === 'Replace 3', 'button does not show the count');
+            assert(findings[0].title === 'Alpha one', 'the preview changed the report');
+            if (window.CSS && CSS.highlights) assert(CSS.highlights.get('find-match') && CSS.highlights.get('find-match').size === 3, 'matches not highlighted');
+            find.value = 'zzz-nothing'; find.dispatchEvent(new Event('input', { bubbles: true }));
+            assert(document.getElementById('frReplaceBtn').disabled && document.getElementById('frPreview').textContent === 'No matches.', 'no-match state wrong');
+            find.value = 'alpha'; find.dispatchEvent(new Event('input', { bubbles: true }));
+            document.getElementById('frReplaceInput').value = 'Beta';
+            await runFindReplace();
+            assert(findings[0].title === 'Beta one' && findings[0].description.includes('Beta'), 'replacement not applied');
+            assert(!(window.CSS && CSS.highlights && CSS.highlights.has('find-match')), 'highlights left behind after closing');
+            undoLastChange();
+            assert(findings[0].title === 'Alpha one' && findings[0].description === 'about alpha', 'undo did not restore the findings');
+            assert(document.getElementById('section-conclusion').innerText === execBefore, 'undo did not restore the section text');
+        } }],
+    },
+    {
+        id: 'UI-005-type-import', title: 'Assessment-type switch and import can be undone', tags: ['undo', 'stage5'],
+        steps: [{ run: async () => {
+            const { assert, answerModal, pickFile } = __t;
+            const execBefore = document.getElementById('section-exec').innerText;
+            const select = document.getElementById('input-assessment-type');
+            const original = select.value;
+            select.value = [...select.options].find(o => o.value !== original).value;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            await answerModal(true);
+            assert(document.getElementById('section-exec').innerText !== execBefore, 'type switch changed nothing');
+            undoLastChange();
+            assert(document.getElementById('section-exec').innerText === execBefore, 'type switch: section text not restored');
+            assert(select.value === original, `type switch: dropdown shows ${select.value}, expected ${original}`);
+            // import over a report with a finding, then undo the import
+            document.getElementById('vTitle').value = 'Mine'; await addFinding();
+            const other = { ...buildReportPayload(), findings: [__t.finding({ title: 'Theirs' })], clientName: 'Other Client' };
+            await pickFile('importReportFile', JSON.stringify(other));
+            assert(findings[0].title === 'Theirs', 'import did not apply');
+            undoLastChange();
+            assert(findings.length === 1 && findings[0].title === 'Mine', 'import not undone');
+            assert(document.getElementById('input-client-name').value !== 'Other Client', 'client name not restored');
+        } }],
+    },
+    {
+        id: 'UI-005-redact-limit', title: 'Redaction can be undone; history is capped at 20 steps', tags: ['undo', 'stage5'],
+        steps: [{ run: async () => {
+            const { assert, caretAtEnd } = __t;
+            const s = document.getElementById('section-conclusion');
+            await insertEvidenceImages([await __t.makeImageFile('screenshot', 300, 150)], caretAtEnd(s));
+            const img = s.querySelector('figure img'); const srcBefore = img.src;
+            img.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            await openRedactModal();
+            redactState.boxes.push({ x: 0, y: 0, w: 100, h: 100 });
+            applyRedaction();
+            assert(s.querySelector('figure img').src !== srcBefore, 'redaction did not change the image');
+            undoLastChange();
+            assert(document.getElementById('section-conclusion').querySelector('figure img').src === srcBefore, 'redaction not undone');
+            for (let i = 0; i < 25; i++) recordUndoPoint('step ' + i);
+            assert(undoStack.length === 20, `history holds ${undoStack.length} steps`);
+            assert(undoStack[0].label === 'step 5', 'oldest steps were not the ones dropped');
         } }],
     },
 

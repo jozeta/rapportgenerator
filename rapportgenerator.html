@@ -174,6 +174,11 @@
         .redact-box { max-width: 900px; }
         .redact-stage { background: #f1f3f5; border-radius: 8px; padding: 8px; text-align: center; margin-bottom: 12px; }
         #redactCanvas { max-width: 100%; max-height: 60vh; cursor: crosshair; touch-action: none; }
+        .app-toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); background: #212529; color: #fff; padding: 10px 16px; border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,0.25); font-size: 0.85rem; z-index: 7000; opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; display: flex; align-items: center; max-width: calc(100vw - 32px); }
+        .app-toast.visible { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+        .app-toast .btn-link { color: #8ec5ff; font-weight: 600; text-decoration: none; }
+        .icon-btn:disabled { opacity: 0.35; cursor: default; background: none; border-color: transparent; }
+        ::highlight(find-match) { background-color: #ffe066; color: inherit; }
         .save-status { font-size: 0.72rem; line-height: 1.3; padding-left: 2px; }
         .save-status.is-clean { color: #6c757d; }
         .save-status.is-dirty { color: #8a6d00; }
@@ -467,6 +472,7 @@
                 <button class="icon-btn" onclick="openAddSectionModal()" data-tooltip="Add a custom text section, or another Detailed Findings section, to the report" aria-label="Add New Section"><i class="bi bi-file-earmark-plus"></i></button>
                 <button class="icon-btn" onclick="openAddFindingModal()" data-tooltip="Pick a template from your library, or fill in the fields manually, then append it to the report" aria-label="Add New Finding"><i class="bi bi-bug"></i></button>
                 <button class="icon-btn" id="omitPlannersIcon" onclick="toggleAllActionPlanners()" data-tooltip="Show the Remediation Action Planner on every finding" aria-label="Toggle All Action Planners"><i class="bi bi-clipboard-check"></i></button>
+                <button class="icon-btn" id="undoBtn" onclick="undoLastChange()" data-tooltip="Nothing to undo" aria-label="Nothing to undo" disabled><i class="bi bi-arrow-counterclockwise"></i></button>
                 <button class="icon-btn" onclick="openFindReplace()" data-tooltip="Search and replace text across the entire report" aria-label="Find & Replace"><i class="bi bi-search"></i></button>
                 <button class="icon-btn" onclick="handlePrint()" data-tooltip="Open the browser print dialog to export this report as a PDF" aria-label="Print / Export PDF"><i class="bi bi-printer"></i></button>
             </div>
@@ -967,6 +973,7 @@
 
 <!-- Generic Confirm/Alert Modal (replaces native confirm()/alert()) -->
 <div id="imageSelectionOutline" class="no-print" aria-hidden="true"></div>
+<div id="appToast" class="app-toast no-print" role="status" aria-live="polite"><span id="appToastText"></span><button id="appToastUndo" type="button" class="btn btn-sm btn-link p-0 ms-3">Undo</button></div>
 
 <div id="redactModalOverlay" class="app-modal-overlay no-print">
     <div class="app-modal-box app-modal-wide redact-box" role="dialog" aria-modal="true" aria-labelledby="redactTitle">
@@ -996,15 +1003,16 @@
 <div id="findReplaceOverlay" class="app-modal-overlay no-print">
     <div class="app-modal-box" role="dialog" aria-modal="true" aria-labelledby="findReplaceTitle">
         <h5 class="mb-3" id="findReplaceTitle">Find &amp; Replace</h5>
-        <input type="text" id="frFindInput" class="form-control form-control-sm mb-2" placeholder="Find...">
+        <input type="text" id="frFindInput" class="form-control form-control-sm mb-2" placeholder="Find..." oninput="updateFindReplacePreview()" autocomplete="off">
         <input type="text" id="frReplaceInput" class="form-control form-control-sm mb-2" placeholder="Replace with...">
+        <div id="frPreview" class="small text-muted mb-2" aria-live="polite"></div>
         <div class="form-check mb-3">
-            <input class="form-check-input" type="checkbox" id="frCaseSensitive">
+            <input class="form-check-input" type="checkbox" id="frCaseSensitive" onchange="updateFindReplacePreview()">
             <label class="form-check-label small text-secondary" for="frCaseSensitive">Case sensitive</label>
         </div>
         <div class="app-modal-actions">
             <button class="btn btn-sm btn-outline-dark" onclick="closeFindReplace()">Cancel</button>
-            <button class="btn btn-sm btn-primary" onclick="runFindReplace()">Replace All</button>
+            <button class="btn btn-sm btn-primary" id="frReplaceBtn" onclick="runFindReplace()" disabled>Replace All</button>
         </div>
     </div>
 </div>
@@ -1346,9 +1354,11 @@
             select.value = currentAssessmentType;
             return;
         }
+        recordUndoPoint('Switch assessment type');
         applyAssessmentTemplate(nextKey);
         markUnsaved();
         renderChecklist();
+        showToast(`Section text switched to "${(reportTemplates[nextKey] || {}).label || nextKey}".`, { undo: true });
     }
 
     async function loadReportDefaults() {
@@ -1700,6 +1710,7 @@
         setupModalKeyboard();
         setupLibraryKeyboard();
         setupAssetEditing();
+        setupUndoKeyboard();
         setupRedactCanvas();
         setupUnsavedChangesTracking();
         setupAutosave();
@@ -2263,11 +2274,36 @@
         document.getElementById('frFindInput').value = '';
         document.getElementById('frReplaceInput').value = '';
         document.getElementById('frCaseSensitive').checked = false;
+        updateFindReplacePreview();
         openModal('findReplaceOverlay', document.getElementById('frFindInput'));
     }
 
     function closeFindReplace() {
         closeModal('findReplaceOverlay');
+        if (window.CSS && CSS.highlights) CSS.highlights.delete('find-match');
+    }
+
+    // UI-005: the dialog previews how many matches a replacement will change (and highlights them
+    // in the report) before anything is touched; the replacement itself can be undone.
+    function updateFindReplacePreview() {
+        const findText = document.getElementById('frFindInput').value;
+        const caseSensitive = document.getElementById('frCaseSensitive').checked;
+        const preview = document.getElementById('frPreview');
+        const button = document.getElementById('frReplaceBtn');
+        highlightFindMatches(findText, caseSensitive);
+        if (!findText) {
+            preview.textContent = '';
+            button.disabled = true;
+            button.textContent = 'Replace All';
+            return;
+        }
+        const { total, inFindings, inSections } = findAndReplaceInReport(findText, '', caseSensitive, { dryRun: true });
+        const parts = [];
+        if (inFindings) parts.push(`${inFindings} in findings`);
+        if (inSections) parts.push(`${inSections} in sections`);
+        preview.textContent = total === 0 ? 'No matches.' : `${total} match${total === 1 ? '' : 'es'}: ${parts.join(', ')}`;
+        button.disabled = total === 0;
+        button.textContent = total === 0 ? 'Replace All' : `Replace ${total}`;
     }
 
     async function runFindReplace() {
@@ -2276,47 +2312,56 @@
         const caseSensitive = document.getElementById('frCaseSensitive').checked;
         if (!findText) { closeFindReplace(); return; }
 
-        const count = findAndReplaceInReport(findText, replaceText, caseSensitive);
-        if (count > 0) markUnsaved();
+        const { total } = findAndReplaceInReport(findText, replaceText, caseSensitive, { dryRun: true });
         closeFindReplace();
-        await showAlert(count > 0 ? `Replaced ${count} occurrence${count === 1 ? '' : 's'}.` : 'No matches found.');
+        if (total === 0) { showToast('No matches found.'); return; }
+        recordUndoPoint(`Replace "${findText}"`);
+        findAndReplaceInReport(findText, replaceText, caseSensitive);
+        markUnsaved();
+        showToast(`Replaced ${total} occurrence${total === 1 ? '' : 's'}.`, { undo: true });
     }
 
-    // Walks a live DOM subtree and replaces matches only inside text nodes, never inside
-    // tags/attributes, so a search term that happens to look like markup can't corrupt the HTML.
-    function replaceTextNodesInElement(root, pattern, replaceText, counter) {
+    function findPattern(findText, caseSensitive) {
+        return new RegExp(findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), caseSensitive ? 'g' : 'gi');
+    }
+
+    // Text nodes Find & Replace may touch inside `root`. Dynamic tokens (company/client/contact) are
+    // controlled by the sidebar fields and overwritten by syncTokens() on the next render, so they
+    // are skipped rather than reported as fake matches.
+    function findableTextNodes(root) {
         const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
-        const textNodes = [];
+        const nodes = [];
         let node;
-        while (node = walker.nextNode()) { textNodes.push(node); }
-        textNodes.forEach(textNode => {
-            // Dynamic tokens (company/client/contact) are controlled by the Target Profiles sidebar
-            // fields and get overwritten by syncTokens() on the very next render, so editing their
-            // displayed text here would silently revert — skip them rather than report a fake match.
-            if (textNode.parentElement && textNode.parentElement.closest('.token-company, .token-client, .token-contact-name, .token-contact-email')) {
-                return;
-            }
+        while ((node = walker.nextNode())) {
+            if (node.parentElement && node.parentElement.closest(TOKEN_SELECTOR)) continue;
+            nodes.push(node);
+        }
+        return nodes;
+    }
+
+    // Walks a DOM subtree and replaces matches only inside text nodes, never inside tags/attributes,
+    // so a search term that happens to look like markup can't corrupt the HTML.
+    function replaceTextNodesInElement(root, pattern, replaceText, counter, dryRun = false) {
+        findableTextNodes(root).forEach(textNode => {
             const matches = textNode.nodeValue.match(pattern);
-            if (matches) {
-                counter.count += matches.length;
-                // A function replacement inserts replaceText literally; a string would expand $&, $1, $$ … (BUG-008)
-                textNode.nodeValue = textNode.nodeValue.replace(pattern, () => replaceText);
-            }
+            if (!matches) return;
+            counter.count += matches.length;
+            // A function replacement inserts replaceText literally; a string would expand $&, $1, $$ … (BUG-008)
+            if (!dryRun) textNode.nodeValue = textNode.nodeValue.replace(pattern, () => replaceText);
         });
     }
 
-    function findAndReplaceInReport(findText, replaceText, caseSensitive) {
-        if (!findText) return 0;
-        const flags = caseSensitive ? 'g' : 'gi';
-        const escapedFind = findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const pattern = new RegExp(escapedFind, flags);
+    // Returns { total, inFindings, inSections }. With dryRun nothing is changed — used for the preview.
+    function findAndReplaceInReport(findText, replaceText, caseSensitive, { dryRun = false } = {}) {
+        if (!findText) return { total: 0, inFindings: 0, inSections: 0 };
+        const pattern = findPattern(findText, caseSensitive);
         const counter = { count: 0 };
 
         const replacePlainText = (str) => {
             if (typeof str !== 'string' || !str) return str;
             const matches = str.match(pattern);
             if (matches) counter.count += matches.length;
-            return str.replace(pattern, () => replaceText);
+            return dryRun ? str : str.replace(pattern, () => replaceText);
         };
 
         // HTML-bearing finding fields: parse into an inert <template> (a detached <div> would still
@@ -2325,31 +2370,133 @@
             if (typeof htmlString !== 'string' || !htmlString) return htmlString;
             const container = document.createElement('template');
             container.innerHTML = htmlString;
-            replaceTextNodesInElement(container.content, pattern, replaceText, counter);
-            return container.innerHTML;
+            replaceTextNodesInElement(container.content, pattern, replaceText, counter, dryRun);
+            return dryRun ? htmlString : container.innerHTML;
         };
 
         // Finding data is the source of truth for finding cards — renderAll() rebuilds the DOM from it.
         findings.forEach(f => {
-            f.title = replacePlainText(f.title);
-            f.category = replacePlainText(f.category);
-            f.cwe = replacePlainText(f.cwe);
-            f.description = replaceHtmlText(f.description);
-            f.remediation = replaceHtmlText(f.remediation);
-            if (Array.isArray(f.assets)) {
-                f.assets = f.assets.map(a => replacePlainText(a));
-            }
+            const updated = {
+                title: replacePlainText(f.title),
+                category: replacePlainText(f.category),
+                cwe: replacePlainText(f.cwe),
+                description: replaceHtmlText(f.description),
+                remediation: replaceHtmlText(f.remediation),
+                assets: Array.isArray(f.assets) ? f.assets.map(a => replacePlainText(a)) : f.assets,
+            };
+            if (!dryRun) Object.assign(f, updated);
         });
+        const inFindings = counter.count;
 
         // Static/custom section content (headings, narrative text, metadata fields, matrix legend, etc.)
         // has no separate JS state — the DOM is the source of truth, so edit it directly.
         document.querySelectorAll('#printableReport [contenteditable="true"]').forEach(el => {
             if (el.closest('.findings-container')) return; // handled via the findings array above
-            replaceTextNodesInElement(el, pattern, replaceText, counter);
+            replaceTextNodesInElement(el, pattern, replaceText, counter, dryRun);
         });
 
-        renderAll();
-        return counter.count;
+        if (!dryRun) renderAll();
+        return { total: counter.count, inFindings, inSections: counter.count - inFindings };
+    }
+
+    // Marks matches in the report with the CSS Custom Highlight API: nothing is added to the DOM, so
+    // nothing can leak into the saved report. Browsers without it just get the count.
+    function highlightFindMatches(findText, caseSensitive) {
+        if (!(window.CSS && CSS.highlights && typeof Highlight === 'function')) return;
+        CSS.highlights.delete('find-match');
+        if (!findText) return;
+        const pattern = findPattern(findText, caseSensitive);
+        const ranges = [];
+        document.querySelectorAll('#printableReport [contenteditable="true"], #printableReport .asset-badge').forEach(root => {
+            findableTextNodes(root).forEach(node => {
+                for (const m of node.nodeValue.matchAll(pattern)) {
+                    const range = new Range();
+                    range.setStart(node, m.index);
+                    range.setEnd(node, m.index + m[0].length);
+                    ranges.push(range);
+                }
+            });
+        });
+        if (ranges.length) CSS.highlights.set('find-match', new Highlight(...ranges));
+    }
+
+    // ---- Undo (UI-005) -----------------------------------------------------------------------------
+    // Before each destructive action — deleting a finding or section, Find & Replace, switching the
+    // assessment type, importing a report, redacting an image — the whole report is snapshotted (the
+    // same payload Export Report writes). Undo puts the latest snapshot back. Typing is not recorded
+    // here: inside a text field Ctrl/Cmd+Z stays the browser's own text undo.
+    const UNDO_LIMIT = 20;
+    const UNDO_MAX_CHARS = 60 * 1000 * 1000;   // ~120 MB of snapshots at most; screenshots make them big
+    const undoStack = [];                      // [{ label, snapshot }]
+
+    function recordUndoPoint(label) {
+        undoStack.push({ label, snapshot: JSON.stringify(buildReportPayload()) });
+        let total = undoStack.reduce((n, e) => n + e.snapshot.length, 0);
+        while (undoStack.length > 1 && (undoStack.length > UNDO_LIMIT || total > UNDO_MAX_CHARS)) {
+            total -= undoStack.shift().snapshot.length;
+        }
+        updateUndoButton();
+    }
+
+    function discardLastUndoPoint() {
+        undoStack.pop();
+        updateUndoButton();
+    }
+
+    function undoLastChange() {
+        const entry = undoStack.pop();
+        updateUndoButton();
+        if (!entry) { showToast('Nothing to undo.'); return; }
+        try {
+            applyReportPayload(JSON.parse(entry.snapshot), { markSaved: false });
+        } catch (err) {
+            console.error('Undo failed', err);
+            showToast("Couldn't undo that change.");
+            return;
+        }
+        markUnsaved();
+        selectEvidenceImage(null);
+        showToast(`Undone: ${entry.label}`);
+        announce(`Undone: ${entry.label}.`);
+    }
+
+    function updateUndoButton() {
+        const btn = document.getElementById('undoBtn');
+        if (!btn) return;
+        const last = undoStack[undoStack.length - 1];
+        btn.disabled = !last;
+        const tip = last ? `Undo: ${last.label} (Ctrl/Cmd+Z)` : 'Nothing to undo';
+        btn.setAttribute('data-tooltip', tip);
+        btn.setAttribute('aria-label', tip);
+    }
+
+    function setupUndoKeyboard() {
+        document.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() !== 'z' || !(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
+            if (openModalStack.length) return;
+            const t = e.target;
+            if (t && (t.isContentEditable || (t.matches && t.matches('input, textarea, select')))) return; // native text undo
+            e.preventDefault();
+            undoLastChange();
+        });
+        document.getElementById('appToastUndo').addEventListener('click', () => { hideToast(); undoLastChange(); });
+        updateUndoButton();
+    }
+
+    // Small, non-blocking notice at the bottom of the screen (optionally with an Undo button).
+    let toastTimer = null;
+    function showToast(message, { undo = false } = {}) {
+        const toast = document.getElementById('appToast');
+        document.getElementById('appToastText').textContent = message;
+        document.getElementById('appToastUndo').style.display = undo ? '' : 'none';
+        toast.classList.add('visible');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(hideToast, undo ? 8000 : 4000);
+    }
+
+    function hideToast() {
+        clearTimeout(toastTimer);
+        document.getElementById('appToast').classList.remove('visible');
     }
 
     // Single shared tooltip element appended to <body>, positioned via getBoundingClientRect and
@@ -2743,6 +2890,7 @@
     function applyRedaction() {
         const { img, boxes } = redactState;
         if (!img || !boxes.length) { closeRedactModal(); return; }
+        recordUndoPoint('Redact image');
         drawRedactCanvas({ preview: false });
         // The boxes are now part of the pixels; the original image is replaced, not layered over,
         // so what was under them is gone from the report and from every later export.
@@ -2752,6 +2900,7 @@
         closeRedactModal();
         positionImageSelectionOutline();
         announce('Image redacted.');
+        showToast('Image redacted.', { undo: true });
     }
 
     function moveSectionUp(btn) {
@@ -2780,9 +2929,15 @@
             return;
         }
         const isBreak = targetBlock.classList.contains('page-break-block');
-        const promptText = isBreak ? "Remove this printable page split barrier?" : "Permanently delete this text section?";
+        const heading = targetBlock.querySelector('h2');
+        const name = heading ? heading.innerText.trim() : '';
+        const promptText = isBreak ? "Remove this page break?"
+            : isDetails ? `Delete the section "${name}"? Its findings move to the first Detailed Findings section.`
+            : `Delete the section "${name}"?`;
         if (await showConfirm(promptText)) {
+            recordUndoPoint(isBreak ? 'Remove page break' : `Delete section "${name}"`);
             targetBlock.remove();
+            showToast(isBreak ? 'Page break removed.' : 'Section deleted.', { undo: true });
             document.getElementById('floatingToolbar').style.display = 'none';
             markUnsaved();
             renderAll();
@@ -3883,7 +4038,13 @@
     }
 
     const toBase64 = file => new Promise((res) => { const r = new FileReader(); r.readAsDataURL(file); r.onload = () => res(r.result); });
-    async function removeFinding(i) { if (await showConfirm(`Delete Finding #${i+1}?`)) { findings.splice(i, 1); markUnsaved(); renderAll(); announce('Finding deleted.'); } }
+    async function removeFinding(i) {
+        if (!(await showConfirm(`Delete Finding #${i+1}?`))) return;
+        recordUndoPoint(`Delete finding "${findings[i].title}"`);
+        findings.splice(i, 1); markUnsaved(); renderAll();
+        announce('Finding deleted.');
+        showToast(`Finding #${i + 1} deleted.`, { undo: true });
+    }
     async function updateLogo(input) {
         const file = input.files && input.files[0];
         input.value = '';
@@ -4195,12 +4356,15 @@
                 return;
             }
 
+            recordUndoPoint('Import report');
             try {
                 applyReportPayload(data, { markSaved: true });
+                showToast('Report imported.', { undo: true });
                 saveStatus.exportedAt = null;
                 clearAutosave(); // the imported file is the saved copy now; an older draft no longer applies
                 updateSaveStatus();
             } catch (err) {
+                discardLastUndoPoint(); // nothing changed, so there's nothing to undo
                 const details = err instanceof ReportValidationError
                     ? '\n\n• ' + err.errors.slice(0, 8).join('\n• ') + (err.errors.length > 8 ? `\n• …and ${err.errors.length - 8} more` : '')
                     : '';

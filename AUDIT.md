@@ -20,7 +20,8 @@ Work happens on the `audit-fixes` branch. Run `node tests/run.mjs` to check: eve
 | ✅ Done: step 2 (reliability) | BUG-004, BUG-005, BUG-006, BUG-007, BUG-008, BUG-009, BUG-013, BUG-014, PERF-001, PERF-007, UI-009 |
 | ✅ Done: step 3 (images and evidence) | PERF-003, PERF-005, PERF-006, FEAT-005 |
 | ✅ Done: step 4 (usability) | UI-001, UI-002, UI-003, UI-004, UI-006, UI-008, PERF-008, SEC-004 |
-| ⏳ Next: steps 5–6 | UI-005 (undo), FEAT-004, FEAT-008, ARCH-003 |
+| ✅ Done: step 5 (undo) | UI-005 |
+| ⏳ Next: step 6 | FEAT-004, FEAT-008, ARCH-003 |
 | — Not selected | FEAT-001, FEAT-002, FEAT-003, FEAT-006, FEAT-007, FEAT-009, FEAT-010, FEAT-011, FEAT-012, UI-007, PERF-002, PERF-004, SEC-003, SEC-006, ARCH-001, ARCH-002, ARCH-005, ARCH-007, TEST-004–007 |
 
 **Decisions taken during implementation:**
