@@ -319,6 +319,27 @@
 
         .print-score-text { display: none; }
 
+        /* UI-006: phones (tablets and up keep the desktop layout, which already fits at 768px).
+           Screen only: print output is unchanged. */
+        @media screen and (max-width: 767.98px) {
+            /* print-sized margins (2.2cm) left ~220px for text on a phone */
+            .report-paper { padding: 20px 14px; margin: 64px 0 24px; min-height: 0; border-radius: 0; box-shadow: none; }
+            h1 { font-size: clamp(1.35rem, 7.2vw, 2.1rem); }
+            h1, h2, h3 { overflow-wrap: break-word; }
+            /* the section control rail sat outside the paper's left edge, i.e. off-screen */
+            .block-controls { position: static; flex-direction: row; justify-content: flex-end; opacity: 1; margin-bottom: 2px; }
+            .report-block { padding: 6px 4px; }
+            .vuln-drag-handle { display: none; }     /* HTML drag-and-drop doesn't work with touch; the ↑/↓ buttons do */
+            .vuln-card .d-flex { flex-wrap: wrap; row-gap: 6px; }
+            .vuln-card input[style*="min-width"] { min-width: 0 !important; width: 100% !important; }
+            .matrix-wrapper { width: 100%; max-width: 340px; padding-left: 32px; }
+            .risk-matrix td { height: 44px; }
+            .editor-toolbar { flex-wrap: wrap; max-width: calc(100vw - 16px); }
+            /* the sidebar opens as a full-screen panel instead of pushing the report off-screen */
+            body:not(.sidebar-collapsed) .sidebar { position: fixed; inset: 0; width: 100%; max-width: 100%; height: 100%; z-index: 2500; }
+            .app-modal-overlay { padding: 8px; }
+        }
+
         @media print {
             .no-print, .editor-toolbar, .block-controls, .vuln-drag-handle, .color-tray { display: none !important; }
 
@@ -4122,8 +4143,26 @@
         updateSaveStatus();
     }
 
+    // UI-008: "acme-corp_web-application-pentest_2026-11-01.json" instead of always "report.json",
+    // so exports for different clients and days don't collide as "report (3).json".
+    function filenameSlug(text) {
+        return String(text || '').normalize('NFKD').replace(/[̀-ͯ]/g, '')   // Ö→O, é→e
+            .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/, '');
+    }
+
+    function reportExportFilename(now = new Date()) {
+        const client = document.getElementById('input-client-name').value.trim();
+        const parts = [];
+        if (client && client !== '[CLIENT NAME]') parts.push(filenameSlug(client));
+        if (currentAssessmentType) parts.push(filenameSlug(currentAssessmentType));
+        const pad = n => String(n).padStart(2, '0');
+        parts.push(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`);
+        const name = parts.filter(Boolean).join('_');
+        return `${name || 'report'}.json`;
+    }
+
     function exportReportJson() {
-        downloadFile('report.json', JSON.stringify(buildReportPayload(), null, 2));
+        downloadFile(reportExportFilename(), JSON.stringify(buildReportPayload(), null, 2));
         hasUnsavedChanges = false;
         saveStatus.exportedAt = Date.now();
         clearAutosave(); // the exported file is now the saved copy; no stale "restore draft?" prompt next time (BUG-004)

@@ -801,6 +801,47 @@ export const cases = [
         } }],
     },
 
+    {
+        id: 'UI-008', title: 'Export file name includes client, assessment type and date', tags: ['ui', 'stage4'],
+        steps: [{ run: async () => {
+            const { assert, captureDownload } = __t;
+            const today = new Date(); const pad = n => String(n).padStart(2, '0');
+            const date = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+            let { filename } = await captureDownload(() => exportReportJson());
+            assert(filename === `web-application-pentest_${date}.json`, `without a client name: ${filename}`);
+            const client = document.getElementById('input-client-name');
+            client.value = 'Örebro Kommun / IT-avd. (Test)'; client.dispatchEvent(new Event('input', { bubbles: true }));
+            ({ filename } = await captureDownload(() => exportReportJson()));
+            assert(filename === `orebro-kommun-it-avd-test_web-application-pentest_${date}.json`, `with a client name: ${filename}`);
+        } }],
+    },
+
+    ...[360, 390, 768].map(width => ({
+        id: `UI-006-${width}`, title: `No horizontal scrolling at ${width}px; title wraps between words; controls on screen`, tags: ['ui', 'mobile', 'stage4'],
+        viewport: { width, height: 800 },
+        steps: [{ run: async () => {
+            const { assert } = __t;
+            document.getElementById('vTitle').value = 'A finding with a fairly long title to check wrapping';
+            document.getElementById('vAssets').value = 'web01, 10.0.0.5'; await addFinding();
+            findings[0].impact = 4; findings[0].exploit = 4; renderAll();
+            const vw = document.documentElement.clientWidth;
+            assert(document.documentElement.scrollWidth <= vw, `page scrolls sideways: ${document.documentElement.scrollWidth}px wide at ${vw}px`);
+            // the report title must wrap only between words
+            const h1 = document.querySelector('#printableReport h1');
+            const range = document.createRange(); const text = h1.firstChild; let pos = 0;
+            for (const word of h1.textContent.split(' ')) {
+                range.setStart(text, pos); range.setEnd(text, pos + word.length); pos += word.length + 1;
+                assert(range.getClientRects().length === 1, `title word "${word}" is split across lines`);
+            }
+            // every section's controls are inside the viewport
+            const off = [...document.querySelectorAll('#reportBlocksContainer > .report-block .block-controls')].filter(c => { const r = c.getBoundingClientRect(); return r.width > 0 && (r.left < 0 || r.right > vw); });
+            assert(off.length === 0, `${off.length} section control rails are off-screen`);
+            // with the sidebar open, still no sideways scrolling
+            toggleSidebar();
+            assert(document.documentElement.scrollWidth <= vw, 'opening the sidebar made the page scroll sideways');
+        } }],
+    })),
+
     // ---------------------------------------------------------------- TEST-002 round trip
     {
         id: 'TEST-002', title: 'Export → import round-trip preserves the whole report', tags: ['persistence', 'stage1'],

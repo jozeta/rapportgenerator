@@ -125,6 +125,10 @@ async function openPage() {
 const results = [];
 for (const c of selected) {
     const page = await openPage();
+    // A case can set `viewport: { width, height }` to emulate a phone/tablet screen.
+    if (c.viewport) {
+        await page.send('Emulation.setDeviceMetricsOverride', { width: c.viewport.width, height: c.viewport.height, deviceScaleFactor: 2, mobile: c.viewport.width < 768 });
+    }
     let ctx = {}; let error = null;
     try {
         for (let i = 0; i < c.steps.length; i++) {
