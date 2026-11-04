@@ -28,9 +28,9 @@ export default [
     files: ["**/*.test.*", "tests/**", "test/**", "examples/**", "scripts/**", "**/*.cjs", "*.config.*"],
     languageOptions: { globals: { ...globals.node } },
   },
-  { // Existing code: unsafe DOM sinks and unused variables are listed as warnings (fix them over time)
+  { // Unsafe DOM sinks are errors in the app
     rules: {
-      "no-unsanitized/property": "warn", "no-unsanitized/method": "warn",
+      "no-unsanitized/property": "error", "no-unsanitized/method": "error",
       "no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrors: "none" }],
       "no-empty": ["error", { allowEmptyCatch: true }],
       "no-redeclare": ["error", { builtinGlobals: false }],
@@ -38,6 +38,7 @@ export default [
   },
   { // Browser tests evaluate code inside the page, where the app's own globals exist.
     files: ["tests/**", "test/**"],
-    rules: { "no-undef": "off" },
+    // The regression tests set innerHTML to XSS payloads on purpose, and load test modules by path.
+    rules: { "no-undef": "off", "no-unsanitized/property": "off", "no-unsanitized/method": "off" },
   },
 ];

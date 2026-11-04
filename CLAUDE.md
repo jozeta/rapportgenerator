@@ -59,5 +59,6 @@ npm ci && npm run lint   # ESLint (dev-only), incl. the no-unsanitized rule; CI 
 npm test                 # the tests CI runs
 ```
 
-Unsafe DOM sinks and unused variables are lint **warnings** for now (existing code); new code
-shouldn't add any. Errors (eval, undefined names, parse errors) fail CI.
+ESLint lints the `.js`/`.mjs` files (the tests); the app's own script is inline in
+`rapportgenerator.html`, which ESLint doesn't read, so keep escaping there by hand (`escapeHtml`).
+In tests the DOM-sink rule is off: the XSS regression tests set `innerHTML` to payloads on purpose.

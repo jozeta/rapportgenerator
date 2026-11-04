@@ -444,7 +444,7 @@ export const cases = [
     {
         id: 'BUG-013', title: 'Text typed into a finding (not yet blurred) is included in the saved payload', tags: ['autosave', 'stage2'],
         steps: [{ run: async () => {
-            const { assert, cardFields, sleep } = __t;
+            const { assert, cardFields } = __t;
             document.getElementById('vTitle').value = 'Typing';
             await addFinding();
             const desc = cardFields(0)[1];
@@ -601,7 +601,7 @@ export const cases = [
     {
         id: 'FEAT-005-redact', title: 'Redaction burns black boxes into the image pixels', tags: ['images', 'stage3'],
         steps: [{ run: async () => {
-            const { assert, caretAtEnd, waitFor, sleep, answerModal } = __t;
+            const { assert, caretAtEnd, sleep, answerModal } = __t;
             // a plain white 400x200 image, inserted via the same path as a paste
             const c = document.createElement('canvas'); c.width = 400; c.height = 200;
             const cx = c.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, 400, 200);
@@ -908,7 +908,7 @@ export const cases = [
     {
         id: 'UI-005-replace', title: 'Find & Replace previews the count, highlights matches, and can be undone', tags: ['undo', 'find-replace', 'stage5'],
         steps: [{ run: async () => {
-            const { assert, sleep } = __t;
+            const { assert } = __t;
             findings.push(__t.finding({ title: 'Alpha one', description: 'about alpha' })); renderAll();
             document.getElementById('section-conclusion').insertAdjacentText('beforeend', ' Alpha.');
             const execBefore = document.getElementById('section-conclusion').innerText;
@@ -1064,7 +1064,7 @@ export const cases = [
     {
         id: 'FEAT-008', title: 'Sort by severity orders one section Critical → Low, unscored then false positives last; undoable', tags: ['sort', 'stage6'],
         steps: [{ run: async () => {
-            const { assert, answerModal } = __t;
+            const { assert } = __t;
             const mk = (title, impact, exploit, extra = {}) => __t.finding({ title, impact, exploit, ...extra });
             document.getElementById('newHeadline').value = 'Internal'; addNewDetailsSection();
             const second = document.querySelectorAll('.details-block')[1].id;
