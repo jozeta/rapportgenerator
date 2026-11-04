@@ -12,3 +12,6 @@
 *.key
 *.p12
 *.pfx
+
+# Node (dev tooling)
+node_modules/

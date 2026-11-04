@@ -6,6 +6,9 @@ The project has no tagged releases yet, so changes are grouped by date. Entries 
 
 ## Unreleased
 
+- ESLint (flat config, with the no-unsanitized rule) as a dev-only tool; CI runs `npm run lint`
+- `npm test` runs the regression suite (`tests/run.mjs`), and CI runs it that way
+
 ## 2026-11-02
 
 - Add CI workflow, Dependabot config, security policy

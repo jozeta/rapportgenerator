@@ -1168,7 +1168,7 @@ export const cases = [
             const base = buildReportPayload();
             const payload = {
                 ...base,
-                blocksHtml: base.blocksHtml.replace('id="section-exec">', `id="section-exec">${img}<a id="jslink" href="javascript:${js}">x</a><iframe srcdoc="<script>parent.${js}<\/script>"></iframe>`),
+                blocksHtml: base.blocksHtml.replace('id="section-exec">', `id="section-exec">${img}<a id="jslink" href="javascript:${js}">x</a><iframe srcdoc="<script>parent.${js}<\/script>"></iframe>`), // eslint-disable-line no-useless-escape -- keeps the string safe inside an HTML <script>
                 currentLogo: `x" onerror="${js}`,
                 companyName: img,
                 findings: [__t.finding({ title: img, category: img, cwe: img, assets: [img], description: `${img} at [COMPANY NAME]`, remediation: `<svg onload="${js}"></svg>`, retestDate: `"><img src=x onerror="${js}">` })],

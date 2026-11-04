@@ -48,3 +48,16 @@ that bug is back.
 - `1z.nu` hosts a copy of `rapportgenerator.html`; after releasing a change, update that copy.
 - Imported report JSON is rendered as HTML by design (documented limitation). Don't widen what
   imports can execute (no inline scripts or event handlers).
+
+## App standards
+
+This repo follows the app standards in `~/Desktop/code/tools/standards/STANDARDS.md` (rule IDs,
+severities; decisions and waivers in `.claude-standards`). `claude-check --repo .` checks it.
+
+```sh
+npm ci && npm run lint   # ESLint (dev-only), incl. the no-unsanitized rule; CI runs it too
+npm test                 # the tests CI runs
+```
+
+Unsafe DOM sinks and unused variables are lint **warnings** for now (existing code); new code
+shouldn't add any. Errors (eval, undefined names, parse errors) fail CI.
