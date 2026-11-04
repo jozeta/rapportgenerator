@@ -6,6 +6,7 @@ The project has no tagged releases yet, so changes are grouped by date. Entries 
 
 ## Unreleased
 
+- Animations and transitions respect the system's "Reduce motion" setting
 - ESLint (flat config, with the no-unsanitized rule) as a dev-only tool; CI runs `npm run lint`
 - `npm test` runs the regression suite (`tests/run.mjs`), and CI runs it that way
 - Lint: unsafe DOM sinks are errors (off in the XSS regression tests, which use them on purpose);
