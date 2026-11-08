@@ -6,6 +6,8 @@ The project has no tagged releases yet, so changes are grouped by date. Entries 
 
 ## Unreleased
 
+- Swedish vulnerability library: all 270 templates have Swedish titles, descriptions and remediation (`library.sv.json`, keyed by English title). In a Swedish report, Add New Finding lists and fills in the Swedish text; search accepts English and Swedish words. Own templates are shown as written
+- Changing the report language keeps the chosen Report Template (it was reset to the default template by the reload)
 - Changing the report language now starts a new, empty report in that language: it asks first, clears the findings, section text, logo and autosaved draft, and reloads the page. Client, company, contact, dates and classification are kept. (Before, it rebuilt the template's sections in place and kept the findings.)
 - Security (SEC-DOM-2): the Retest Summary block added with Swedish reports is reviewed and marked (escaped text, constant markup).
 - Swedish reports (FEAT-007). Each report has its own language, English or Swedish, saved in the report file and independent of the interface language. All 11 templates have Swedish headings, default text, writing tips, rating scales and legends (`translations.sv` in `report-defaults.json`). Severities, statuses, finding-card labels, the action planner, the retest table, metadata labels, the Table of Contents title and figure captions ("Figur n:") are printed in the report's language. Switching language asks first and can be undone. `[infoga …]` placeholders are flagged by the Pre-Export Checklist. Dates in messages follow the interface language

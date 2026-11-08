@@ -1417,6 +1417,7 @@ export const cases = [
                 assert(reportLanguage === 'en' && document.getElementById('reportLanguageSelect').value === 'en', 'should start English');
                 const client = document.getElementById('input-client-name');
                 client.value = 'Acme Corp'; client.dispatchEvent(new Event('input', { bubbles: true }));
+                buildReportFromTemplate('code-review');   // the chosen template is kept across the switch
                 loadTemplate(0); await addFinding();
                 document.getElementById('newHeadline').value = 'Appendix X'; addNewSection();
                 let reloads = 0;
@@ -1446,6 +1447,13 @@ export const cases = [
                 assert(document.getElementById('input-client-name').value === 'Acme Corp', 'profile details should be kept');
                 assert(openModalStack.length === 0, 'a draft-restore prompt appeared after the switch');
                 assert(document.querySelector('.sidebar h4').innerText.includes('Reporting Tools'), 'interface changed language too');
+                assert(currentAssessmentType === 'code-review' && document.getElementById('input-assessment-type').value === 'code-review', 'the chosen template was not kept: ' + currentAssessmentType);
+                const sv = templateTranslations.sv;
+                const crHeadings = [...document.querySelectorAll('#reportBlocksContainer [data-template-section] h2')].map(h => h.innerText);
+                const crExpected = reportTemplates['code-review'].sections.map(x => x.title ? sv[x.title] : (x.component === 'summary' ? 'Sammanfattning av fynd' : 'Detaljerade fynd'));
+                assert(crHeadings.join('|') === crExpected.join('|'), 'code review template not rebuilt in Swedish: ' + crHeadings.join(', '));
+                assert(localStorage.getItem('rapportgen:nextReportTemplate') === null, 'the carried-over template should be used once');
+                buildReportFromTemplate('web-application-pentest');
 
                 loadTemplate(0); document.getElementById('vAssets').value = 'web01'; await addFinding();
                 loadTemplate(3); await addFinding();
@@ -1556,6 +1564,68 @@ export const cases = [
                 assert(alertText && alertText.includes('språk'), 'unsupported language not rejected: ' + alertText);
             } },
         ],
+    },
+
+    {
+        id: 'LIB-SV-001', title: 'Every library template has a complete Swedish translation that keeps code, markup and line breaks', tags: ['report-language', 'library'],
+        steps: [{ run: async () => {
+            const { assert } = __t;
+            const sv = libraryTranslations.sv;
+            assert(sv && library.length > 200, 'library.sv.json not loaded');
+            const lines = s => (s.match(/\n/g) || []).length;
+            const tags = s => (s.match(/<\/?[a-z][a-z0-9]*/gi) || []).sort().join(',');
+            const code = s => (s.match(/`[^`]+`/g) || []).sort().join('\u0001');
+            const ids = s => (s.match(/\b(?:CWE|CVE)-\d+(?:-\d+)?\b/g) || []).sort().join(',');
+            const tokens = s => (s.match(/\[(?:CLIENT NAME|COMPANY NAME|CONTACT NAME|CONTACT EMAIL)\]/g) || []).sort().join(',');
+            const problems = [];
+            for (const v of library) {
+                const tr = sv[v.title];
+                if (!tr) { problems.push('missing: ' + v.title); continue; }
+                for (const f of ['title', 'description', 'remediation']) {
+                    const en = String(v[f] || ''), s = String(tr[f] || '');
+                    if (!s.trim()) { problems.push(`${v.title}: empty ${f}`); continue; }
+                    if (f !== 'title' && s.length < en.length * 0.6) problems.push(`${v.title}: ${f} looks shortened (${s.length} vs ${en.length})`);
+                    if (lines(en) !== lines(s)) problems.push(`${v.title}: ${f} line breaks ${lines(en)}→${lines(s)}`);
+                    if (tags(en) !== tags(s)) problems.push(`${v.title}: ${f} markup`);
+                    if (code(en) !== code(s)) problems.push(`${v.title}: ${f} code spans`);
+                    if (ids(en) !== ids(s)) problems.push(`${v.title}: ${f} CWE/CVE ids`);
+                    if (tokens(en) !== tokens(s)) problems.push(`${v.title}: ${f} [TOKENS]`);
+                }
+                if (!/[åäöÅÄÖ]/.test(tr.description + tr.remediation)) problems.push(`${v.title}: not Swedish?`);
+            }
+            const extra = Object.keys(sv).filter(k => !library.some(v => v.title === k));
+            assert(extra.length === 0, 'translations for titles not in library.json: ' + extra.slice(0, 5).join(' | '));
+            assert(problems.length === 0, problems.length + ' problems: ' + problems.slice(0, 12).join(' | '));
+        } }],
+    },
+    {
+        id: 'LIB-SV-002', title: 'The library follows the report language: Swedish list and form text, search in both languages, own templates as written', tags: ['report-language', 'library'],
+        steps: [{ run: async () => {
+            const { assert } = __t;
+            const search = q => { const el = document.getElementById('librarySearch'); el.value = q; filterLibrary(); return [...document.querySelectorAll('#libraryResults .library-item strong')].map(x => x.textContent); };
+            const sqli = library.findIndex(v => v.title === 'SQL Injection (SQLi)');
+            const tr = libraryTranslations.sv['SQL Injection (SQLi)'];
+            assert(sqli >= 0 && tr, 'SQLi template or its translation missing');
+
+            setReportLanguageSilently('en');
+            assert(search('sql injection')[0] === 'SQL Injection (SQLi)', 'English report should list English titles');
+            setReportLanguageSilently('sv');
+            assert(search('sql injection')[0] === tr.title, 'English search words should find the Swedish entry: ' + search('sql injection')[0]);
+            assert(search(tr.title.split(/\s+/)[0].toLowerCase()).includes(tr.title), 'Swedish search words should find it');
+            assert(search('')[0] !== undefined && search('').every(x => x), 'list is empty');
+
+            await loadTemplate(sqli);
+            assert(document.getElementById('vTitle').value === tr.title, 'form title not Swedish');
+            assert(document.getElementById('vDesc').value === tr.description, 'form description not Swedish');
+            assert(document.getElementById('vRem').value === tr.remediation, 'form remediation not Swedish');
+            assert(document.getElementById('vCWE').value === library[sqli].cwe, 'CWE should not change');
+
+            library.push({ title: 'Own template', category: 'OWASP', cwe: 'N/A', description: 'Written in English', remediation: 'Fix it' });
+            filterLibrary();
+            assert(search('own template')[0] === 'Own template', 'an untranslated own template should be shown as written');
+            await loadTemplate(library.length - 1);
+            assert(document.getElementById('vDesc').value === 'Written in English', 'own template text changed');
+        } }],
     },
 
     // ---------------------------------------------------------------- TEST-002 round trip

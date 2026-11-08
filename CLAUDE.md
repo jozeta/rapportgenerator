@@ -30,7 +30,8 @@ that bug is back.
   from a template carry `data-template-section`; `buildReportFromTemplate()` replaces only those
   (and legacy blocks recognised by their section ids) when the template changes.
 - **Data files** next to the HTML, loaded with `fetch()`: `library.json` (~270 vulnerability
-  templates), `report-defaults.json` (format 2: report templates, each with its own ordered
+  templates; optional `library.sv.json` = their Swedish text keyed by English title, used in Swedish
+  reports via `localizedLibraryEntry()`; a new library entry needs a translation or `LIB-SV-001` fails), `report-defaults.json` (format 2: report templates, each with its own ordered
   `sections` plus the built-in `summary`/`findings` components, a rating scale from
   `scoringModels`, and labels; format 1 still loads in the classic layout),
   optional `settings.json` (firm-wide company, contact, logo, branding colours, classifications,

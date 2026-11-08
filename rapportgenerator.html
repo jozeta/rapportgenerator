@@ -1912,12 +1912,16 @@
         const select = document.getElementById('reportLanguageSelect');
         if (select) select.value = reportLanguage;
         localizeReportFixedText();
+        if (library.length) filterLibrary();   // library text follows the report language
     }
 
     // Sidebar "Report Language": starts a new, empty report in that language. The current report is
-    // cleared (findings, section text, logo, the autosaved draft) and the page reloads, so the template
-    // is built fresh in the new language. Profile details (client, company, contact, dates,
-    // classification) are kept: they live in localStorage. Asks first when there is anything to lose.
+    // cleared (findings, section text, logo, the autosaved draft) and the page reloads, so the chosen
+    // template is built fresh in the new language (NEXT_TEMPLATE_KEY carries it over the reload).
+    // Profile details (client, company, contact, dates, classification) are kept: they live in
+    // localStorage. Asks first when there is anything to lose.
+    const NEXT_TEMPLATE_KEY = 'rapportgen:nextReportTemplate';
+
     async function onReportLanguageChange(select) {
         const next = select.value;
         if (!REPORT_LANGUAGES.includes(next) || next === reportLanguage) return;
@@ -1925,7 +1929,10 @@
             const ok = await showConfirm(t('Start a new report in {language}?\n\nThis clears the current report (findings, section text and the logo) and reloads the page with the template in {language}. Client, company, contact, dates and classification are kept. Export the report first if you want to keep it. This cannot be undone.', { language: t(next === 'sv' ? 'Swedish' : 'English') }));
             if (!ok) { select.value = reportLanguage; return; }
         }
-        try { localStorage.setItem(REPORT_LANGUAGE_KEY, next); } catch (err) { /* storage unavailable: the reload falls back to the interface language */ }
+        try {
+            localStorage.setItem(REPORT_LANGUAGE_KEY, next);
+            if (currentAssessmentType) localStorage.setItem(NEXT_TEMPLATE_KEY, currentAssessmentType);
+        } catch (err) { /* storage unavailable: the reload falls back to the interface language and default template */ }
         hasUnsavedChanges = false;   // already confirmed: don't also trigger the beforeunload prompt
         await clearAutosave();
         reloadPage();
@@ -2362,9 +2369,12 @@
             return;
         }
         reportTemplates = normaliseReportDefaults(defaults);
-        currentAssessmentType = (defaults.defaultTemplate && reportTemplates[defaults.defaultTemplate])
-            ? defaults.defaultTemplate
-            : Object.keys(reportTemplates)[0];
+        let carried = null;   // the template chosen before a report-language switch reloaded the page
+        try { carried = localStorage.getItem(NEXT_TEMPLATE_KEY); localStorage.removeItem(NEXT_TEMPLATE_KEY); } catch (err) { /* storage unavailable */ }
+        currentAssessmentType = (carried && Object.hasOwn(reportTemplates, carried)) ? carried
+            : (defaults.defaultTemplate && reportTemplates[defaults.defaultTemplate])
+                ? defaults.defaultTemplate
+                : Object.keys(reportTemplates)[0];
         populateAssessmentTypeSelect();
         if (!currentAssessmentType) return;
         // Lay out the starting report from the default template, unless something has already put
@@ -2666,8 +2676,40 @@
     }
 
     let library = [];
+    // Translated library text, per report language: library.<lang>.json, keyed by each template's
+    // English title ({ format: 1, language, translations: { title: { title, description, remediation } } }).
+    // Optional: without it (or for a template it doesn't cover) the library text is shown as written.
+    // Only ever used as text, like the library itself.
+    let libraryTranslations = {};
+
+    async function loadLibraryTranslations() {
+        for (const lang of REPORT_LANGUAGES.filter(l => l !== 'en')) {
+            try {
+                const res = await fetch(`library.${lang}.json`);
+                if (!res.ok) continue;
+                const data = await res.json();
+                const table = data && typeof data.translations === 'object' && !Array.isArray(data.translations) ? data.translations : null;
+                if (!table) continue;
+                const clean = Object.create(null);
+                for (const [en, tr] of Object.entries(table)) {
+                    if (tr && typeof tr === 'object') clean[en] = { title: libraryText(tr.title), description: libraryText(tr.description), remediation: libraryText(tr.remediation) };
+                }
+                libraryTranslations[lang] = clean;
+            } catch (err) { /* optional file: the library stays as written */ }
+        }
+    }
+
+    // A library entry as it should read in the current report language (the entry itself if there
+    // is no translation for it). Category and CWE are never translated.
+    function localizedLibraryEntry(v) {
+        const table = libraryTranslations[reportLanguage];
+        const tr = table && v ? table[libraryText(v.title)] : null;
+        if (!tr) return v;
+        return { ...v, title: tr.title || v.title, description: tr.description || v.description, remediation: tr.remediation || v.remediation };
+    }
 
     async function loadLibrary() {
+        await loadLibraryTranslations();
         try {
             const res = await fetch('library.json');
             if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -4386,10 +4428,13 @@
     function librarySearchFields(v) {
         let fields = librarySearchCache.get(v);
         if (!fields) {
+            // Searches the written text and its translations, so English search words keep working
+            // in a Swedish report and vice versa.
+            const versions = [v, ...Object.values(libraryTranslations).map(table => table[libraryText(v && v.title)]).filter(Boolean)];
             fields = {
-                title: libraryText(v.title).toLowerCase(),
+                title: versions.map(x => libraryText(x.title)).join(' ').toLowerCase(),
                 meta: `${libraryText(v.cwe)} ${libraryText(v.category)} ${libraryCategoryLabel(libraryText(v.category))}`.toLowerCase(),
-                body: `${libraryText(v.description)} ${libraryText(v.remediation)}`.toLowerCase(),
+                body: versions.map(x => `${libraryText(x.description)} ${libraryText(x.remediation)}`).join(' ').toLowerCase(),
             };
             if (v && typeof v === 'object') librarySearchCache.set(v, fields);
         }
@@ -4437,7 +4482,7 @@
         libraryMatches = library
             .map((v, idx) => ({ v, idx, score: words.length ? scoreLibraryTemplate(v, words) : 1 }))
             .filter(m => m.score > 0 && (!selectedCat || libraryText(m.v.category) === selectedCat));
-        if (words.length) libraryMatches.sort((a, b) => b.score - a.score || libraryText(a.v.title).localeCompare(libraryText(b.v.title)));
+        if (words.length) libraryMatches.sort((a, b) => b.score - a.score || libraryText(localizedLibraryEntry(a.v).title).localeCompare(libraryText(localizedLibraryEntry(b.v).title)));
         libraryActiveIndex = -1;
 
         const count = document.getElementById('libraryResultCount');
@@ -4458,7 +4503,7 @@
             btn.setAttribute('aria-selected', 'false');
             btn.tabIndex = -1;            // reached with ↑/↓ from the search box, not Tab
             const title = document.createElement('strong');
-            appendHighlighted(title, libraryText(v.title) || t('(untitled template)'), words);
+            appendHighlighted(title, libraryText(localizedLibraryEntry(v).title) || t('(untitled template)'), words);
             const meta = document.createElement('small');
             meta.className = 'text-secondary';
             const cat = libraryText(v.category);
@@ -4503,7 +4548,7 @@
     }
 
     async function loadTemplate(idx) {
-        const v = library[idx];
+        const v = library[idx] && localizedLibraryEntry(library[idx]);   // in the report's language
         if (!v) return;
         const current = templateFormValues();
         const hasOwnEdits = current.some(x => x.trim() !== '') &&
