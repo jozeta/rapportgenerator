@@ -22,6 +22,7 @@ Work happens on the `audit-fixes` branch. Run `node tests/run.mjs` to check: eve
 | ✅ Done: step 4 (usability) | UI-001, UI-002, UI-003, UI-004, UI-006, UI-008, PERF-008, SEC-004 |
 | ✅ Done: step 5 (undo) | UI-005 |
 | ✅ Done: step 6 (retests) | ARCH-003, FEAT-004, FEAT-008 |
+| ✅ Done: later | UI-010 (found while adding the Swedish interface) |
 | — Not selected | FEAT-001, FEAT-002, FEAT-003, FEAT-006, FEAT-007, FEAT-009, FEAT-010, FEAT-011, FEAT-012, UI-007, PERF-002, PERF-004, SEC-003, SEC-006, ARCH-001, ARCH-002, ARCH-005, ARCH-007, TEST-004–007 |
 
 **Decisions taken during implementation:**
@@ -1081,6 +1082,18 @@ Evaluated via screenshots (desktop at 1400 px with the sidebar open; mobile at 3
 - A warning state when autosave fails.
 
 **Acceptance:** The status updates within 1 s of each event, and an autosave failure turns it red with an "Export now" action.
+
+---
+
+### [UI-010] [P3] The Print Watermark tooltip stops after "Requires"
+
+**Screen:** Sidebar → Settings → Print Watermark (ⓘ)
+
+**Problem:** The tooltip's quotes were written as `\"` inside an HTML attribute. HTML has no backslash escape, so the attribute ended at the first quote. The tooltip read "…your own custom text. Requires \" and the rest, which explains that "Background graphics" must be on in the print dialog, was lost as stray attributes.
+
+**Fix:** The quotes are `&quot;`. Found while adding the Swedish interface (the full text is now in the translation table).
+
+**Acceptance:** The tooltip includes the "Background graphics" / "More settings" instructions, in both languages.
 
 ---
 

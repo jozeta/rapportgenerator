@@ -41,6 +41,11 @@ that bug is back.
   autosaved draft in `localStorage`.
 - **PDF** = `window.print()` with an `@media print` stylesheet; branding = CSS vars `--primary`,
   `--accent`, `--headline-color`.
+- **Interface language** (English/Swedish): `UI_SV` maps each English interface text to Swedish. Script
+  messages use `t('English text', { params })` / `tn(n, one, other)`. Markup stays English and
+  `localizeUi()` translates it (re-run by `renderAll()` for the report's `.no-print` controls). Mark
+  data with `translate="no"`. Printed report text is not interface text. New interface text needs a
+  `UI_SV` entry, or `I18N-001`/`I18N-002` fail.
 - Custom Promise-based dialogs `showConfirm()` / `showAlert()`; never native `alert/confirm`.
 - Find & Replace edits only `Text` nodes via `TreeWalker`, never raw HTML.
 

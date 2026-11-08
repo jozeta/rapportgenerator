@@ -6,6 +6,8 @@ The project has no tagged releases yet, so changes are grouped by date. Entries 
 
 ## Unreleased
 
+- Swedish interface. Buttons, menus, tooltips, dialogs, messages and the Pre-Export Checklist are in English or Swedish. The default follows the browser's language; Settings → Interface Language changes it live, and the choice is remembered. The report's own text isn't affected. Tests fail if any interface text lacks a Swedish translation
+- Fix UI-010: the Print Watermark tooltip was cut off after "Requires" (unescaped quotes in the attribute)
 - Report templates with their own structure. Each template defines its sections, headings, order, default text, rating scale (Exploitability for pentests, Likelihood for reviews) and finding labels. New templates: General Security Review, Vulnerability Assessment, Phishing / Social Engineering and Configuration Review. Code Review was reworked (repositories and commit, review approach, secure development recommendations). Switching template keeps findings and user-added sections, asks first and can be undone. The sidebar control is now "Report Template", grouped by kind. `report-defaults.json` moves to format 2; format 1 files still load
 - Animations and transitions respect the system's "Reduce motion" setting
 - ESLint (flat config, with the no-unsanitized rule) as a dev-only tool; CI runs `npm run lint`

@@ -59,7 +59,7 @@
         .checklist-item.checklist-ok .checklist-label { color: #198754; }
         .checklist-item.checklist-ok .checklist-icon { color: #198754; }
         .checklist-count { font-weight: 700; color: #856404; background: #fff3cd; padding: 1px 7px; border-radius: 10px; font-size: 0.7rem; }
-        .checklist-total-badge { font-weight: 700; font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; }
+        .checklist-total-badge { font-weight: 700; font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
         .checklist-total-badge.has-issues { color: #856404; background: #fff3cd; }
         .checklist-total-badge.all-clear { color: #155724; background: #d4edda; }
 
@@ -475,7 +475,7 @@
 </head>
 <body class="sidebar-collapsed">
 
-<div id="globalTooltip" class="no-print"></div>
+<div id="globalTooltip" class="no-print" data-i18n-skip></div>
 <div id="srAnnouncer" class="visually-hidden no-print" aria-live="polite" aria-atomic="true"></div>
 
 <div class="container-fluid">
@@ -573,6 +573,16 @@
                 </button>
                 <div class="sidebar-group-body">
                     <div class="mb-3">
+                        <label for="uiLanguageSelect" class="form-label small fw-bold text-secondary text-uppercase mb-1" style="font-size:0.65rem;">
+                            Interface Language
+                            <span class="info-tip" data-tooltip="The language of the app's buttons, menus and messages. Automatic follows your browser's language. It doesn't change the text in the report.">ⓘ</span>
+                        </label>
+                        <select id="uiLanguageSelect" class="form-select form-select-sm mb-3" onchange="setUiLanguage(this.value)">
+                            <option value="auto">Automatic (browser language)</option>
+                            <option value="en" lang="en" translate="no">English</option>
+                            <option value="sv" lang="sv" translate="no">Svenska</option>
+                        </select>
+
                         <div data-config-field="companyName">
                             <label class="form-label small fw-bold text-secondary text-uppercase mb-1" style="font-size:0.65rem;">
                                 Assessing Company
@@ -620,7 +630,7 @@
                             Manage Classifications
                             <span class="info-tip" data-tooltip="Controls the options available in the Assessment Metadata block's Classification dropdown.">ⓘ</span>
                         </label>
-                        <div id="classificationManageList" class="mb-2"></div>
+                        <div id="classificationManageList" class="mb-2" translate="no"></div>
                         <div class="d-flex gap-2 mb-3">
                             <input type="text" id="newClassificationInput" class="form-control form-control-sm" placeholder="New classification..." onkeydown="if(event.key==='Enter'){event.preventDefault();addClassification();}">
                             <button class="btn btn-outline-success btn-sm" onclick="addClassification()" data-tooltip="Add this classification to the dropdown">+</button>
@@ -628,7 +638,7 @@
 
                         <label class="form-label small fw-bold text-secondary text-uppercase mb-1 d-block" style="font-size:0.65rem;">
                             Print Watermark
-                            <span class="info-tip" data-tooltip="Prints a large, faint, diagonal watermark on every page — either the document's Classification or your own custom text.\nRequires \"Background graphics\" to be enabled in the browser's print dialog (usually under \"More settings\") — otherwise the browser skips it entirely, same as it does for any background image or color.">ⓘ</span>
+                            <span class="info-tip" data-tooltip="Prints a large, faint, diagonal watermark on every page — either the document's Classification or your own custom text.\nRequires &quot;Background graphics&quot; to be enabled in the browser's print dialog (usually under &quot;More settings&quot;) — otherwise the browser skips it entirely, same as it does for any background image or color.">ⓘ</span>
                         </label>
                         <div class="form-check form-switch mb-2">
                             <input class="form-check-input shadow-none" type="checkbox" id="watermarkEnabled" onchange="updateWatermarkPreview(); markUnsaved();">
@@ -792,7 +802,7 @@
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
                             <h2 class="editable-section section-edit flex-grow-1" contenteditable="true">Executive Summary</h2>
-                            <span class="info-tip no-print" data-tooltip="What is important to include here:\n• Know Your Target Audience: Executive leadership, legal departments, and board members read this section first. Maintain a high-level corporate risk perspective, utilizing plain business language rather than deep technical exploit jargon.\n• Focus Intently on Business Impact: Explicitly define what a successful compromise actually implies for [CLIENT NAME] (e.g., loss of client trust, compliance penalties, intellectual property loss), rather than walking through memory offsets or precise execution arrays.\n• Consolidate Findings into High-Level Themes: Avoid discussing single finding IDs. Summarize findings into systemic gaps (e.g., write &quot;outdated patch lifecycle hygiene across legacy segments&quot; instead of &quot;three machines missed an update&quot;).\n• Keep it Dense and Brief: This complete summary layout should ideally fit cleanly on one page, leading smoothly straight down into the centered distribution metrics scorecard below.\n\nWhat is NOT important here:\n• Avoid attaching source code fragments, long command outputs, terminal tool captures, or structural proof-of-concepts; those belong in the Detailed Findings block.\n• Do not list minor informational issues or trivial tracking flags here; keep the text narrative focused on major security impacts.\n• Avoid sounding accusatory or subjective. Maintain an analytical, professional, and advisory tone throughout the entire summary description.">ⓘ</span>
+                            <span class="info-tip no-print" translate="no" data-tooltip="What is important to include here:\n• Know Your Target Audience: Executive leadership, legal departments, and board members read this section first. Maintain a high-level corporate risk perspective, utilizing plain business language rather than deep technical exploit jargon.\n• Focus Intently on Business Impact: Explicitly define what a successful compromise actually implies for [CLIENT NAME] (e.g., loss of client trust, compliance penalties, intellectual property loss), rather than walking through memory offsets or precise execution arrays.\n• Consolidate Findings into High-Level Themes: Avoid discussing single finding IDs. Summarize findings into systemic gaps (e.g., write &quot;outdated patch lifecycle hygiene across legacy segments&quot; instead of &quot;three machines missed an update&quot;).\n• Keep it Dense and Brief: This complete summary layout should ideally fit cleanly on one page, leading smoothly straight down into the centered distribution metrics scorecard below.\n\nWhat is NOT important here:\n• Avoid attaching source code fragments, long command outputs, terminal tool captures, or structural proof-of-concepts; those belong in the Detailed Findings block.\n• Do not list minor informational issues or trivial tracking flags here; keep the text narrative focused on major security impacts.\n• Avoid sounding accusatory or subjective. Maintain an analytical, professional, and advisory tone throughout the entire summary description.">ⓘ</span>
                         </div>
                         <div class="editable-section section-edit mb-3" contenteditable="true" id="section-exec"></div>
 
@@ -840,7 +850,7 @@
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
                             <h2 class="editable-section section-edit flex-grow-1" contenteditable="true">Purpose</h2>
-                            <span class="info-tip no-print" data-tooltip="What is important to include here:\n• Define the &quot;Why&quot;: Explicitly frame why this project was triggered (e.g., standard annual hygiene verification, post-incident assurance loop, pre-launch verification of a new infrastructure build).\n• Link to Business Drivers: Explicitly note compliance regulations or corporate parameters guiding the engagement boundaries (e.g., ISO/IEC 27001 tracking, SOC 2 alignment, internal trust requirements).\n\nWhat is NOT important here:\n• Do not discuss testing logistics, specific methodologies, tool lists, or vulnerability findings. Keep this block strictly focused on the strategic motivation behind the report's creation.">ⓘ</span>
+                            <span class="info-tip no-print" translate="no" data-tooltip="What is important to include here:\n• Define the &quot;Why&quot;: Explicitly frame why this project was triggered (e.g., standard annual hygiene verification, post-incident assurance loop, pre-launch verification of a new infrastructure build).\n• Link to Business Drivers: Explicitly note compliance regulations or corporate parameters guiding the engagement boundaries (e.g., ISO/IEC 27001 tracking, SOC 2 alignment, internal trust requirements).\n\nWhat is NOT important here:\n• Do not discuss testing logistics, specific methodologies, tool lists, or vulnerability findings. Keep this block strictly focused on the strategic motivation behind the report's creation.">ⓘ</span>
                         </div>
                         <div class="editable-section section-edit" contenteditable="true" id="section-purpose"></div>
                     </div>
@@ -856,7 +866,7 @@
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
                             <h2 class="editable-section section-edit flex-grow-1" contenteditable="true">Summary</h2>
-                            <span class="info-tip no-print" data-tooltip="What is important to include here:\n• Technical Overview Bridge: This serves as the technical companion to the Executive Summary. Briefly present the high-level health of the network, applications, or infrastructure builds evaluated.\n• Acknowledge Effective Defenses: Highlight functional security practices observed during testing (e.g., prompt host isolation, active firewall limits).\n\nWhat is NOT important here:\n• Do not duplicate the deep, itemized technical logs, code blocks, or mitigation descriptions found in the Detailed Findings block. Avoid long lists of software versions or asset charts.">ⓘ</span>
+                            <span class="info-tip no-print" translate="no" data-tooltip="What is important to include here:\n• Technical Overview Bridge: This serves as the technical companion to the Executive Summary. Briefly present the high-level health of the network, applications, or infrastructure builds evaluated.\n• Acknowledge Effective Defenses: Highlight functional security practices observed during testing (e.g., prompt host isolation, active firewall limits).\n\nWhat is NOT important here:\n• Do not duplicate the deep, itemized technical logs, code blocks, or mitigation descriptions found in the Detailed Findings block. Avoid long lists of software versions or asset charts.">ⓘ</span>
                         </div>
                         <div class="editable-section section-edit" contenteditable="true" id="section-summary"></div>
                     </div>
@@ -872,7 +882,7 @@
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
                             <h2 class="editable-section section-edit flex-grow-1" contenteditable="true">Engagement and Scope</h2>
-                            <span class="info-tip no-print" data-tooltip="What is important to include here:\n• Absolute Precision: Provide a clean, undisputed statement of all target profiles (e.g., explicit hostnames, IP subnets, target repository branches, or API pathways).\n• Document Explicit Exclusions: Explicitly log out-of-scope layers. This functions as your critical legal and operational safety boundary for the project.\n• Time Constraints: Specify the exact operational timeframe during which testing actions were legally authorized to run.\n\nWhat is NOT important here:\n• Do not provide excessive network structural theory or general corporate definitions. Keep this block strictly focused on factual target parameters.">ⓘ</span>
+                            <span class="info-tip no-print" translate="no" data-tooltip="What is important to include here:\n• Absolute Precision: Provide a clean, undisputed statement of all target profiles (e.g., explicit hostnames, IP subnets, target repository branches, or API pathways).\n• Document Explicit Exclusions: Explicitly log out-of-scope layers. This functions as your critical legal and operational safety boundary for the project.\n• Time Constraints: Specify the exact operational timeframe during which testing actions were legally authorized to run.\n\nWhat is NOT important here:\n• Do not provide excessive network structural theory or general corporate definitions. Keep this block strictly focused on factual target parameters.">ⓘ</span>
                         </div>
                         <div class="editable-section section-edit" contenteditable="true" id="section-scope"></div>
                     </div>
@@ -984,7 +994,7 @@
                         </div>
                         <div class="d-flex justify-content-between align-items-center">
                             <h2 class="editable-section section-edit flex-grow-1" contenteditable="true">Conclusion</h2>
-                            <span class="info-tip no-print" data-tooltip="What is important to include here:\n• Strategic Path Forward: Frame security as a continuous lifecycle rather than a single project milestone. Emphasize programmatic changes (e.g., developer training, configuration pipelines) over quick patches.\n• Professional Closing: Conclude the document with a clean, formal advisory sign-off statement.\n\nWhat is NOT important here:\n• Never introduce entirely new vulnerability profiles, metrics, or technical bugs in the conclusion block. Keep the summary high-level and forward-looking.">ⓘ</span>
+                            <span class="info-tip no-print" translate="no" data-tooltip="What is important to include here:\n• Strategic Path Forward: Frame security as a continuous lifecycle rather than a single project milestone. Emphasize programmatic changes (e.g., developer training, configuration pipelines) over quick patches.\n• Professional Closing: Conclude the document with a clean, formal advisory sign-off statement.\n\nWhat is NOT important here:\n• Never introduce entirely new vulnerability profiles, metrics, or technical bugs in the conclusion block. Keep the summary high-level and forward-looking.">ⓘ</span>
                         </div>
                         <div class="editable-section section-edit" contenteditable="true" id="section-conclusion"></div>
                     </div>
@@ -1015,7 +1025,7 @@
 
 <div id="appModalOverlay" class="app-modal-overlay no-print">
     <div class="app-modal-box" role="alertdialog" aria-modal="true" aria-describedby="appModalMessage">
-        <div id="appModalMessage" class="app-modal-message"></div>
+        <div id="appModalMessage" class="app-modal-message" data-i18n-skip></div>
         <div class="app-modal-actions">
             <button id="appModalCancelBtn" class="btn btn-sm btn-outline-dark" onclick="resolveAppModal(false)">Cancel</button>
             <button id="appModalOkBtn" class="btn btn-sm btn-primary" onclick="resolveAppModal(true)">OK</button>
@@ -1069,40 +1079,40 @@
 
             <select id="libraryCategoryFilter" class="form-select form-select-sm mb-2" onchange="filterLibrary()">
                 <option value="">All Categories</option>
-                <option value="AD">Active Directory</option>
-                <option value="AI">AI / LLM</option>
-                <option value="API">API</option>
-                <option value="AZURE">Azure</option>
-                <option value="CLOUD">Cloud</option>
-                <option value="CODE">Code</option>
-                <option value="CONTAINER">Container</option>
-                <option value="DATABASE">Database</option>
-                <option value="DEVOPS">DevOps</option>
-                <option value="GOVERNANCE">Governance</option>
-                <option value="INFRA">Infrastructure</option>
-                <option value="INTUNE">Intune</option>
-                <option value="KUBERNETES">Kubernetes</option>
-                <option value="LINUX">Linux</option>
-                <option value="M365">M365</option>
-                <option value="MOBILE">Mobile</option>
-                <option value="NETWORK">Network</option>
-                <option value="OWASP">Web Application</option>
-                <option value="PHYSICAL">Physical</option>
-                <option value="VPN">VPN</option>
-                <option value="WINDOWS">Windows</option>
-                <option value="WIRELESS">Wireless</option>
-                <option value="MACOS">MacOS</option>
-                <option value="EMAIL">E-Mail</option>
-                <option value="ENDPOINT">Endpoint</option>
-                <option value="BACKUP">Backup</option>
-                <option value="MONITORING">Monitoring</option>
-                <option value="SAAS">SaaS</option>
-                <option value="SECRETS">Secrets</option>
-                <option value="IAM">IAM</option>
+                <option translate="no" value="AD">Active Directory</option>
+                <option translate="no" value="AI">AI / LLM</option>
+                <option translate="no" value="API">API</option>
+                <option translate="no" value="AZURE">Azure</option>
+                <option translate="no" value="CLOUD">Cloud</option>
+                <option translate="no" value="CODE">Code</option>
+                <option translate="no" value="CONTAINER">Container</option>
+                <option translate="no" value="DATABASE">Database</option>
+                <option translate="no" value="DEVOPS">DevOps</option>
+                <option translate="no" value="GOVERNANCE">Governance</option>
+                <option translate="no" value="INFRA">Infrastructure</option>
+                <option translate="no" value="INTUNE">Intune</option>
+                <option translate="no" value="KUBERNETES">Kubernetes</option>
+                <option translate="no" value="LINUX">Linux</option>
+                <option translate="no" value="M365">M365</option>
+                <option translate="no" value="MOBILE">Mobile</option>
+                <option translate="no" value="NETWORK">Network</option>
+                <option translate="no" value="OWASP">Web Application</option>
+                <option translate="no" value="PHYSICAL">Physical</option>
+                <option translate="no" value="VPN">VPN</option>
+                <option translate="no" value="WINDOWS">Windows</option>
+                <option translate="no" value="WIRELESS">Wireless</option>
+                <option translate="no" value="MACOS">MacOS</option>
+                <option translate="no" value="EMAIL">E-Mail</option>
+                <option translate="no" value="ENDPOINT">Endpoint</option>
+                <option translate="no" value="BACKUP">Backup</option>
+                <option translate="no" value="MONITORING">Monitoring</option>
+                <option translate="no" value="SAAS">SaaS</option>
+                <option translate="no" value="SECRETS">Secrets</option>
+                <option translate="no" value="IAM">IAM</option>
             </select>
 
             <div id="libraryResultCount" class="small text-muted mb-1" aria-live="polite"></div>
-            <div id="libraryResults" class="mb-3" role="listbox" aria-label="Finding templates"></div>
+            <div id="libraryResults" class="mb-3" role="listbox" aria-label="Finding templates" translate="no"></div>
         </div>
 
         <div class="mb-3">
@@ -1137,7 +1147,7 @@
         <textarea id="vRem" class="form-control mb-2" rows="2" placeholder="Remediation" oninput="lastLoadedRemediation = null;"></textarea>
         <div class="target-section-row d-flex align-items-center gap-2 mb-2">
             <label for="vTargetSection" class="form-label small fw-bold mb-0 text-nowrap">Add to section</label>
-            <select id="vTargetSection" class="form-select form-select-sm"></select>
+            <select id="vTargetSection" class="form-select form-select-sm" translate="no"></select>
         </div>
         <button class="btn btn-success w-100 shadow-sm mb-2" onclick="addFinding()">Append to Report</button>
         <button class="btn btn-outline-success w-100 shadow-sm mb-3" onclick="saveAsLibraryTemplate()" data-tooltip="Saves the fields above as a reusable template in your library, instead of (or as well as) appending to the report"><i class="bi bi-save"></i> Save as Library Template</button>
@@ -1194,6 +1204,540 @@
             .replaceAll('>', '&gt;')
             .replaceAll('"', '&quot;')
             .replaceAll("'", '&#39;');
+    }
+
+    // ---- Interface language ------------------------------------------------------------------------
+    // The app's own interface (buttons, menus, tooltips, dialogs, messages) is English or Swedish. The
+    // report's text is not affected. Texts are keyed by their English wording: t('Export Report')
+    // returns the Swedish text when the interface is Swedish. Markup keeps its English text and is
+    // translated in place by localizeUi(), which remembers the English original of each text node and
+    // attribute so switching back works. Scripts build messages with t().
+    //
+    // localizeUi() leaves alone: report content (anything printed: text inside #printableReport except
+    // .no-print controls and page-break markers), editable text, and anything under translate="no"
+    // (data such as library titles, or a template's writing tips) or data-i18n-skip (set by script).
+    // Attributes (tooltips, placeholders, labels) are never printed, so they are translated anywhere
+    // outside editable text.
+    const UI_LANGUAGE_KEY = 'rapportgen:uiLanguage';
+    const UI_LANGUAGES = ['en', 'sv'];
+    let uiLanguage = 'en';
+
+    // Swedish interface texts, keyed by the English text they replace. {name} marks a value filled in
+    // by t(). Tooltip line breaks are written as a literal \n, as in the HTML attributes.
+    const UI_SV = {
+        // Language setting
+        'Interface Language': 'Gränssnittsspråk',
+        "The language of the app's buttons, menus and messages. Automatic follows your browser's language. It doesn't change the text in the report.": 'Språket för appens knappar, menyer och meddelanden. Automatiskt följer webbläsarens språk. Texten i rapporten ändras inte.',
+        'Automatic (browser language)': 'Automatiskt (webbläsarens språk)',
+
+        // Sidebar
+        'Reporting Tools': 'Rapportverktyg',
+        'Collapse Sidebar': 'Fäll ihop sidopanelen',
+        'Expand Sidebar': 'Fäll ut sidopanelen',
+        'Hide the sidebar so the report has more room to breathe while you write': 'Dölj sidopanelen så att rapporten får mer plats medan du skriver',
+        'Add New Section': 'Lägg till avsnitt',
+        'Add a custom text section, or another Detailed Findings section, to the report': 'Lägg till ett eget textavsnitt, eller ytterligare ett avsnitt med detaljerade fynd, i rapporten',
+        'Add New Finding': 'Lägg till fynd',
+        'Pick a template from your library, or fill in the fields manually, then append it to the report': 'Välj en mall ur biblioteket, eller fyll i fälten själv, och lägg sedan till fyndet i rapporten',
+        'Toggle All Action Planners': 'Visa/dölj alla åtgärdsplanerare',
+        'Show the Remediation Action Planner on every finding': 'Visa åtgärdsplaneraren på alla fynd',
+        'Hide the Remediation Action Planner on every finding': 'Dölj åtgärdsplaneraren på alla fynd',
+        'Nothing to undo': 'Inget att ångra',
+        'Find & Replace': 'Sök och ersätt',
+        'Search and replace text across the entire report': 'Sök och ersätt text i hela rapporten',
+        'Print / Export PDF': 'Skriv ut / exportera PDF',
+        'Open the browser print dialog to export this report as a PDF': 'Öppna webbläsarens utskriftsdialog för att exportera rapporten som PDF',
+        'Include Table of Contents': 'Ta med innehållsförteckning',
+        "Adds an auto-generated, linked Table of Contents block that stays in sync as you add, remove, or reorder sections. It's draggable like any other block.": 'Lägger till en automatisk, länkad innehållsförteckning som hålls uppdaterad när du lägger till, tar bort eller flyttar avsnitt. Den kan flyttas som alla andra block.',
+        'A live QA checklist — guideline panels left, missing scores/status, unconfigured branding, and more': 'En löpande kvalitetskontroll: kvarglömda platshållare, saknad riskbedömning eller status, ej inställd grafisk profil med mera',
+        'Pre-Export Checklist': 'Checklista före export',
+        'Save/Load Report': 'Spara/öppna rapport',
+        'Save the entire current report — findings, text, logo, and settings — to a JSON file': 'Spara hela rapporten (fynd, text, logotyp och inställningar) i en JSON-fil',
+        'Export Report': 'Exportera rapport',
+        'Load a previously exported report JSON file, replacing everything in the editor': 'Öppna en tidigare exporterad rapportfil (JSON). Allt i redigeraren ersätts',
+        'Import Report': 'Importera rapport',
+        'Wipe findings, section text, the logo, and all remembered profile details (client, company, contact, dates, classification) — starts completely blank': 'Rensar fynd, avsnittstext, logotyp och alla sparade uppgifter (kund, företag, kontakt, datum, klassning) och börjar helt från början',
+        'New Report': 'Ny rapport',
+        'Record each finding\'s current severity and status as the original result, and add a Retest Summary section': 'Spara varje fynds nuvarande allvarlighetsgrad och status som ursprungligt resultat och lägg till ett avsnitt med sammanfattning av omtestet',
+        'Start Retest': 'Starta omtest',
+        'Retest in progress': 'Omtest pågår',
+        'Jump to the Retest Summary section': 'Gå till avsnittet med sammanfattning av omtestet',
+        'Started {date} ·': 'Startat {date} ·',
+        'End retest': 'Avsluta omtest',
+        'Report Template': 'Rapportmall',
+        'Picks the kind of report: its sections, headings, order, default text and rating scale (e.g. a code review rates Likelihood instead of Exploitability). Switching keeps your findings and any sections you added, and can be undone.': 'Väljer typ av rapport: avsnitt, rubriker, ordning, standardtext och bedömningsskala (en kodgranskning bedömer till exempel sannolikhet i stället för utnyttjbarhet). Vid byte behålls dina fynd och avsnitt du själv lagt till, och bytet kan ångras.',
+        'Per-report details — currently just who the target client is': 'Uppgifter för den här rapporten: för närvarande vem kunden är',
+        'Target Profiles': 'Kunduppgifter',
+        'Client Name': 'Kundnamn',
+        'Updates [CLIENT NAME] tags dynamically throughout the report text. Type [CLIENT NAME] in any section to automatically map it.': 'Uppdaterar alla [CLIENT NAME]-taggar i rapporttexten. Skriv [CLIENT NAME] i valfritt avsnitt så kopplas det automatiskt.',
+        'Target Client Name': 'Kundens namn',
+        'Firm-wide defaults: company identity, branding, classifications, and your template library': 'Gemensamma standardinställningar: företagsuppgifter, grafisk profil, klassningar och mallbibliotek',
+        'Settings': 'Inställningar',
+        'Assessing Company': 'Utförande företag',
+        'Updates [COMPANY NAME] tags dynamically throughout the report text. Type [COMPANY NAME] in any section to automatically map it.': 'Uppdaterar alla [COMPANY NAME]-taggar i rapporttexten. Skriv [COMPANY NAME] i valfritt avsnitt så kopplas det automatiskt.',
+        'Your Company Name': 'Ditt företags namn',
+        'Contact Person': 'Kontaktperson',
+        'Updates [CONTACT NAME] tags dynamically throughout the report text. Type [CONTACT NAME] in any section to automatically map it.': 'Uppdaterar alla [CONTACT NAME]-taggar i rapporttexten. Skriv [CONTACT NAME] i valfritt avsnitt så kopplas det automatiskt.',
+        'Your Name': 'Ditt namn',
+        'Contact Email': 'Kontaktens e-post',
+        'Updates [CONTACT EMAIL] tags dynamically throughout the report text. Type [CONTACT EMAIL] in any section to automatically map it.': 'Uppdaterar alla [CONTACT EMAIL]-taggar i rapporttexten. Skriv [CONTACT EMAIL] i valfritt avsnitt så kopplas det automatiskt.',
+        'you@company.com': 'du@foretag.se',
+        'Branding': 'Grafisk profil',
+        'Recolors headings, links, and matrix markers throughout the report to match your brand.': 'Färgsätter rubriker, länkar och markeringar i riskmatrisen i hela rapporten efter din grafiska profil.',
+        'Underlines, matrix markers, TOC links': 'Understrykningar, markeringar i matrisen, länkar i innehållsförteckningen',
+        'Primary': 'Primär',
+        'Links and hover states': 'Länkar och hovringslägen',
+        'Accent': 'Accent',
+        'Heading text color (h1/h2/h3)': 'Textfärg för rubriker (h1/h2/h3)',
+        'Headlines': 'Rubriker',
+        'Manage Classifications': 'Hantera klassningar',
+        "Controls the options available in the Assessment Metadata block's Classification dropdown.": 'Styr vilka val som finns i listan Klassning i blocket med uppdragsuppgifter.',
+        'New classification...': 'Ny klassning...',
+        'Add this classification to the dropdown': 'Lägg till klassningen i listan',
+        'No classifications defined.': 'Inga klassningar har lagts till.',
+        'Print Watermark': 'Vattenstämpel vid utskrift',
+        'Prints a large, faint, diagonal watermark on every page — either the document\'s Classification or your own custom text.\\nRequires "Background graphics" to be enabled in the browser\'s print dialog (usually under "More settings") — otherwise the browser skips it entirely, same as it does for any background image or color.': 'Skriver ut en stor, ljus, diagonal vattenstämpel på varje sida, antingen dokumentets klassning eller en egen text.\\nKräver att "Bakgrundsgrafik" är påslaget i webbläsarens utskriftsdialog (oftast under "Fler inställningar"). Annars hoppar webbläsaren över den, precis som med andra bakgrundsbilder och bakgrundsfärger.',
+        'Enable watermark when printing': 'Använd vattenstämpel vid utskrift',
+        'Use document Classification': 'Använd dokumentets klassning',
+        'Custom text': 'Egen text',
+        'e.g. DRAFT': 't.ex. UTKAST',
+        'Save/Load Your Template Library': 'Spara/öppna ditt mallbibliotek',
+        "Save your entire template library — built-in + anything you've added — to a JSON file": 'Spara hela mallbiblioteket (inbyggda mallar och de du lagt till) i en JSON-fil',
+        'Export Library': 'Exportera bibliotek',
+        'Replace your current template library with one loaded from a JSON file': 'Ersätt ditt nuvarande mallbibliotek med ett från en JSON-fil',
+        'Import Library': 'Importera bibliotek',
+        'Save Assessing Company, Contact info, Branding, Classifications, and Watermark settings to a settings.json file': 'Spara utförande företag, kontaktuppgifter, grafisk profil, klassningar och vattenstämpel i en settings.json-fil',
+        'Save Settings': 'Spara inställningar',
+        'Dismiss': 'Stäng meddelandet',
+
+        // Text formatting toolbar
+        'Bold': 'Fetstil',
+        'Italic': 'Kursiv',
+        'Strikethrough': 'Genomstruken',
+        'Font Size': 'Teckenstorlek',
+        'Size': 'Storlek',
+        'Small': 'Liten',
+        'Normal': 'Normal',
+        'Large': 'Stor',
+        'X-Large': 'Extra stor',
+        'Align Left': 'Vänsterjustera',
+        'Align Center': 'Centrera',
+        'Align Right': 'Högerjustera',
+        'Wrap in Quote Block': 'Gör till citatblock',
+        'Wrap in Monospaced Code Box': 'Gör till kodruta',
+        'Text Color': 'Textfärg',
+        'Insert image (or paste a screenshot with Ctrl/Cmd+V)': 'Infoga bild (eller klistra in en skärmbild med Ctrl/Cmd+V)',
+        'Redact the selected image (click an image first)': 'Maskera den markerade bilden (klicka på en bild först)',
+        'Bullet List': 'Punktlista',
+        'Numbered List': 'Numrerad lista',
+        'Default Dark': 'Standard mörk',
+        'Critical Red': 'Kritisk röd',
+        'Medium Orange': 'Medel orange',
+        'Low Green': 'Låg grön',
+        'Info Blue': 'Info blå',
+        'Purple': 'Lila',
+        'Navy Theme': 'Marinblå',
+
+        // Report controls (not printed)
+        'Click to Upload Company Logo': 'Klicka för att ladda upp företagets logotyp',
+        'Best practice: PNG or SVG with a transparent background. Displays at up to 160px tall / 80% of the page width, so a wide logo (roughly 3:1 to 4:1 aspect ratio) fits best. Keep the file small (under ~500KB) for fast loading and PDF export.': 'Bäst är PNG eller SVG med genomskinlig bakgrund. Visas som mest 160 px hög eller 80 % av sidbredden, så en bred logotyp (ungefär 3:1 till 4:1) passar bäst. Håll filen liten (under cirka 500 kB) för snabb laddning och PDF-export.',
+        'Move section up': 'Flytta avsnittet uppåt',
+        'Move section down': 'Flytta avsnittet nedåt',
+        'Insert page break below this block': 'Infoga sidbrytning under blocket',
+        'Delete this section': 'Ta bort avsnittet',
+        'Delete this section (ends the retest)': 'Ta bort avsnittet (avslutar omtestet)',
+        'Assessment Metadata': 'Uppdragsuppgifter',
+        'Show Background': 'Visa bakgrund',
+        '--- Forced Print Page Break Boundary ---': '--- Tvingad sidbrytning vid utskrift ---',
+        '--- Forced Print Page Break Boundary (Finding) ---': '--- Tvingad sidbrytning vid utskrift (fynd) ---',
+        'Remove Break': 'Ta bort brytning',
+        'Move finding up': 'Flytta fyndet uppåt',
+        'Move finding down': 'Flytta fyndet nedåt',
+        'Insert page break above this finding': 'Infoga sidbrytning ovanför fyndet',
+        'Remove page break above this finding': 'Ta bort sidbrytningen ovanför fyndet',
+        'Show the Remediation Action Planner for this finding': 'Visa åtgärdsplaneraren för fyndet',
+        'Hide the Remediation Action Planner for this finding': 'Dölj åtgärdsplaneraren för fyndet',
+        'Delete this finding': 'Ta bort fyndet',
+        'Category:': 'Kategori:',
+        'Impact:': 'Konsekvens:',
+        'Exploitability:': 'Utnyttjbarhet:',
+        'Impact': 'Konsekvens',
+        'Exploit': 'Utnyttjbarhet',
+        'Status': 'Status',
+        'Open': 'Öppen',
+        'Remediated': 'Åtgärdad',
+        'Partially Remediated': 'Delvis åtgärdad',
+        'Accepted Risk': 'Accepterad risk',
+        'False Positive': 'Falsk positiv',
+        'CVSS v3.1:': 'CVSS v3.1:',
+        'Vector string': 'Vektorsträng',
+        'Score': 'Poäng',
+        'Calculate': 'Beräkna',
+        "Opens the official FIRST.org CVSS v3.1 calculator in a new tab — this app doesn't calculate CVSS itself": 'Öppnar FIRST.org:s officiella CVSS v3.1-kalkylator i en ny flik. Appen räknar inte ut CVSS själv',
+        'Retest Date:': 'Omtestdatum:',
+        'Double-click to edit': 'Dubbelklicka för att redigera',
+        'Remove asset {name}': 'Ta bort tillgången {name}',
+        'Add affected assets': 'Lägg till berörda tillgångar',
+        'Add affected asset': 'Lägg till berörd tillgång',
+        '{hint} — Enter to add, or paste a list': '{hint}. Enter lägger till, eller klistra in en lista',
+        'No specific target assets linked.': 'Inga tillgångar kopplade.',
+        'Order this section Critical → Low; unscored next, false positives last': 'Sortera avsnittet från Kritisk till Låg, sedan fynd utan bedömning och sist falska positiva',
+        'Sort by severity': 'Sortera efter allvarlighetsgrad',
+        'No findings in this section yet.': 'Inga fynd i det här avsnittet än.',
+        'Add a finding here': 'Lägg till ett fynd här',
+
+        // Toast, dialogs
+        'Undo': 'Ångra',
+        'Cancel': 'Avbryt',
+        'OK': 'OK',
+        'Close': 'Stäng',
+        'Redact image': 'Maskera bild',
+        'Drag over passwords, tokens or personal data to cover them with black boxes.': 'Dra över lösenord, tokens eller personuppgifter för att täcka dem med svarta rutor.',
+        'Apply': 'Verkställ',
+        "burns the boxes into the image, so the covered content can't be recovered from the report or its exports.": 'bränner in rutorna i bilden, så att det som täckts inte kan återskapas ur rapporten eller dess exporter.',
+        'Image being redacted. Drag to draw a black box.': 'Bilden som maskeras. Dra för att rita en svart ruta.',
+        '0 boxes': '0 rutor',
+        '1 box': '1 ruta',
+        '{n} boxes': '{n} rutor',
+        'Undo box': 'Ångra ruta',
+        'Apply redaction': 'Verkställ maskering',
+        'Find...': 'Sök...',
+        'Replace with...': 'Ersätt med...',
+        'Case sensitive': 'Skilj på versaler och gemener',
+        'Replace All': 'Ersätt alla',
+        'Replace {n}': 'Ersätt {n}',
+        'No matches.': 'Inga träffar.',
+        '1 match: {parts}': '1 träff: {parts}',
+        '{n} matches: {parts}': '{n} träffar: {parts}',
+        '{n} in findings': '{n} i fynd',
+        '{n} in sections': '{n} i avsnitt',
+        'Headline Name': 'Rubrik',
+        'Adds a new heading + free-text block, placed just before the Conclusion': 'Lägger till en ny rubrik med fritext, direkt före Slutsats',
+        '+ Add Text Section': '+ Lägg till textavsnitt',
+        'Detailed Findings Section': 'Avsnitt med detaljerade fynd',
+        'Adds another findings group with its own heading — useful for splitting findings by scope or system': 'Lägger till ytterligare en grupp fynd med egen rubrik, till exempel för att dela upp fynden per omfattning eller system',
+        '+ Add Detailed Findings Section': '+ Lägg till avsnitt med detaljerade fynd',
+        'Search title, CWE, category or text… (↑ ↓ to pick, Enter to load)': 'Sök på titel, CWE, kategori eller text… (↑ ↓ för att välja, Enter för att hämta)',
+        'All Categories': 'Alla kategorier',
+        'Finding templates': 'Fyndmallar',
+        '1 template': '1 mall',
+        '{n} templates': '{n} mallar',
+        'No matching templates found.': 'Inga mallar matchar.',
+        '(untitled template)': '(mall utan titel)',
+        'Risk Scoring': 'Riskbedömning',
+        'Impact × Exploitability determines the severity badge and where the finding plots on the 5×5 risk matrix. Leave blank to mark a finding as not yet scored.': 'Konsekvens × utnyttjbarhet avgör allvarlighetsgraden och var fyndet hamnar i riskmatrisen (5×5). Lämna tomt om fyndet inte är bedömt än.',
+        'CVSS v3.1 (optional)': 'CVSS v3.1 (valfritt)',
+        "This app doesn't calculate CVSS itself — score it on the official FIRST.org calculator, then paste the resulting vector string and base score back here.": 'Appen räknar inte ut CVSS själv. Gör bedömningen i FIRST.org:s officiella kalkylator och klistra sedan in vektorsträngen och baspoängen här.',
+        'e.g. CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H': 't.ex. CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H',
+        'Open CVSS v3.1 Calculator': 'Öppna CVSS v3.1-kalkylatorn',
+        'Finding Title': 'Fyndets titel',
+        'Category (e.g., Web Application)': 'Kategori (t.ex. Web Application)',
+        'CWE ID (e.g. CWE-89)': 'CWE-id (t.ex. CWE-89)',
+        'Affected assets (separate with commas or semicolons, or paste a list)': 'Berörda tillgångar (skilj med komma eller semikolon, eller klistra in en lista)',
+        'General Vulnerability Description': 'Allmän beskrivning av sårbarheten',
+        'Remediation': 'Åtgärd',
+        'Add to section': 'Lägg till i avsnitt',
+        'Append to Report': 'Lägg till i rapporten',
+        'Saves the fields above as a reusable template in your library, instead of (or as well as) appending to the report': 'Sparar fälten ovan som en återanvändbar mall i biblioteket, i stället för (eller utöver) att lägga till fyndet i rapporten',
+        'Save as Library Template': 'Spara som mall i biblioteket',
+
+        // Save status
+        'No unsaved changes': 'Inga osparade ändringar',
+        'Autosave failed — use Export Report now to keep your changes': 'Den automatiska sparningen misslyckades. Använd Exportera rapport nu för att behålla dina ändringar',
+        'Not exported · draft kept in this browser {time}': 'Inte exporterad · utkast sparat i webbläsaren {time}',
+        'Not exported · unsaved changes': 'Inte exporterad · osparade ändringar',
+        'All changes exported {time}': 'Alla ändringar exporterade {time}',
+
+        // Pre-export checklist
+        'Assessment Window dates not set': 'Datum för uppdragsperioden saknas',
+        'Assessment Window dates set': 'Datum för uppdragsperioden angivna',
+        'Classification not set': 'Klassning saknas',
+        'Classification set': 'Klassning angiven',
+        'Company logo not uploaded': 'Företagets logotyp saknas',
+        'Company logo is uploaded': 'Företagets logotyp finns',
+        'Assessing Company not configured': 'Utförande företag saknas',
+        'Assessing Company configured': 'Utförande företag angivet',
+        'Client Name not configured': 'Kundnamn saknas',
+        'Client Name configured': 'Kundnamn angivet',
+        'Contact Person not configured': 'Kontaktperson saknas',
+        'Contact Person configured': 'Kontaktperson angiven',
+        'Contact Email not configured': 'Kontaktens e-post saknas',
+        'Contact Email configured': 'Kontaktens e-post angiven',
+        'Leftover boilerplate placeholders found': 'Kvarglömda platshållare i mallens text',
+        'No leftover boilerplate placeholders': 'Inga kvarglömda platshållare',
+        'Findings missing risk score': 'Fynd utan riskbedömning',
+        'All findings have a risk score': 'Alla fynd har en riskbedömning',
+        'Findings missing status': 'Fynd utan status',
+        'All findings have a status': 'Alla fynd har en status',
+        'Findings still using default remediation text': 'Fynd som fortfarande har mallens åtgärdstext',
+        'All remediation text has been customized': 'All åtgärdstext är anpassad',
+        'Original findings without a retest date': 'Ursprungliga fynd utan omtestdatum',
+        'All original findings have a retest date': 'Alla ursprungliga fynd har ett omtestdatum',
+        '1 issue': '1 problem',
+        '{n} issues': '{n} problem',
+        'All clear': 'Allt klart',
+
+        // Report templates (names from report-defaults.json)
+        'Penetration tests': 'Penetrationstester',
+        'Reviews and assessments': 'Granskningar och bedömningar',
+        'Web Application Pentest': 'Penetrationstest av webbapplikation',
+        'Infrastructure Pentest': 'Penetrationstest av infrastruktur',
+        'Mobile Application Pentest': 'Penetrationstest av mobilapp',
+        'API Penetration Test': 'Penetrationstest av API',
+        'Cloud Security Assessment': 'Säkerhetsgranskning av molnmiljö',
+        'Red Team / Adversary Simulation': 'Red team / simulerad angripare',
+        'Code Review': 'Kodgranskning',
+        'General Security Review': 'Allmän säkerhetsgranskning',
+        'Vulnerability Assessment': 'Sårbarhetsanalys',
+        'Phishing / Social Engineering': 'Phishing och social manipulation',
+        'Configuration Review': 'Konfigurationsgranskning',
+        'Switch to the "{name}" template?\n\nThe report\'s sections (headings, order and default text) are replaced with the {name} layout. Your findings are kept, and so are sections you added yourself. You can undo this.': 'Byta till mallen "{name}"?\n\nRapportens avsnitt (rubriker, ordning och standardtext) ersätts med upplägget för {name}. Dina fynd behålls, liksom avsnitt du själv har lagt till. Du kan ångra bytet.',
+        'Switch report template': 'Byt rapportmall',
+        'Switched to the "{name}" template.': 'Bytte till mallen "{name}".',
+
+        // Missing data files
+        "Couldn't load the report templates (report-defaults.json). If you opened this file directly (file://), browsers block that — serve this folder over a local web server instead, e.g. `python3 -m http.server`, then reload. The report starts with the built-in pentest layout and blank sections; you can still type your own text into them.": 'Rapportmallarna (report-defaults.json) kunde inte läsas in. Om du öppnade filen direkt (file://) blockerar webbläsaren det. Starta i stället en lokal webbserver i mappen, t.ex. `python3 -m http.server`, och ladda om sidan. Rapporten börjar med det inbyggda upplägget för penetrationstest och tomma avsnitt, som du kan skriva egen text i.',
+        "Couldn't load the finding template library (library.json). If you opened this file directly (file://), browsers block that — serve this folder over a local web server instead, e.g. `python3 -m http.server`, then reload. You can still add findings manually.": 'Mallbiblioteket för fynd (library.json) kunde inte läsas in. Om du öppnade filen direkt (file://) blockerar webbläsaren det. Starta i stället en lokal webbserver i mappen, t.ex. `python3 -m http.server`, och ladda om sidan. Du kan fortfarande lägga till fynd för hand.',
+
+        // Drafts, new report
+        'Found a draft from {when} that was never exported (it was saved automatically in this browser). Click OK to restore it, or Cancel to discard it and start blank.': 'Hittade ett utkast från {when} som aldrig exporterades (det sparades automatiskt i webbläsaren). Klicka på OK för att återställa det, eller Avbryt för att slänga det och börja från början.',
+        "Couldn't restore the draft — it appears to be damaged, so it has been discarded.": 'Utkastet kunde inte återställas eftersom det verkar vara skadat. Det har slängts.',
+        'Start a new report? This clears all findings, section text, the logo, and every remembered profile detail (client name, company, contact, dates, classification). This cannot be undone.': 'Börja på en ny rapport? Alla fynd, all avsnittstext, logotypen och alla sparade uppgifter (kundnamn, företag, kontakt, datum, klassning) rensas. Det går inte att ångra.',
+
+        // Announcements (screen readers) and toasts
+        'Action Planners shown on all findings.': 'Åtgärdsplanerare visas på alla fynd.',
+        'Action Planners hidden on all findings.': 'Åtgärdsplanerare dolda på alla fynd.',
+        'Action Planner shown for this finding.': 'Åtgärdsplaneraren visas för fyndet.',
+        'Action Planner hidden for this finding.': 'Åtgärdsplaneraren dold för fyndet.',
+        'Page break added above this finding.': 'Sidbrytning tillagd ovanför fyndet.',
+        'Page break removed from above this finding.': 'Sidbrytningen ovanför fyndet borttagen.',
+        'Finding moved up.': 'Fyndet flyttat uppåt.',
+        'Finding moved down.': 'Fyndet flyttat nedåt.',
+        'Finding moved.': 'Fyndet flyttat.',
+        'Finding added.': 'Fynd tillagt.',
+        'Finding deleted.': 'Fynd borttaget.',
+        'Section moved up.': 'Avsnittet flyttat uppåt.',
+        'Section moved down.': 'Avsnittet flyttat nedåt.',
+        'Section moved.': 'Avsnittet flyttat.',
+        'Section added.': 'Avsnitt tillagt.',
+        'Section deleted.': 'Avsnitt borttaget.',
+        'Detailed Findings section added.': 'Avsnitt med detaljerade fynd tillagt.',
+        'Page break inserted.': 'Sidbrytning infogad.',
+        'Page break removed.': 'Sidbrytning borttagen.',
+        'Asset added.': 'Tillgång tillagd.',
+        '{n} assets added.': '{n} tillgångar tillagda.',
+        'Asset removed.': 'Tillgång borttagen.',
+        'Image inserted.': 'Bild infogad.',
+        '{n} images inserted.': '{n} bilder infogade.',
+        'Image redacted.': 'Bilden maskerad.',
+        'Template loaded: {title}.': 'Mall hämtad: {title}.',
+        'Findings sorted by severity.': 'Fynden sorterade efter allvarlighetsgrad.',
+        'Already sorted by severity.': 'Redan sorterade efter allvarlighetsgrad.',
+        'Report imported.': 'Rapporten importerad.',
+
+        // Find & Replace, undo
+        'No matches found.': 'Hittade inga träffar.',
+        'Replace "{text}"': 'Ersätt "{text}"',
+        'Replaced 1 occurrence.': 'Ersatte 1 förekomst.',
+        'Replaced {n} occurrences.': 'Ersatte {n} förekomster.',
+        'Nothing to undo.': 'Inget att ångra.',
+        "Couldn't undo that change.": 'Ändringen kunde inte ångras.',
+        'Undone: {label}': 'Ångrat: {label}',
+        'Undone: {label}.': 'Ångrat: {label}.',
+        'Undo: {label} (Ctrl/Cmd+Z)': 'Ångra: {label} (Ctrl/Cmd+Z)',
+
+        // Retest
+        "Add the report's findings first: starting a retest records each finding's current severity and status as its original result.": 'Lägg först till rapportens fynd. När ett omtest startas sparas varje fynds nuvarande allvarlighetsgrad och status som ursprungligt resultat.',
+        'Start a retest?\n\nEach finding\'s current severity and status are saved as its original result, and a "Retest Summary" section is added to the report. Then update each finding\'s status and retest date as you verify the fixes. The summary table updates as you go.': 'Starta ett omtest?\n\nVarje fynds nuvarande allvarlighetsgrad och status sparas som ursprungligt resultat, och ett avsnitt med sammanfattning av omtestet läggs till i rapporten. Uppdatera sedan varje fynds status och omtestdatum allteftersom du kontrollerar åtgärderna. Sammanfattningstabellen uppdateras löpande.',
+        'Start retest': 'Start av omtest',
+        'Retest started: original results recorded.': 'Omtest startat: ursprungliga resultat sparade.',
+        'End the retest?\n\nThe recorded original results and the Retest Summary section are removed. Finding statuses and retest dates stay as they are.': 'Avsluta omtestet?\n\nDe sparade ursprungliga resultaten och avsnittet med sammanfattning av omtestet tas bort. Fyndens status och omtestdatum lämnas som de är.',
+        'Retest ended.': 'Omtestet avslutat.',
+
+        // Images and redaction
+        'This file is not an image the browser can read.': 'Filen är inte en bild som webbläsaren kan läsa.',
+        'This file is not an image.': 'Filen är inte en bild.',
+        'image': 'bild',
+        'Couldn\'t insert "{name}": {error}': 'Kunde inte infoga "{name}": {error}',
+        'Click into a text section or finding first, then insert the image.': 'Klicka först i ett textavsnitt eller fynd och infoga sedan bilden.',
+        'Click an image in the report first, then choose Redact to black out sensitive parts of it.': 'Klicka först på en bild i rapporten och välj sedan Maskera för att svärta ned känsliga delar.',
+        "This image can't be redacted: {error}": 'Bilden kan inte maskeras: {error}',
+        'Couldn\'t use "{name}" as the logo: {error}': 'Kunde inte använda "{name}" som logotyp: {error}',
+
+        // Sections
+        'At least one Detailed Findings section must remain in the report.': 'Minst ett avsnitt med detaljerade fynd måste finnas kvar i rapporten.',
+        "The Findings Summary section can't be deleted: it holds the risk matrix and the severity table. You can move it with the arrows or the drag handle instead.": 'Avsnittet Sammanfattning av fynd kan inte tas bort eftersom det innehåller riskmatrisen och tabellen över allvarlighetsgrader. Du kan flytta det med pilarna eller handtaget i stället.',
+        'Remove this page break?': 'Ta bort sidbrytningen?',
+        'Delete the section "{name}"? Its findings move to the first Detailed Findings section.': 'Ta bort avsnittet "{name}"? Dess fynd flyttas till det första avsnittet med detaljerade fynd.',
+        'Delete the section "{name}"?': 'Ta bort avsnittet "{name}"?',
+        'Remove page break': 'Ta bort sidbrytning',
+        'Delete section "{name}"': 'Ta bort avsnittet "{name}"',
+        'Delete Finding #{n}?': 'Ta bort fynd nr {n}?',
+        'Delete finding "{title}"': 'Ta bort fyndet "{title}"',
+        'Finding #{n} deleted.': 'Fynd nr {n} borttaget.',
+
+        // Library
+        'Replace what you\'ve typed in the form with the "{title}" template?': 'Ersätta det du har skrivit i formuläret med mallen "{title}"?',
+        'Enter a Finding Title before saving it as a library template.': 'Skriv en titel på fyndet innan du sparar det som mall i biblioteket.',
+        '"{title}" was added to your template library. Use "Export Library" to save it to library.json so it\'s there next time.': '"{title}" har lagts till i mallbiblioteket. Använd "Exportera bibliotek" för att spara det i library.json så att det finns kvar nästa gång.',
+        'Importing will replace your entire current template library (the list you search in "Add Finding"). This does not affect the current report. Continue?': 'Importen ersätter hela ditt nuvarande mallbibliotek (listan du söker i under "Lägg till fynd"). Rapporten påverkas inte. Fortsätta?',
+        'Import failed: the selected file is not a valid library JSON array.': 'Importen misslyckades: filen är inte ett giltigt mallbibliotek (en JSON-lista).',
+        'Import failed: could not read the selected file.': 'Importen misslyckades: filen kunde inte läsas.',
+
+        // Report import
+        'Importing will completely replace the current report — all sections, findings, and the logo — and this cannot be undone. Continue?': 'Importen ersätter hela den nuvarande rapporten (alla avsnitt, fynd och logotypen). Fortsätta?',
+        'Import failed: the selected file is not valid JSON.': 'Importen misslyckades: filen är inte giltig JSON.',
+        'Import report': 'Import av rapport',
+        "Import failed: this file isn't a report this app can open. Your current report has not been changed.": 'Importen misslyckades: filen är inte en rapport som appen kan öppna. Din nuvarande rapport har inte ändrats.',
+        '…and {n} more': '…och {n} till',
+        'The file does not contain a report.': 'Filen innehåller ingen rapport.',
+        'Its format version is invalid.': 'Formatversionen är ogiltig.',
+        'It was saved by a newer version of this app (format v{found}); this version can read up to v{max}.': 'Den sparades av en nyare version av appen (format v{found}). Den här versionen kan läsa upp till v{max}.',
+        'Its list of findings is missing or not a list.': 'Listan med fynd saknas eller är inte en lista.',
+        'Finding {n} is not a finding.': 'Fynd {n} är inte ett fynd.',
+        'Finding {n}: "{field}" must be text.': 'Fynd {n}: "{field}" måste vara text.',
+        'Finding {n}: "{field}" must be a number.': 'Fynd {n}: "{field}" måste vara ett tal.',
+        'Finding {n}: "assets" must be a list of text.': 'Fynd {n}: "assets" måste vara en lista med text.',
+        'Its report sections are missing.': 'Rapportens avsnitt saknas.',
+        'Its report sections contain no Detailed Findings section.': 'Rapporten saknar ett avsnitt med detaljerade fynd.',
+        '"{field}" must be text.': '"{field}" måste vara text.',
+        'Its classification list must be a list of text.': 'Listan med klassningar måste vara en lista med text.',
+        'Its metadata block is invalid.': 'Uppdragsuppgifterna är ogiltiga.',
+        'Metadata "{field}" must be text.': 'Uppdragsuppgiften "{field}" måste vara text.',
+        'Its watermark settings are invalid.': 'Inställningarna för vattenstämpeln är ogiltiga.',
+        'Its retest information is invalid.': 'Uppgifterna om omtestet är ogiltiga.',
+    };
+
+    const UI_EN_BY_SV = new Map(Object.entries(UI_SV).map(([en, sv]) => [sv, en]));
+    const I18N_ATTRIBUTES = ['title', 'placeholder', 'aria-label', 'data-tooltip'];
+    const i18nState = new WeakMap();      // node -> { [slot]: { src, shown } }
+    const i18nMisses = new Set();         // English texts shown without a Swedish translation (tests read this)
+    let swedishPatterns = null;           // translations with {placeholders}, as regexes
+
+    function t(en, params) {
+        let s = (uiLanguage === 'sv' && Object.hasOwn(UI_SV, en)) ? UI_SV[en] : en;
+        if (uiLanguage === 'sv' && !Object.hasOwn(UI_SV, en)) i18nMisses.add(en);
+        if (params) s = s.replace(/\{(\w+)\}/g, (m, k) => (Object.hasOwn(params, k) ? String(params[k]) : m));
+        return s;
+    }
+
+    // Singular/plural pair: tn(n, '1 box', '{n} boxes').
+    function tn(n, one, other, params = {}) {
+        return n === 1 ? t(one, { n, ...params }) : t(other, { n, ...params });
+    }
+
+    // Browser language preference (navigator.languages) -> 'en' or 'sv'.
+    function detectUiLanguage(browserLanguages) {
+        for (const tag of browserLanguages || []) {
+            const base = String(tag).toLowerCase().split('-')[0];
+            if (UI_LANGUAGES.includes(base)) return base;
+        }
+        return 'en';
+    }
+
+    function uiLanguageSetting() {
+        let stored = null;
+        try { stored = localStorage.getItem(UI_LANGUAGE_KEY); } catch (err) { /* storage unavailable */ }
+        return UI_LANGUAGES.includes(stored) ? stored : 'auto';
+    }
+
+    function resolveUiLanguage() {
+        const setting = uiLanguageSetting();
+        return setting === 'auto' ? detectUiLanguage(navigator.languages || [navigator.language]) : setting;
+    }
+
+    // A text that is already the Swedish translation of something (possibly with values filled in).
+    function isSwedishText(text) {
+        if (UI_EN_BY_SV.has(text)) return true;
+        if (!swedishPatterns) {
+            swedishPatterns = Object.values(UI_SV).filter(v => /\{\w+\}/.test(v)).map(v =>
+                new RegExp('^' + v.split(/\{\w+\}/).map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s\\S]*') + '$'));
+        }
+        return swedishPatterns.some(re => re.test(text));
+    }
+
+    // Returns the value to show for one text node or attribute, or null to leave it as it is.
+    function localizedValue(node, slot, current) {
+        const normalized = current.replace(/\s+/g, ' ').trim();
+        if (!/[A-Za-zÅÄÖåäö]/.test(normalized)) return null;
+        let state = i18nState.get(node);
+        if (!state) { state = {}; i18nState.set(node, state); }
+        const known = state[slot];
+        let src;
+        if (known && known.shown === current) src = known.src;
+        else if (UI_EN_BY_SV.has(normalized)) src = UI_EN_BY_SV.get(normalized);
+        else if (Object.hasOwn(UI_SV, normalized)) src = normalized;
+        else {
+            // Not in the table: a script already translated it (with values filled in), or it lacks a translation.
+            if (uiLanguage === 'sv' && !isSwedishText(normalized)) i18nMisses.add(normalized);
+            return null;
+        }
+        const lead = current.match(/^\s*/)[0], trail = current.match(/\s*$/)[0];
+        const shown = lead + t(src) + trail;
+        state[slot] = { src, shown };
+        return shown === current ? null : shown;
+    }
+
+    function i18nExcluded(el) {
+        return !!el.closest('[translate="no"], [data-i18n-skip], [contenteditable="true"]');
+    }
+
+    function textInUiScope(el) {
+        if (i18nExcluded(el) || el.closest('script, style')) return false;
+        return !el.closest('#printableReport') || !!el.closest('.no-print, .page-break-block');
+    }
+
+    function localizeUi(root = document.body) {
+        if (!root) return;
+        const elements = root.querySelectorAll ? [root, ...root.querySelectorAll(I18N_ATTRIBUTES.map(a => `[${a}]`).join(','))] : [];
+        for (const el of elements) {
+            if (!el.getAttribute || i18nExcluded(el)) continue;
+            for (const attr of I18N_ATTRIBUTES) {
+                const value = el.getAttribute(attr);
+                if (!value) continue;
+                const next = localizedValue(el, attr, value);
+                if (next !== null) el.setAttribute(attr, next);
+            }
+        }
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode())) {
+            if (!node.parentElement || !textInUiScope(node.parentElement)) continue;
+            const next = localizedValue(node, 'text', node.nodeValue);
+            if (next !== null) node.nodeValue = next;
+        }
+    }
+
+    // The report's own controls (section rails, finding controls, page-break markers, etc.), after
+    // they have been (re)built.
+    function localizeReportControls() {
+        document.querySelectorAll('#printableReport .no-print, #printableReport .page-break-block, #printableReport [data-tooltip], #printableReport [title], #printableReport [aria-label]')
+            .forEach(el => localizeUi(el));
+    }
+
+    function setUiLanguage(setting) {
+        try {
+            if (UI_LANGUAGES.includes(setting)) localStorage.setItem(UI_LANGUAGE_KEY, setting);
+            else localStorage.removeItem(UI_LANGUAGE_KEY);
+        } catch (err) { /* storage unavailable: applies to this visit only */ }
+        applyUiLanguage(UI_LANGUAGES.includes(setting) ? setting : 'auto');
+    }
+
+    // Re-renders every script-built text in the new language, then translates the markup.
+    function applyUiLanguage(setting = uiLanguageSetting()) {
+        uiLanguage = setting === 'auto' ? detectUiLanguage(navigator.languages || [navigator.language]) : setting;
+        document.documentElement.lang = uiLanguage;
+        const select = document.getElementById('uiLanguageSelect');
+        if (select) select.value = setting;
+        populateAssessmentTypeSelect();
+        renderClassificationSelect();
+        updateSaveStatus();
+        updateUndoButton();
+        updateRetestControls();
+        updateActionPlannerToggleIcon();
+        if (library.length) filterLibrary();
+        renderAll();
+        localizeUi(document.body);
     }
 
     // In-page modal system: replaces native confirm()/alert() with a styled, non-blocking overlay.
@@ -1286,7 +1830,7 @@
         const div = document.createElement('div');
         div.id = id;
         div.className = 'ext-file-warning';
-        div.innerHTML = `<span>${escapeHtml(message)}</span><button onclick="this.parentElement.remove()" title="Dismiss">×</button>`;
+        div.innerHTML = `<span>${escapeHtml(message)}</span><button onclick="this.parentElement.remove()" title="${escapeHtml(t('Dismiss'))}">×</button>`;
         container.appendChild(div);
     }
 
@@ -1423,11 +1967,11 @@
         for (const [key, tpl] of Object.entries(reportTemplates)) {
             const groupKey = tpl.group || '';
             if (!groups.has(groupKey)) {
-                const parent = groupKey && templateGroups[groupKey] ? Object.assign(document.createElement('optgroup'), { label: templateGroups[groupKey] }) : select;
+                const parent = groupKey && templateGroups[groupKey] ? Object.assign(document.createElement('optgroup'), { label: t(templateGroups[groupKey]) }) : select;
                 if (parent !== select) select.appendChild(parent);
                 groups.set(groupKey, parent);
             }
-            groups.get(groupKey).appendChild(Object.assign(document.createElement('option'), { value: key, textContent: tpl.label }));
+            groups.get(groupKey).appendChild(Object.assign(document.createElement('option'), { value: key, textContent: t(tpl.label) }));
         }
         select.value = currentAssessmentType;
     }
@@ -1460,6 +2004,7 @@
         if (info) {
             const tip = document.createElement('span');
             tip.className = 'info-tip no-print';
+            tip.setAttribute('translate', 'no');   // the template's own writing tip, not interface text
             tip.textContent = 'ⓘ';
             tip.setAttribute('data-tooltip', info);
             row.appendChild(tip);
@@ -1586,13 +2131,13 @@
         if (nextKey === currentAssessmentType || !tpl) return;
         // An untouched report can switch freely; otherwise say what happens first.
         if (hasUnsavedChanges || findings.length > 0) {
-            const ok = await showConfirm(`Switch to the "${tpl.label}" template?\n\nThe report's sections (headings, order and default text) are replaced with the ${tpl.label} layout. Your findings are kept, and so are sections you added yourself. You can undo this.`);
+            const ok = await showConfirm(t('Switch to the "{name}" template?\n\nThe report\'s sections (headings, order and default text) are replaced with the {name} layout. Your findings are kept, and so are sections you added yourself. You can undo this.', { name: t(tpl.label) }));
             if (!ok) { select.value = currentAssessmentType; return; }
         }
-        recordUndoPoint('Switch report template');
+        recordUndoPoint(t('Switch report template'));
         buildReportFromTemplate(nextKey);
         markUnsaved();
-        showToast(`Switched to the "${tpl.label}" template.`, { undo: true });
+        showToast(t('Switched to the "{name}" template.', { name: t(tpl.label) }), { undo: true });
     }
 
     async function loadReportDefaults() {
@@ -1602,7 +2147,7 @@
             if (!res.ok) throw new Error('HTTP ' + res.status);
             defaults = await res.json();
         } catch (err) {
-            showExternalFileWarning('report-defaults.json', "Couldn't load the report templates (report-defaults.json). If you opened this file directly (file://), browsers block that — serve this folder over a local web server instead, e.g. `python3 -m http.server`, then reload. The report starts with the built-in pentest layout and blank sections; you can still type your own text into them.");
+            showExternalFileWarning('report-defaults.json', t("Couldn't load the report templates (report-defaults.json). If you opened this file directly (file://), browsers block that — serve this folder over a local web server instead, e.g. `python3 -m http.server`, then reload. The report starts with the built-in pentest layout and blank sections; you can still type your own text into them."));
             return;
         }
         reportTemplates = normaliseReportDefaults(defaults);
@@ -1778,14 +2323,14 @@
         const time = ts => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         let text, state;
         if (hasUnsavedChanges && saveStatus.autosaveFailed) {
-            text = 'Autosave failed — use Export Report now to keep your changes'; state = 'is-error';
+            text = t('Autosave failed — use Export Report now to keep your changes'); state = 'is-error';
         } else if (hasUnsavedChanges) {
-            text = 'Not exported' + (saveStatus.autosavedAt ? ` · draft kept in this browser ${time(saveStatus.autosavedAt)}` : ' · unsaved changes');
+            text = saveStatus.autosavedAt ? t('Not exported · draft kept in this browser {time}', { time: time(saveStatus.autosavedAt) }) : t('Not exported · unsaved changes');
             state = 'is-dirty';
         } else if (saveStatus.exportedAt) {
-            text = `All changes exported ${time(saveStatus.exportedAt)}`; state = 'is-clean';
+            text = t('All changes exported {time}', { time: time(saveStatus.exportedAt) }); state = 'is-clean';
         } else {
-            text = 'No unsaved changes'; state = 'is-clean';
+            text = t('No unsaved changes'); state = 'is-clean';
         }
         if (el.textContent !== text) el.textContent = text;
         el.className = 'save-status ' + state;
@@ -1798,7 +2343,7 @@
         if (!snapshot) return;
 
         const when = new Date(snapshot.savedAt || Date.now()).toLocaleString();
-        const restore = await showConfirm(`Found a draft from ${when} that was never exported (it was saved automatically in this browser). Click OK to restore it, or Cancel to discard it and start blank.`);
+        const restore = await showConfirm(t('Found a draft from {when} that was never exported (it was saved automatically in this browser). Click OK to restore it, or Cancel to discard it and start blank.', { when }));
         if (!restore) { await clearAutosave(); return; }
 
         try {
@@ -1806,7 +2351,7 @@
             saveStatus.autosavedAt = snapshot.savedAt || null;
             updateSaveStatus();
         } catch (err) {
-            await showAlert("Couldn't restore the draft — it appears to be damaged, so it has been discarded.");
+            await showAlert(t("Couldn't restore the draft — it appears to be damaged, so it has been discarded."));
             await clearAutosave();
         }
     }
@@ -1815,7 +2360,7 @@
     // the identity fields above (and the autosave snapshot) is persisted — so wiping those and
     // reloading is a complete reset to the same blank state a first-ever visit would produce.
     async function startNewReport() {
-        const ok = await showConfirm("Start a new report? This clears all findings, section text, the logo, and every remembered profile detail (client name, company, contact, dates, classification). This cannot be undone.");
+        const ok = await showConfirm(t("Start a new report? This clears all findings, section text, the logo, and every remembered profile detail (client name, company, contact, dates, classification). This cannot be undone."));
         if (!ok) return;
         try {
             PERSISTED_FIELD_IDS.forEach(id => localStorage.removeItem(PERSIST_PREFIX + id));
@@ -1920,12 +2465,13 @@
             library = data;
         } catch (err) {
             library = [];
-            showExternalFileWarning('library.json', "Couldn't load the finding template library (library.json). If you opened this file directly (file://), browsers block that — serve this folder over a local web server instead, e.g. \u0060python3 -m http.server\u0060, then reload. You can still add findings manually.");
+            showExternalFileWarning('library.json', t("Couldn't load the finding template library (library.json). If you opened this file directly (file://), browsers block that — serve this folder over a local web server instead, e.g. `python3 -m http.server`, then reload. You can still add findings manually."));
         }
         filterLibrary();
     }
 
     function init() {
+        uiLanguage = resolveUiLanguage();
         const summaryBlock = document.getElementById('block-summary');
         if (summaryBlock) PRISTINE_SUMMARY_BLOCK_HTML = summaryBlock.outerHTML;
         captureBuiltInScoringModel();
@@ -1952,7 +2498,7 @@
 
         syncTokens();
         document.querySelectorAll('.editable-section').forEach(el => convertLiteralTokensToSpans(el));
-        renderAll();
+        applyUiLanguage();   // renders everything, in the interface language
 
         loadExternalDefaults();
     }
@@ -2039,16 +2585,17 @@
         });
         updateActionPlannerToggleIcon();
         renderAll();
-        announce(actionPlannersGloballyVisible ? 'Action Planners shown on all findings.' : 'Action Planners hidden on all findings.');
+        announce(t(actionPlannersGloballyVisible ? 'Action Planners shown on all findings.' : 'Action Planners hidden on all findings.'));
     }
 
     function updateActionPlannerToggleIcon() {
         const btn = document.getElementById('omitPlannersIcon');
         if (!btn) return;
         btn.classList.toggle('active', actionPlannersGloballyVisible);
-        btn.setAttribute('data-tooltip', actionPlannersGloballyVisible
+        btn.setAttribute('data-tooltip', t(actionPlannersGloballyVisible
             ? 'Hide the Remediation Action Planner on every finding'
-            : 'Show the Remediation Action Planner on every finding');
+            : 'Show the Remediation Action Planner on every finding'));
+        btn.setAttribute('aria-label', btn.getAttribute('data-tooltip'));
     }
 
     function handlePrint() {
@@ -2235,7 +2782,7 @@
         tags: new Set(['div', 'h1', 'h2', 'h3', 'h4', 'p', 'span', 'strong', 'small', 'br', 'i', 'a', 'button', 'input', 'select', 'option', 'label',
                        'table', 'thead', 'tbody', 'tr', 'th', 'td']),
         attributes: {
-            '*': ['class', 'id', 'style', 'contenteditable', 'draggable', 'data-tooltip', 'data-placeholder', 'data-template-section', 'title', 'aria-label', 'role', 'tabindex'],
+            '*': ['class', 'id', 'style', 'contenteditable', 'draggable', 'data-tooltip', 'data-placeholder', 'data-template-section', 'title', 'aria-label', 'role', 'tabindex', 'translate'],
             input: ['type', 'value', 'checked', 'placeholder', 'disabled'],
             option: ['value', 'selected'], label: ['for'], a: ['href'], button: ['type'], td: ['colspan', 'rowspan'], th: ['colspan', 'rowspan'],
         },
@@ -2528,16 +3075,16 @@
         if (!findText) {
             preview.textContent = '';
             button.disabled = true;
-            button.textContent = 'Replace All';
+            button.textContent = t('Replace All');
             return;
         }
         const { total, inFindings, inSections } = findAndReplaceInReport(findText, '', caseSensitive, { dryRun: true });
         const parts = [];
-        if (inFindings) parts.push(`${inFindings} in findings`);
-        if (inSections) parts.push(`${inSections} in sections`);
-        preview.textContent = total === 0 ? 'No matches.' : `${total} match${total === 1 ? '' : 'es'}: ${parts.join(', ')}`;
+        if (inFindings) parts.push(t('{n} in findings', { n: inFindings }));
+        if (inSections) parts.push(t('{n} in sections', { n: inSections }));
+        preview.textContent = total === 0 ? t('No matches.') : tn(total, '1 match: {parts}', '{n} matches: {parts}', { parts: parts.join(', ') });
         button.disabled = total === 0;
-        button.textContent = total === 0 ? 'Replace All' : `Replace ${total}`;
+        button.textContent = total === 0 ? t('Replace All') : t('Replace {n}', { n: total });
     }
 
     async function runFindReplace() {
@@ -2548,11 +3095,11 @@
 
         const { total } = findAndReplaceInReport(findText, replaceText, caseSensitive, { dryRun: true });
         closeFindReplace();
-        if (total === 0) { showToast('No matches found.'); return; }
-        recordUndoPoint(`Replace "${findText}"`);
+        if (total === 0) { showToast(t('No matches found.')); return; }
+        recordUndoPoint(t('Replace "{text}"', { text: findText }));
         findAndReplaceInReport(findText, replaceText, caseSensitive);
         markUnsaved();
-        showToast(`Replaced ${total} occurrence${total === 1 ? '' : 's'}.`, { undo: true });
+        showToast(tn(total, 'Replaced 1 occurrence.', 'Replaced {n} occurrences.'), { undo: true });
     }
 
     function findPattern(findText, caseSensitive) {
@@ -2680,18 +3227,18 @@
     function undoLastChange() {
         const entry = undoStack.pop();
         updateUndoButton();
-        if (!entry) { showToast('Nothing to undo.'); return; }
+        if (!entry) { showToast(t('Nothing to undo.')); return; }
         try {
             applyReportPayload(JSON.parse(entry.snapshot), { markSaved: false });
         } catch (err) {
             console.error('Undo failed', err);
-            showToast("Couldn't undo that change.");
+            showToast(t("Couldn't undo that change."));
             return;
         }
         markUnsaved();
         selectEvidenceImage(null);
-        showToast(`Undone: ${entry.label}`);
-        announce(`Undone: ${entry.label}.`);
+        showToast(t('Undone: {label}', { label: entry.label }));
+        announce(t('Undone: {label}.', { label: entry.label }));
     }
 
     function updateUndoButton() {
@@ -2699,7 +3246,7 @@
         if (!btn) return;
         const last = undoStack[undoStack.length - 1];
         btn.disabled = !last;
-        const tip = last ? `Undo: ${last.label} (Ctrl/Cmd+Z)` : 'Nothing to undo';
+        const tip = last ? t('Undo: {label} (Ctrl/Cmd+Z)', { label: last.label }) : t('Nothing to undo');
         btn.setAttribute('data-tooltip', tip);
         btn.setAttribute('aria-label', tip);
     }
@@ -2773,12 +3320,12 @@
     async function startRetest() {
         if (retestState) { document.getElementById('block-retest')?.scrollIntoView({ block: 'start', behavior: 'smooth' }); return; }
         if (!findings.length) {
-            await showAlert("Add the report's findings first: starting a retest records each finding's current severity and status as its original result.");
+            await showAlert(t("Add the report's findings first: starting a retest records each finding's current severity and status as its original result."));
             return;
         }
-        const ok = await showConfirm('Start a retest?\n\nEach finding\'s current severity and status are saved as its original result, and a "Retest Summary" section is added to the report. Then update each finding\'s status and retest date as you verify the fixes. The summary table updates as you go.');
+        const ok = await showConfirm(t('Start a retest?\n\nEach finding\'s current severity and status are saved as its original result, and a "Retest Summary" section is added to the report. Then update each finding\'s status and retest date as you verify the fixes. The summary table updates as you go.'));
         if (!ok) return;
-        recordUndoPoint('Start retest');
+        recordUndoPoint(t('Start retest'));
         ensureFindingIds();
         retestState = {
             startedAt: todayIso(),
@@ -2789,20 +3336,20 @@
         renderAll();
         updateRetestControls();
         document.getElementById('block-retest').scrollIntoView({ block: 'start', behavior: 'smooth' });
-        showToast('Retest started: original results recorded.', { undo: true });
+        showToast(t('Retest started: original results recorded.'), { undo: true });
     }
 
     async function endRetest() {
         if (!retestState) return;
-        const ok = await showConfirm('End the retest?\n\nThe recorded original results and the Retest Summary section are removed. Finding statuses and retest dates stay as they are.');
+        const ok = await showConfirm(t('End the retest?\n\nThe recorded original results and the Retest Summary section are removed. Finding statuses and retest dates stay as they are.'));
         if (!ok) return;
-        recordUndoPoint('End retest');
+        recordUndoPoint(t('End retest'));
         retestState = null;
         document.getElementById('block-retest')?.remove();
         markUnsaved();
         renderAll();
         updateRetestControls();
-        showToast('Retest ended.', { undo: true });
+        showToast(t('Retest ended.'), { undo: true });
     }
 
     // The section's controls use the same allow-listed inline handlers as every other section, so it
@@ -2828,7 +3375,7 @@
         if (anchor && anchor.parentNode === container) container.insertBefore(block, anchor.nextSibling);
         else container.appendChild(block);
         convertLiteralTokensToSpans(block);
-        setupDragAndDrop(); // refreshes aria-labels for the new controls
+        setupDragAndDrop(); // translates the new controls and refreshes their aria-labels
     }
 
     function updateRetestControls() {
@@ -2836,13 +3383,13 @@
         const status = document.getElementById('retestStatus');
         if (!startBtn || !status) return;
         if (retestState) {
-            startBtn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Retest in progress';
-            startBtn.setAttribute('data-tooltip', 'Jump to the Retest Summary section');
-            status.innerHTML = `Started ${escapeHtml(retestState.startedAt || '')} · <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="endRetest()">End retest</button>`;
+            startBtn.innerHTML = `<i class="bi bi-arrow-repeat"></i> ${escapeHtml(t('Retest in progress'))}`;
+            startBtn.setAttribute('data-tooltip', t('Jump to the Retest Summary section'));
+            status.innerHTML = `${escapeHtml(t('Started {date} ·', { date: retestState.startedAt || '' }))} <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="endRetest()">${escapeHtml(t('End retest'))}</button>`;
             status.style.display = '';
         } else {
-            startBtn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Start Retest';
-            startBtn.setAttribute('data-tooltip', "Record each finding's current severity and status as the original result, and add a Retest Summary section");
+            startBtn.innerHTML = `<i class="bi bi-arrow-repeat"></i> ${escapeHtml(t('Start Retest'))}`;
+            startBtn.setAttribute('data-tooltip', t("Record each finding's current severity and status as the original result, and add a Retest Summary section"));
             status.textContent = '';
             status.style.display = 'none';
         }
@@ -2915,13 +3462,13 @@
                 || ((parseFloat(b.f.cvssScore) || 0) - (parseFloat(a.f.cvssScore) || 0))
                 || (a.order - b.order))
             .map(x => x.f);
-        if (sorted.every((f, k) => f === findings[slots[k]])) { showToast('Already sorted by severity.'); return; }
-        recordUndoPoint('Sort by severity');
+        if (sorted.every((f, k) => f === findings[slots[k]])) { showToast(t('Already sorted by severity.')); return; }
+        recordUndoPoint(t('Sort by severity'));
         slots.forEach((slot, k) => { findings[slot] = sorted[k]; });
         markUnsaved();
         renderAll();
-        showToast('Findings sorted by severity.', { undo: true });
-        announce('Findings sorted by severity.');
+        showToast(t('Findings sorted by severity.'), { undo: true });
+        announce(t('Findings sorted by severity.'));
     }
 
     function setupSortButtons() {
@@ -3081,7 +3628,7 @@
         return new Promise((resolve, reject) => {
             const img = new Image();
             img.onload = () => resolve(img);
-            img.onerror = () => reject(new Error('This file is not an image the browser can read.'));
+            img.onerror = () => reject(new Error(t('This file is not an image the browser can read.')));
             img.src = src;
         });
     }
@@ -3109,7 +3656,7 @@
     async function prepareImageForReport(source, { maxWidth = IMAGE_MAX_WIDTH } = {}) {
         const srcUrl = typeof source === 'string' ? source : await readBlobAsDataUrl(source);
         const type = (srcUrl.match(/^data:([^;,]+)/) || [])[1] || '';
-        if (!type.startsWith('image/')) throw new Error('This file is not an image.');
+        if (!type.startsWith('image/')) throw new Error(t('This file is not an image.'));
         if (type === 'image/gif' || type === 'image/svg+xml') return srcUrl; // keep animation / vector as-is
         const img = await decodeImage(srcUrl);
         const scale = Math.min(1, maxWidth / img.naturalWidth);
@@ -3138,7 +3685,7 @@
         const urls = [];
         for (const file of files) {
             try { urls.push(await prepareImageForReport(file)); }
-            catch (err) { await showAlert(`Couldn't insert "${file.name || 'image'}": ${err.message}`); }
+            catch (err) { await showAlert(t('Couldn\'t insert "{name}": {error}', { name: file.name || t('image'), error: err.message })); }
         }
         if (!urls.length || !range) return;
         let node = range.startContainer; if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
@@ -3148,7 +3695,7 @@
         const sel = window.getSelection();
         sel.removeAllRanges(); sel.addRange(range);
         document.execCommand('insertHTML', false, urls.map(evidenceFigureHtml).join('')); // fires 'input' → saved like typing
-        announce(urls.length === 1 ? 'Image inserted.' : `${urls.length} images inserted.`);
+        announce(tn(urls.length, 'Image inserted.', '{n} images inserted.'));
     }
 
     async function insertImageFromToolbar(input) {
@@ -3156,7 +3703,7 @@
         input.value = '';
         document.getElementById('floatingToolbar').style.display = 'none';
         if (!files.length) return;
-        if (!lastSavedRange) { await showAlert('Click into a text section or finding first, then insert the image.'); return; }
+        if (!lastSavedRange) { await showAlert(t('Click into a text section or finding first, then insert the image.')); return; }
         await insertEvidenceImages(files, lastSavedRange.cloneRange());
     }
 
@@ -3240,12 +3787,12 @@
     async function openRedactModal() {
         const img = selectedEvidenceImage;
         if (!img || !img.isConnected) {
-            await showAlert('Click an image in the report first, then choose Redact to black out sensitive parts of it.');
+            await showAlert(t('Click an image in the report first, then choose Redact to black out sensitive parts of it.'));
             return;
         }
         let source;
         try { source = await decodeImage(img.src); }
-        catch (err) { await showAlert("This image can't be redacted: " + err.message); return; }
+        catch (err) { await showAlert(t("This image can't be redacted: {error}", { error: err.message })); return; }
         Object.assign(redactState, { img, source, boxes: [], drawing: null });
         const canvas = document.getElementById('redactCanvas');
         canvas.width = source.naturalWidth;
@@ -3275,8 +3822,7 @@
             ctx.fillStyle = 'rgba(0,0,0,0.55)';
             ctx.fillRect(b.x, b.y, b.w, b.h);
         }
-        document.getElementById('redactBoxCount').textContent =
-            redactState.boxes.length === 1 ? '1 box' : `${redactState.boxes.length} boxes`;
+        document.getElementById('redactBoxCount').textContent = tn(redactState.boxes.length, '1 box', '{n} boxes');
     }
 
     function redactPointFromEvent(e) {
@@ -3322,7 +3868,7 @@
     function applyRedaction() {
         const { img, boxes } = redactState;
         if (!img || !boxes.length) { closeRedactModal(); return; }
-        recordUndoPoint('Redact image');
+        recordUndoPoint(t('Redact image'));
         drawRedactCanvas({ preview: false });
         // The boxes are now part of the pixels; the original image is replaced, not layered over,
         // so what was under them is gone from the report and from every later export.
@@ -3331,50 +3877,50 @@
         if (editable) editable.dispatchEvent(new Event('input', { bubbles: true })); // save like any edit
         closeRedactModal();
         positionImageSelectionOutline();
-        announce('Image redacted.');
-        showToast('Image redacted.', { undo: true });
+        announce(t('Image redacted.'));
+        showToast(t('Image redacted.'), { undo: true });
     }
 
     function moveSectionUp(btn) {
         const block = btn.closest('.report-block');
         const prev = block.previousElementSibling;
-        if (prev) { block.parentNode.insertBefore(block, prev); markUnsaved(); renderAll(); announce('Section moved up.'); }
+        if (prev) { block.parentNode.insertBefore(block, prev); markUnsaved(); renderAll(); announce(t('Section moved up.')); }
     }
 
     function moveSectionDown(btn) {
         const block = btn.closest('.report-block');
         const next = block.nextElementSibling;
-        if (next) { block.parentNode.insertBefore(next, block); markUnsaved(); renderAll(); announce('Section moved down.'); }
+        if (next) { block.parentNode.insertBefore(next, block); markUnsaved(); renderAll(); announce(t('Section moved down.')); }
     }
 
     async function removeSection(btn) {
         const targetBlock = btn.closest('.report-block');
         const isDetails = targetBlock.classList.contains('details-block');
         if (isDetails && document.querySelectorAll('.details-block').length <= 1) {
-            await showAlert("At least one Detailed Findings section must remain in the report.");
+            await showAlert(t("At least one Detailed Findings section must remain in the report."));
             return;
         }
         // BUG-011: the risk matrix, severity table and findings list live in this block; removing it
         // used to make every later render throw.
         if (targetBlock.id === 'block-retest') { await endRetest(); return; } // deleting it ends the retest
         if (targetBlock.id === 'block-summary') {
-            await showAlert("The Findings Summary section can't be deleted: it holds the risk matrix and the severity table. You can move it with the arrows or the drag handle instead.");
+            await showAlert(t("The Findings Summary section can't be deleted: it holds the risk matrix and the severity table. You can move it with the arrows or the drag handle instead."));
             return;
         }
         const isBreak = targetBlock.classList.contains('page-break-block');
         const heading = targetBlock.querySelector('h2');
         const name = heading ? heading.innerText.trim() : '';
-        const promptText = isBreak ? "Remove this page break?"
-            : isDetails ? `Delete the section "${name}"? Its findings move to the first Detailed Findings section.`
-            : `Delete the section "${name}"?`;
+        const promptText = isBreak ? t('Remove this page break?')
+            : isDetails ? t('Delete the section "{name}"? Its findings move to the first Detailed Findings section.', { name })
+            : t('Delete the section "{name}"?', { name });
         if (await showConfirm(promptText)) {
-            recordUndoPoint(isBreak ? 'Remove page break' : `Delete section "${name}"`);
+            recordUndoPoint(isBreak ? t('Remove page break') : t('Delete section "{name}"', { name }));
             targetBlock.remove();
-            showToast(isBreak ? 'Page break removed.' : 'Section deleted.', { undo: true });
+            showToast(t(isBreak ? 'Page break removed.' : 'Section deleted.'), { undo: true });
             document.getElementById('floatingToolbar').style.display = 'none';
             markUnsaved();
             renderAll();
-            announce(isBreak ? 'Page break removed.' : 'Section deleted.');
+            announce(t(isBreak ? 'Page break removed.' : 'Section deleted.'));
         }
     }
 
@@ -3410,7 +3956,7 @@
         document.getElementById('newHeadline').value = '';
         markUnsaved();
         renderAll();
-        announce('Detailed Findings section added.');
+        announce(t('Detailed Findings section added.'));
         closeAddSectionModal();
     }
 
@@ -3443,7 +3989,7 @@
         document.getElementById('newHeadline').value = '';
         if (tocEnabled) renderTOC();
         markUnsaved();
-        announce('Section added.');
+        announce(t('Section added.'));
         closeAddSectionModal();
     }
 
@@ -3460,7 +4006,7 @@
         currentBlock.parentNode.insertBefore(div, currentBlock.nextSibling);
         setupDragAndDrop();
         markUnsaved();
-        announce('Page break inserted.');
+        announce(t('Page break inserted.'));
     }
 
     // Drag-and-drop for both sections and finding cards, via ONE set of listeners delegated from
@@ -3528,9 +4074,10 @@
                 if (kind === 'card') reorderFindingsFromDom();
                 markUnsaved(); // reordering is an edit (it didn't count as one before)
                 renderAll();
-                announce(kind === 'card' ? 'Finding moved.' : 'Section moved.');
+                announce(t(kind === 'card' ? 'Finding moved.' : 'Section moved.'));
             });
         }
+        localizeReportControls();
         syncAriaLabelsFromTooltips();
     }
 
@@ -3668,10 +4215,10 @@
         libraryActiveIndex = -1;
 
         const count = document.getElementById('libraryResultCount');
-        if (count) count.textContent = libraryMatches.length === 1 ? '1 template' : `${libraryMatches.length} templates`;
+        if (count) count.textContent = tn(libraryMatches.length, '1 template', '{n} templates');
 
         if (libraryMatches.length === 0) {
-            results.innerHTML = `<div class="library-empty-state">No matching templates found.</div>`;
+            results.innerHTML = `<div class="library-empty-state">${escapeHtml(t('No matching templates found.'))}</div>`;
             return;
         }
 
@@ -3684,7 +4231,7 @@
             btn.setAttribute('aria-selected', 'false');
             btn.tabIndex = -1;            // reached with ↑/↓ from the search box, not Tab
             const title = document.createElement('strong');
-            appendHighlighted(title, libraryText(v.title) || '(untitled template)', words);
+            appendHighlighted(title, libraryText(v.title) || t('(untitled template)'), words);
             const meta = document.createElement('small');
             meta.className = 'text-secondary';
             const cat = libraryText(v.category);
@@ -3734,7 +4281,7 @@
         const current = templateFormValues();
         const hasOwnEdits = current.some(x => x.trim() !== '') &&
             (!lastLoadedTemplateValues || current.some((x, i) => x !== lastLoadedTemplateValues[i]));
-        if (hasOwnEdits && !(await showConfirm(`Replace what you've typed in the form with the "${libraryText(v.title)}" template?`))) return;
+        if (hasOwnEdits && !(await showConfirm(t('Replace what you\'ve typed in the form with the "{title}" template?', { title: libraryText(v.title) })))) return;
         document.getElementById('vTitle').value = libraryText(v.title);
         document.getElementById('vCWE').value = libraryText(v.cwe);
         document.getElementById('vCategory').value = libraryText(v.category);
@@ -3743,13 +4290,13 @@
         // Affected assets are about this engagement, not the template, so they're kept.
         lastLoadedRemediation = libraryText(v.remediation);
         lastLoadedTemplateValues = templateFormValues();
-        announce(`Template loaded: ${libraryText(v.title)}.`);
+        announce(t('Template loaded: {title}.', { title: libraryText(v.title) }));
     }
 
     async function saveAsLibraryTemplate() {
         const title = document.getElementById('vTitle').value.trim();
         if (!title) {
-            await showAlert("Enter a Finding Title before saving it as a library template.");
+            await showAlert(t("Enter a Finding Title before saving it as a library template."));
             return;
         }
         library.push({
@@ -3760,7 +4307,7 @@
             remediation: document.getElementById('vRem').value
         });
         filterLibrary();
-        await showAlert(`"${title}" was added to your template library. Use "Export Library" to save it to library.json so it's there next time.`);
+        await showAlert(t('"{title}" was added to your template library. Use "Export Library" to save it to library.json so it\'s there next time.', { title }));
     }
 
     function exportLibraryJson() {
@@ -3770,7 +4317,7 @@
     async function importLibraryJson(input) {
         if (!input.files || !input.files[0]) return;
 
-        if (!(await showConfirm("Importing will replace your entire current template library (the list you search in \"Add Finding\"). This does not affect the current report. Continue?"))) {
+        if (!(await showConfirm(t('Importing will replace your entire current template library (the list you search in "Add Finding"). This does not affect the current report. Continue?')))) {
             input.value = '';
             return;
         }
@@ -3783,13 +4330,13 @@
                 library = data;
                 filterLibrary();
             } catch (err) {
-                await showAlert("Import failed: the selected file is not a valid library JSON array.");
+                await showAlert(t("Import failed: the selected file is not a valid library JSON array."));
             } finally {
                 input.value = '';
             }
         };
         reader.onerror = async () => {
-            await showAlert("Import failed: could not read the selected file.");
+            await showAlert(t("Import failed: could not read the selected file."));
             input.value = '';
         };
         reader.readAsText(input.files[0]);
@@ -3836,7 +4383,7 @@
         });
         markUnsaved();
         renderAll();
-        announce('Finding added.');
+        announce(t('Finding added.'));
         ['vTitle', 'vCWE', 'vCategory', 'vAssets', 'vCvssVector', 'vCvssScore', 'vDesc', 'vRem'].forEach(id => document.getElementById(id).value = '');
         lastLoadedTemplateValues = null;
     }
@@ -3850,14 +4397,14 @@
         findings[idx].plannerManuallyHidden = !stateValue;
         markUnsaved();
         renderAll();
-        announce(stateValue ? 'Action Planner shown for this finding.' : 'Action Planner hidden for this finding.');
+        announce(t(stateValue ? 'Action Planner shown for this finding.' : 'Action Planner hidden for this finding.'));
     }
 
     function toggleFindingPageBreak(idx) {
         findings[idx].pageBreakBefore = !findings[idx].pageBreakBefore;
         markUnsaved();
         renderAll();
-        announce(findings[idx].pageBreakBefore ? 'Page break added above this finding.' : 'Page break removed from above this finding.');
+        announce(t(findings[idx].pageBreakBefore ? 'Page break added above this finding.' : 'Page break removed from above this finding.'));
     }
 
     function moveFindingUp(idx) {
@@ -3870,7 +4417,7 @@
         }
         markUnsaved();
         renderAll();
-        announce('Finding moved up.');
+        announce(t('Finding moved up.'));
     }
 
     function moveFindingDown(idx) {
@@ -3883,7 +4430,7 @@
         }
         markUnsaved();
         renderAll();
-        announce('Finding moved down.');
+        announce(t('Finding moved down.'));
     }
 
 
@@ -3926,7 +4473,7 @@
         const names = parseAssetList(input.value).concat(parseAssetList(extraText));
         if (names.length) {
             const added = addAssetsToFinding(finding, names);
-            if (added) { markUnsaved(); announce(added === 1 ? 'Asset added.' : `${added} assets added.`); }
+            if (added) { markUnsaved(); announce(tn(added, 'Asset added.', '{n} assets added.')); }
         }
         renderWithAssetEntry(keepOpen ? finding : null);
     }
@@ -3949,7 +4496,7 @@
                 f.assets.splice(parseInt(remove.dataset.assetRemove, 10), 1);
                 markUnsaved();
                 renderWithAssetEntry(assetEntry && assetEntry.finding);
-                announce('Asset removed.');
+                announce(t('Asset removed.'));
             }
         });
         container.addEventListener('dblclick', (e) => {
@@ -4063,7 +4610,7 @@
                         <span class="badge-del no-print" onclick="removeClassification(${idx})">×</span>
                     </span>
                 `).join('')
-                : `<span class="text-muted small">No classifications defined.</span>`;
+                : `<span class="text-muted small">${escapeHtml(t('No classifications defined.'))}</span>`;
         }
 
         renderChecklist();
@@ -4139,7 +4686,7 @@
             return `
             <div class="checklist-item ${isWarn ? '' : 'checklist-ok'}">
                 <span class="checklist-icon"><i class="bi ${isWarn ? 'bi-exclamation-triangle-fill' : 'bi-check-circle-fill'}"></i></span>
-                <span class="checklist-label">${label}</span>
+                <span class="checklist-label">${escapeHtml(t(label))}</span>
                 ${(item.count !== undefined && item.count > 0) ? `<span class="checklist-count">${item.count}</span>` : ''}
             </div>
         `;
@@ -4149,7 +4696,7 @@
         const totalIssues = items.filter(item => (item.warn !== undefined ? item.warn : item.count > 0)).length;
         const badge = document.getElementById('checklistTotalBadge');
         if (badge) {
-            badge.textContent = totalIssues > 0 ? `${totalIssues} issue${totalIssues === 1 ? '' : 's'}` : 'All clear';
+            badge.textContent = totalIssues > 0 ? tn(totalIssues, '1 issue', '{n} issues') : t('All clear');
             badge.className = 'checklist-total-badge ' + (totalIssues > 0 ? 'has-issues' : 'all-clear');
         }
     }
@@ -4269,13 +4816,13 @@
                 assetsHtmlString += assetsDataList.map((asset, aIdx) => `
                     <span class="asset-badge">
                         <span data-asset-edit="${aIdx}" title="Double-click to edit">${escapeHtml(asset)}</span>
-                        <button type="button" class="badge-del no-print" data-asset-remove="${aIdx}" aria-label="Remove asset ${escapeHtml(asset)}">×</button>
+                        <button type="button" class="badge-del no-print" data-asset-remove="${aIdx}" aria-label="${escapeHtml(t('Remove asset {name}', { name: asset }))}">×</button>
                     </span>`).join('');
             } else if (!(assetEntry && assetEntry.finding === f)) {
-                assetsHtmlString += `<span class="text-muted small print-fallback-hidden me-2">No specific target assets linked.</span>`;
+                assetsHtmlString += `<span class="text-muted small print-fallback-hidden no-print me-2">No specific target assets linked.</span>`;
             }
             assetsHtmlString += (assetEntry && assetEntry.finding === f)
-                ? `<input type="text" class="asset-entry-input form-control form-control-sm d-inline-block no-print" aria-label="Add affected asset" placeholder="${escapeHtml(currentTemplateLabels().assetHint)} — Enter to add, or paste a list">`
+                ? `<input type="text" class="asset-entry-input form-control form-control-sm d-inline-block no-print" aria-label="Add affected asset" placeholder="${escapeHtml(t('{hint} — Enter to add, or paste a list', { hint: currentTemplateLabels().assetHint }))}">`
                 : `<button type="button" class="btn-add-asset-inline no-print" data-asset-add aria-label="Add affected assets" title="Add affected assets">+</button>`;
             assetsHtmlString += `</div>`;
 
@@ -4343,7 +4890,7 @@
 
                     <div class="d-flex flex-column text-muted small mb-3 bg-light p-2 rounded">
                         <div class="d-flex justify-content-between align-items-center w-100">
-                            <div><span class="no-print"><strong>Category:</strong> ${escapeHtml(f.category || 'General')} | </span><strong>CWE:</strong> ${parseCweLinkBadge(f.cwe)}</div>
+                            <div><span class="no-print"><strong>Category:</strong> <span translate="no">${escapeHtml(f.category || 'General')}</span> | </span><strong>CWE:</strong> ${parseCweLinkBadge(f.cwe)}</div>
                             <div class="d-flex gap-2 align-items-center no-print">
                                 <span class="fw-bold text-secondary">Impact:</span>
                                 <select class="form-select form-select-sm d-inline-block w-auto" onchange="updateFindingScore(${i}, 'impact', this.value)">${impactOptions}</select>
@@ -4442,6 +4989,7 @@
         positionImageSelectionOutline(); // a re-rendered card replaced the selected image, or moved it
         if (tocEnabled) renderTOC();
         renderChecklist();
+        localizeReportControls();
         syncAriaLabelsFromTooltips();
     }
 
@@ -4485,11 +5033,11 @@
 
     const toBase64 = file => new Promise((res) => { const r = new FileReader(); r.readAsDataURL(file); r.onload = () => res(r.result); });
     async function removeFinding(i) {
-        if (!(await showConfirm(`Delete Finding #${i+1}?`))) return;
-        recordUndoPoint(`Delete finding "${findings[i].title}"`);
+        if (!(await showConfirm(t('Delete Finding #{n}?', { n: i + 1 })))) return;
+        recordUndoPoint(t('Delete finding "{title}"', { title: findings[i].title }));
         findings.splice(i, 1); markUnsaved(); renderAll();
-        announce('Finding deleted.');
-        showToast(`Finding #${i + 1} deleted.`, { undo: true });
+        announce(t('Finding deleted.'));
+        showToast(t('Finding #{n} deleted.', { n: i + 1 }), { undo: true });
     }
     async function updateLogo(input) {
         const file = input.files && input.files[0];
@@ -4499,7 +5047,7 @@
             // Logos print at most ~160px tall; 1200px wide is plenty and keeps oversized uploads out of every export.
             currentLogo = await prepareImageForReport(file, { maxWidth: 1200 });
         } catch (err) {
-            await showAlert(`Couldn't use "${file.name}" as the logo: ${err.message}`);
+            await showAlert(t('Couldn\'t use "{name}" as the logo: {error}', { name: file.name, error: err.message }));
             return;
         }
         configuredLogoPath = ''; markUnsaved(); renderLogo(); renderChecklist();
@@ -4518,6 +5066,7 @@
         if(lc) lc.innerHTML = currentLogo ? `<img src="${escapeHtml(currentLogo)}" class="report-logo mx-auto">` : `<div class="logo-placeholder no-print">Click to Upload Company Logo
                 <span class="info-tip" onclick="event.stopPropagation()" data-tooltip="Best practice: PNG or SVG with a transparent background. Displays at up to 160px tall / 80% of the page width, so a wide logo (roughly 3:1 to 4:1 aspect ratio) fits best. Keep the file small (under ~500KB) for fast loading and PDF export.">ⓘ</span>
             </div>`;
+        localizeUi(lc);
     }
 
     // ---- Report file format -------------------------------------------------------------------
@@ -4536,60 +5085,60 @@
     function validateReportPayload(data) {
         const isObject = v => v !== null && typeof v === 'object' && !Array.isArray(v);
         const isOptionalText = v => v === undefined || v === null || typeof v === 'string';
-        if (!isObject(data)) return ['The file does not contain a report.'];
+        if (!isObject(data)) return [t('The file does not contain a report.')];
         const errors = [];
 
         if (data.schemaVersion !== undefined) {
-            if (!Number.isInteger(data.schemaVersion) || data.schemaVersion < 1) errors.push('Its format version is invalid.');
-            else if (data.schemaVersion > REPORT_SCHEMA_VERSION) errors.push(`It was saved by a newer version of this app (format v${data.schemaVersion}); this version can read up to v${REPORT_SCHEMA_VERSION}.`);
+            if (!Number.isInteger(data.schemaVersion) || data.schemaVersion < 1) errors.push(t('Its format version is invalid.'));
+            else if (data.schemaVersion > REPORT_SCHEMA_VERSION) errors.push(t('It was saved by a newer version of this app (format v{found}); this version can read up to v{max}.', { found: data.schemaVersion, max: REPORT_SCHEMA_VERSION }));
         }
 
         if (!Array.isArray(data.findings)) {
-            errors.push('Its list of findings is missing or not a list.');
+            errors.push(t('Its list of findings is missing or not a list.'));
         } else {
             data.findings.forEach((f, i) => {
-                const at = `Finding ${i + 1}`;
-                if (!isObject(f)) { errors.push(`${at} is not a finding.`); return; }
+                const n = i + 1;
+                if (!isObject(f)) { errors.push(t('Finding {n} is not a finding.', { n })); return; }
                 for (const k of ['title', 'cwe', 'category', 'description', 'remediation', 'status', 'retestDate', 'cvssVector', 'cvssScore', 'sectionId']) {
-                    if (!isOptionalText(f[k])) errors.push(`${at}: "${k}" must be text.`);
+                    if (!isOptionalText(f[k])) errors.push(t('Finding {n}: "{field}" must be text.', { n, field: k }));
                 }
                 for (const k of ['impact', 'exploit']) {
-                    if (f[k] !== undefined && f[k] !== null && f[k] !== '' && !Number.isFinite(Number(f[k]))) errors.push(`${at}: "${k}" must be a number.`);
+                    if (f[k] !== undefined && f[k] !== null && f[k] !== '' && !Number.isFinite(Number(f[k]))) errors.push(t('Finding {n}: "{field}" must be a number.', { n, field: k }));
                 }
-                if (f.assets !== undefined && !(Array.isArray(f.assets) && f.assets.every(a => typeof a === 'string'))) errors.push(`${at}: "assets" must be a list of text.`);
+                if (f.assets !== undefined && !(Array.isArray(f.assets) && f.assets.every(a => typeof a === 'string'))) errors.push(t('Finding {n}: "assets" must be a list of text.', { n }));
             });
         }
 
         if (typeof data.blocksHtml !== 'string') {
-            errors.push('Its report sections are missing.');
+            errors.push(t('Its report sections are missing.'));
         } else {
             const tpl = document.createElement('template');
             tpl.innerHTML = data.blocksHtml;
-            if (!tpl.content.querySelector('.details-block .findings-container')) errors.push('Its report sections contain no Detailed Findings section.');
+            if (!tpl.content.querySelector('.details-block .findings-container')) errors.push(t('Its report sections contain no Detailed Findings section.'));
         }
 
         for (const k of ['currentLogo', 'companyName', 'clientName', 'contactName', 'contactEmail', 'assessmentType', 'brandPrimary', 'brandAccent', 'brandHeadline']) {
-            if (!isOptionalText(data[k])) errors.push(`"${k}" must be text.`);
+            if (!isOptionalText(data[k])) errors.push(t('"{field}" must be text.', { field: k }));
         }
         if (data.classifications !== undefined && !(Array.isArray(data.classifications) && data.classifications.every(c => typeof c === 'string'))) {
-            errors.push('Its classification list must be a list of text.');
+            errors.push(t('Its classification list must be a list of text.'));
         }
         if (data.meta !== undefined) {
-            if (!isObject(data.meta)) errors.push('Its metadata block is invalid.');
+            if (!isObject(data.meta)) errors.push(t('Its metadata block is invalid.'));
             else for (const k of ['startDate', 'endDate', 'classification']) {
-                if (!isOptionalText(data.meta[k])) errors.push(`Metadata "${k}" must be text.`);
+                if (!isOptionalText(data.meta[k])) errors.push(t('Metadata "{field}" must be text.', { field: k }));
             }
         }
-        if (data.watermark !== undefined && !isObject(data.watermark)) errors.push('Its watermark settings are invalid.');
+        if (data.watermark !== undefined && !isObject(data.watermark)) errors.push(t('Its watermark settings are invalid.'));
         if (Array.isArray(data.findings)) {
-            data.findings.forEach((f, i) => { if (isObject(f) && !isOptionalText(f.id)) errors.push(`Finding ${i + 1}: "id" must be text.`); });
+            data.findings.forEach((f, i) => { if (isObject(f) && !isOptionalText(f.id)) errors.push(t('Finding {n}: "{field}" must be text.', { n: i + 1, field: 'id' })); });
         }
         if (data.retest !== undefined && data.retest !== null) {
             if (!isObject(data.retest) || !isObject(data.retest.baseline) || !isOptionalText(data.retest.startedAt)) {
-                errors.push('Its retest information is invalid.');
+                errors.push(t('Its retest information is invalid.'));
             } else {
                 for (const b of Object.values(data.retest.baseline)) {
-                    if (!isObject(b) || !['title', 'severity', 'status'].every(k => isOptionalText(b[k]))) { errors.push('Its retest information is invalid.'); break; }
+                    if (!isObject(b) || !['title', 'severity', 'status'].every(k => isOptionalText(b[k]))) { errors.push(t('Its retest information is invalid.')); break; }
                 }
             }
         }
@@ -4808,7 +5357,7 @@
     async function importReportJson(input) {
         if (!input.files || !input.files[0]) return;
 
-        if (!(await showConfirm("Importing will completely replace the current report — all sections, findings, and the logo — and this cannot be undone. Continue?"))) {
+        if (!(await showConfirm(t("Importing will completely replace the current report — all sections, findings, and the logo — and this cannot be undone. Continue?")))) {
             input.value = '';
             return;
         }
@@ -4819,30 +5368,30 @@
             try {
                 data = JSON.parse(e.target.result);
             } catch (err) {
-                await showAlert("Import failed: the selected file is not valid JSON.");
+                await showAlert(t("Import failed: the selected file is not valid JSON."));
                 input.value = '';
                 return;
             }
 
-            recordUndoPoint('Import report');
+            recordUndoPoint(t('Import report'));
             try {
                 applyReportPayload(data, { markSaved: true });
-                showToast('Report imported.', { undo: true });
+                showToast(t('Report imported.'), { undo: true });
                 saveStatus.exportedAt = null;
                 clearAutosave(); // the imported file is the saved copy now; an older draft no longer applies
                 updateSaveStatus();
             } catch (err) {
                 discardLastUndoPoint(); // nothing changed, so there's nothing to undo
                 const details = err instanceof ReportValidationError
-                    ? '\n\n• ' + err.errors.slice(0, 8).join('\n• ') + (err.errors.length > 8 ? `\n• …and ${err.errors.length - 8} more` : '')
+                    ? '\n\n• ' + err.errors.slice(0, 8).join('\n• ') + (err.errors.length > 8 ? '\n• ' + t('…and {n} more', { n: err.errors.length - 8 }) : '')
                     : '';
-                await showAlert("Import failed: this file isn't a report this app can open. Your current report has not been changed." + details);
+                await showAlert(t("Import failed: this file isn't a report this app can open. Your current report has not been changed.") + details);
             } finally {
                 input.value = '';
             }
         };
         reader.onerror = async () => {
-            await showAlert("Import failed: could not read the selected file.");
+            await showAlert(t("Import failed: could not read the selected file."));
             input.value = '';
         };
         reader.readAsText(input.files[0]);

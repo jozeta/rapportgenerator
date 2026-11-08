@@ -1225,6 +1225,153 @@ export const cases = [
         ],
     },
 
+    // ---------------------------------------------------------------- interface language (Swedish)
+    {
+        id: 'I18N-001', title: 'Swedish interface: every interface text is translated, the report text is not', tags: ['i18n'],
+        steps: [
+            { run: async () => { localStorage.setItem('rapportgen:uiLanguage', 'sv'); } },
+            { run: async () => {
+                const { assert, answerModal, sleep } = __t;
+                assert(document.documentElement.lang === 'sv', 'html lang is ' + document.documentElement.lang);
+                assert(document.getElementById('uiLanguageSelect').value === 'sv', 'language select does not show Svenska');
+                assert(document.querySelector('.sidebar h4').innerText.includes('Rapportverktyg'), 'sidebar title not translated');
+                const execBefore = document.getElementById('section-exec').innerHTML;
+
+                // Bring up as much of the interface as possible: findings with planners, assets, page
+                // breaks, extra sections, a retest, dialogs, the library, Find & Replace, redaction.
+                openAddFindingModal();
+                document.getElementById('librarySearch').value = 'sql'; filterLibrary();
+                loadTemplate(0); document.getElementById('vAssets').value = 'web01, web02'; await addFinding();
+                loadTemplate(5); await addFinding();
+                document.getElementById('vTitle').value = 'Manual'; await addFinding();
+                toggleAllActionPlanners();
+                toggleFindingPageBreak(1);
+                renderWithAssetEntry(findings[2]);
+                document.getElementById('newHeadline').value = 'Bilaga'; addNewSection();
+                document.getElementById('newHeadline').value = 'Interna fynd'; addNewDetailsSection();
+                insertPageBreakAfter(document.querySelector('#block-scope .block-controls button'));
+                const retest = startRetest(); await answerModal(true); await retest;
+                updateFindingStatus(0, 'Remediated');
+                openFindReplace(); document.getElementById('frFindInput').value = 'the'; updateFindReplacePreview();
+                markUnsaved();
+                await sleep(100);
+
+                // Every text and attribute the interface shows must be Swedish (or the same in both languages).
+                const same = v => Object.hasOwn(UI_SV, v) && UI_SV[v] === v;
+                const ok = v => { const n = v.replace(/\s+/g, ' ').trim(); return !/[A-Za-z]/.test(n) || isSwedishText(n) || same(n); };
+                const untranslated = new Set();
+                document.querySelectorAll(I18N_ATTRIBUTES.map(a => `[${a}]`).join(',')).forEach(el => {
+                    if (i18nExcluded(el)) return;
+                    for (const a of I18N_ATTRIBUTES) { const v = el.getAttribute(a); if (v && !ok(v)) untranslated.add(`${a}="${v.slice(0, 90)}"`); }
+                });
+                const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+                let node;
+                while ((node = walker.nextNode())) {
+                    if (node.parentElement && textInUiScope(node.parentElement) && !ok(node.nodeValue)) untranslated.add(`text "${node.nodeValue.trim().slice(0, 90)}" in ${node.parentElement.id || node.parentElement.className || node.parentElement.tagName}`);
+                }
+                assert(untranslated.size === 0, `${untranslated.size} interface texts without Swedish: ` + [...untranslated].join(' | '));
+                assert(i18nMisses.size === 0, 'missing translations: ' + [...i18nMisses].join(' | '));
+
+                // Spot checks, and the report itself is untouched.
+                assert(document.getElementById('checklistTotalBadge').innerText.endsWith('problem'), 'checklist badge: ' + document.getElementById('checklistTotalBadge').innerText);
+                assert(document.getElementById('retestStartBtn').innerText.includes('Omtest pågår'), 'retest button not translated');
+                assert(document.querySelector('#block-exec-summary h2').innerText === 'Executive Summary', 'a report heading was translated');
+                assert(document.getElementById('section-exec').innerHTML === execBefore, 'report text changed');
+                assert(document.querySelector('.vuln-card .crit-badge').innerText.length > 0, 'severity badge missing');
+                assert(document.querySelector('#block-metadata .no-print span').textContent === 'Uppdragsuppgifter', 'metadata control label not translated');
+            } },
+        ],
+    },
+    {
+        id: 'I18N-002', title: 'Translation table: every interface message has Swedish, with the same placeholders', tags: ['i18n'],
+        steps: [{ run: async () => {
+            const { assert } = __t;
+            const src = [...document.scripts].map(s => s.textContent).join('\n');
+            const unquote = (q, body) => body.replace(/\\(.)/g, (m, c) => (c === 'n' ? '\n' : c));
+            const STR = String.raw`(['"])((?:\\.|(?!\1).)*)\1`;
+            const used = new Set();
+            for (const m of src.matchAll(new RegExp(String.raw`\bt\(\s*` + STR, 'g'))) used.add(unquote(m[1], m[2]));
+            for (const m of src.matchAll(new RegExp(String.raw`\btn\([^,]+,\s*` + STR + String.raw`\s*,\s*(['"])((?:\\.|(?!\3).)*)\3`, 'g'))) { used.add(unquote(m[1], m[2])); used.add(unquote(m[3], m[4])); }
+            for (const m of src.matchAll(new RegExp(String.raw`\bt\([^()'"]*\?\s*` + STR + String.raw`\s*:\s*(['"])((?:\\.|(?!\3).)*)\3\s*\)`, 'g'))) { used.add(unquote(m[1], m[2])); used.add(unquote(m[3], m[4])); }
+            assert(used.size > 120, `only found ${used.size} t() texts; did the pattern break?`);
+            const missing = [...used].filter(k => !Object.hasOwn(UI_SV, k));
+            assert(missing.length === 0, `${missing.length} texts have no Swedish translation:\n  ` + missing.join('\n  '));
+
+            const placeholders = s => (s.match(/\{\w+\}/g) || []).sort().join(',');
+            const mismatched = Object.entries(UI_SV).filter(([en, sv]) => placeholders(en) !== placeholders(sv) || !sv.trim());
+            assert(mismatched.length === 0, 'placeholders differ or translation empty: ' + mismatched.map(([en]) => en).join(' | '));
+            assert(UI_EN_BY_SV.size === Object.keys(UI_SV).length, 'two English texts share one Swedish translation (switching back to English would be ambiguous)');
+
+            // The report templates' names and groups are interface text too.
+            const missingTemplates = [...Object.values(reportTemplates).map(x => x.label), ...Object.values(templateGroups)].filter(k => !Object.hasOwn(UI_SV, k));
+            assert(missingTemplates.length === 0, 'template names without Swedish: ' + missingTemplates.join(', '));
+        } }],
+    },
+    {
+        id: 'I18N-003', title: 'Interface language follows the browser, switches live and back, and is remembered', tags: ['i18n'],
+        steps: [
+            { run: async () => {
+                const { assert } = __t;
+                assert(detectUiLanguage(['sv-SE', 'en']) === 'sv' && detectUiLanguage(['sv-FI']) === 'sv', 'Swedish browser not detected');
+                assert(detectUiLanguage(['de-DE', 'sv']) === 'sv', 'first supported language should win');
+                assert(detectUiLanguage(['en-GB', 'sv']) === 'en' && detectUiLanguage(['fr']) === 'en' && detectUiLanguage([]) === 'en', 'English fallback');
+                assert(uiLanguage === detectUiLanguage(navigator.languages), 'default does not follow the browser');
+
+                const snap = () => ({
+                    title: document.querySelector('.sidebar h4').innerText,
+                    tooltip: document.querySelector('#block-scope .block-controls button').getAttribute('data-tooltip'),
+                    aria: document.querySelector('#block-scope .block-controls button').getAttribute('aria-label'),
+                    status: document.getElementById('saveStatus').innerText,
+                    templates: document.getElementById('input-assessment-type').options[0].text,
+                    exec: document.getElementById('section-exec').innerHTML,
+                });
+                setUiLanguage('en');
+                const en = snap();
+                setUiLanguage('sv');
+                const sv = snap();
+                for (const k of ['title', 'tooltip', 'aria', 'status', 'templates']) assert(sv[k] !== en[k], `${k} not translated: ${sv[k]}`);
+                assert(sv.tooltip === 'Flytta avsnittet uppåt', 'tooltip: ' + sv.tooltip);
+                assert(sv.exec === en.exec, 'switching the interface changed the report text');
+                assert(document.documentElement.lang === 'sv', 'html lang not updated');
+                setUiLanguage('en');
+                const back = snap();
+                for (const k of Object.keys(en)) assert(back[k] === en[k], `${k} not restored: "${back[k]}" vs "${en[k]}"`);
+                setUiLanguage('sv');
+            } },
+            { run: async () => {
+                const { assert, captureDownload } = __t;
+                assert(uiLanguage === 'sv' && document.getElementById('uiLanguageSelect').value === 'sv', 'Swedish not remembered after reload');
+                const { text } = await captureDownload(() => exportReportJson());
+                setUiLanguage('auto');
+                assert(localStorage.getItem('rapportgen:uiLanguage') === null, 'auto should clear the stored choice');
+                assert(uiLanguage === detectUiLanguage(navigator.languages), 'auto does not follow the browser');
+                return { exported: text };
+            } },
+            { fresh: true, run: async (ctx) => {
+                // A report saved with a Swedish interface keeps its section controls in the saved HTML;
+                // opened with an English interface they must read English again.
+                const { assert, pickFile } = __t;
+                setUiLanguage('en');
+                assert(ctx.exported.includes('Flytta avsnittet uppåt'), 'test setup: export did not contain Swedish controls');
+                await pickFile('importReportFile', ctx.exported);
+                const tips = [...document.querySelectorAll('#reportBlocksContainer .block-controls button')].map(b => b.getAttribute('data-tooltip'));
+                assert(tips.length > 5 && tips.every(tip => !/[åäö]/i.test(tip)), 'Swedish tooltips left after import: ' + tips.filter(x => /[åäö]/i.test(x)).join(', '));
+            } },
+        ],
+    },
+    {
+        id: 'UI-010', title: 'Print Watermark tooltip is complete (quotes no longer cut it off)', tags: ['i18n', 'ui'],
+        steps: [{ run: async () => {
+            const { assert } = __t;
+            const tip = [...document.querySelectorAll('.sidebar .info-tip')].find(el => (el.getAttribute('data-tooltip') || '').startsWith('Prints a large'));
+            assert(tip, 'watermark tooltip not found');
+            assert(tip.getAttribute('data-tooltip').includes('"More settings"'), 'tooltip cut off: ' + tip.getAttribute('data-tooltip'));
+            setUiLanguage('sv');
+            assert(tip.getAttribute('data-tooltip').includes('Fler inställningar'), 'Swedish tooltip: ' + tip.getAttribute('data-tooltip'));
+            setUiLanguage('en');
+        } }],
+    },
+
     // ---------------------------------------------------------------- TEST-002 round trip
     {
         id: 'TEST-002', title: 'Export → import round-trip preserves the whole report', tags: ['persistence', 'stage1'],
