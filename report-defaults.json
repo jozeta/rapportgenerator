@@ -1,103 +1,826 @@
 {
+  "formatVersion": 2,
   "defaultTemplate": "web-application-pentest",
+  "groups": {
+    "pentest": "Penetration tests",
+    "review": "Reviews and assessments"
+  },
+  "scoringModels": {
+    "exploitability": {
+      "impactLabel": "Impact",
+      "likelihoodLabel": "Exploitability",
+      "tableHeaders": [
+        "Score",
+        "Impact Matrix Definitions",
+        "Exploitability Structural Criteria"
+      ],
+      "rows": [
+        [
+          "<strong>Catastrophic:</strong> Domain administrator takeover, systemic directory breach, arbitrary code execution, or unmitigated exposure of PII data assets.",
+          "<strong>Trivial:</strong> Publicly documented exploit paths or active exploit scripts exist. Requires zero specialized skill or structural authorization profiles."
+        ],
+        [
+          "<strong>Severe:</strong> Targeted leakage of core application segments, access control bypasses across tenants, or localized configuration integrity loss.",
+          "<strong>Easy:</strong> Standard security diagnostic tools easily flag and exploit the vulnerability. Normal operational boundaries do not block validation paths."
+        ],
+        [
+          "<strong>Moderate:</strong> Exposure of local system diagnostic metrics or read permissions covering bounded internal system architecture structures.",
+          "<strong>Medium:</strong> Exploitation requires targeted positioning, local environment knowledge, or chaining lower-level flaws together to bypass defenses."
+        ],
+        [
+          "<strong>Minor:</strong> Redundant configuration issues, missing hardening rules, or minor platform version info dumps that lack single-action impact paths.",
+          "<strong>Difficult:</strong> Requires highly specialized exploit scripts, complex physical positioning, targeted session timing conditions, or user interaction."
+        ],
+        [
+          "<strong>Low:</strong> Cosmetic defects, generic network structural references, or standard system behaviors that offer no distinct compromise vectors.",
+          "<strong>Theoretical:</strong> Hypothetical risk vector with no verified real-world exploit script models or functional validation paths under current configurations."
+        ]
+      ],
+      "legend": "🔴 <strong>Critical (16-25):</strong> Priority remediation. High exploitability, severe business impact.\n\n🟠 <strong>High (10-15):</strong> Immediate patch. Viable exploit vectors, data exposure risk.\n\n🟡 <strong>Medium (5-9):</strong> Standard management. Threats are bounded by existing controls.\n\n🟢 <strong>Low (1-4):</strong> Routine tracking. Informational findings, minimal impact."
+    },
+    "likelihood": {
+      "impactLabel": "Impact",
+      "likelihoodLabel": "Likelihood",
+      "tableHeaders": [
+        "Score",
+        "Impact",
+        "Likelihood"
+      ],
+      "rows": [
+        [
+          "<strong>Severe:</strong> Major disruption of critical operations, an extensive breach of sensitive or personal data, or significant legal and financial consequences.",
+          "<strong>Almost certain:</strong> Expected to be abused or to cause an incident: trivial to exploit, actively targeted, or already happening."
+        ],
+        [
+          "<strong>Significant:</strong> Disruption of important services, exposure of confidential data, or noticeable financial or reputational damage.",
+          "<strong>Likely:</strong> Can be abused with commonly available tools or knowledge, and is exposed to many potential attackers."
+        ],
+        [
+          "<strong>Moderate:</strong> Limited disruption or data exposure with contained consequences.",
+          "<strong>Possible:</strong> Requires some skill, access or specific conditions, but is realistic for a motivated attacker."
+        ],
+        [
+          "<strong>Minor:</strong> Small, easily recovered consequences affecting few users or non-sensitive data.",
+          "<strong>Unlikely:</strong> Requires significant access, insider knowledge, or a chain of other weaknesses."
+        ],
+        [
+          "<strong>Negligible:</strong> Little or no measurable effect on operations or data.",
+          "<strong>Rare:</strong> Theoretical, or only possible under exceptional circumstances."
+        ]
+      ],
+      "legend": "🔴 <strong>Critical (16-25):</strong> Address immediately. High likelihood and severe impact.\n\n🟠 <strong>High (10-15):</strong> Address as a priority, within weeks.\n\n🟡 <strong>Medium (5-9):</strong> Plan remediation in the normal improvement cycle.\n\n🟢 <strong>Low (1-4):</strong> Address when convenient, or accept the risk with a documented justification."
+    }
+  },
   "templates": {
     "web-application-pentest": {
       "label": "Web Application Pentest",
-      "sections": {
-        "section-exec": "During the designated assessment window, <span class=\"token-company\">[COMPANY NAME]</span> performed a targeted security evaluation of the web application(s) belonging to <span class=\"token-client\">[CLIENT NAME]</span>. The core objective of this engagement was to uncover business logic flaws, injection vulnerabilities, authentication and session management weaknesses, and other application-layer defects that could be exploited by an external attacker without privileged access.\n\nTesting surfaced a concentrated set of findings clustered around [insert key focus areas, e.g., input validation on user-supplied parameters and inconsistent authorization checks across API endpoints]. While <span class=\"token-client\">[CLIENT NAME]</span> demonstrates solid engineering baselines in [insert observed strengths, e.g., transport-layer security and session cookie handling], immediate remediation is recommended for issues affecting core transactional and authentication flows before they can be leveraged in a real-world attack.",
-        "section-confidentiality": "This report contains sensitive, privileged, and confidential information. Precautions should be taken to protect the confidentiality of the information in this document. Publication of this report may cause reputational damage to <span class=\"token-client\">[CLIENT NAME]</span> or facilitate attacks against <span class=\"token-client\">[CLIENT NAME]</span>. <span class=\"token-company\">[COMPANY NAME]</span> shall not be held liable for special, incidental, collateral or consequential damages arising out of the use of this information.",
-        "section-disclaimer": "Note that this assessment may not disclose all vulnerabilities that are present on the systems within the scope of the engagement. This report is a summary of the findings from a “point-in-time” assessment made on <span class=\"token-client\">[CLIENT NAME]</span>’s environment. Any changes made to the environment during the period of testing may affect the results of the assessment.",
-        "section-purpose": "The primary purpose of this assessment is to provide an independent security review of <span class=\"token-client\">[CLIENT NAME]</span>'s web application(s) within the agreed scope. By attempting to identify and safely validate weaknesses in application logic, input handling, and access controls, <span class=\"token-company\">[COMPANY NAME]</span> aims to assist <span class=\"token-client\">[CLIENT NAME]</span> in reducing its attack surface, meeting regulatory or contractual compliance mandates, and remediating exploitable issues before real-world attackers can discover them.",
-        "section-summary": "The technical security baseline of <span class=\"token-client\">[CLIENT NAME]</span>'s web application(s) exhibited varying defensive capabilities across the reviewed functionality. Testing validation confirmed that while [insert positive controls, e.g., transport layer security and password storage] were generally sound, structural control flaws were identified within [insert high-level issue categories, e.g., request handling and API authorization]. These systemic weaknesses allowed engineers to construct verified proof-of-concept attack paths.",
-        "section-scope": "The testing boundaries were bounded by specific web application targets authorized by <span class=\"token-client\">[CLIENT NAME]</span>. Active parameters evaluated production web application(s), associated API endpoints, and linked staging environments.<br><br>Exclusions: All physical facility spaces, employee workstations, internal corporate networks, and unrelated third-party cloud hosting providers were explicitly excluded from this assessment window. No distributed denial-of-service (DDoS) simulations were performed.",
-        "section-method": "Testing adheres strictly to standard black-box and grey-box verification models, drawing directly from the OWASP Web Security Testing Guide (WSTG). Assessments evaluate authentication and session management, input handling, business logic, and access control across the application's functionality.\n\n<h3>Risk Evaluation Model &amp; Metrics Scoring Key</h3>\nThe report establishes qualitative severity tiers using a joint analysis mapping technical impact against active exploitability factors. The definitions table below outlines the specific assessment parameters guiding scoring determinations:",
-        "section-matrix-legend": "🔴 <strong>Critical (16-25):</strong> Priority remediation. High exploitability, severe business impact.\n\n🟠 <strong>High (10-15):</strong> Immediate patch. Viable exploit vectors, data exposure risk.\n\n🟡 <strong>Medium (5-9):</strong> Standard management. Threats are bounded by existing controls.\n\n🟢 <strong>Low (1-4):</strong> Routine tracking. Informational findings, minimal impact.",
-        "section-conclusion": "Successfully reducing the threat profile of <span class=\"token-client\">[CLIENT NAME]</span>'s web application(s) requires a structured focus on remediation. <span class=\"token-company\">[COMPANY NAME]</span> recommends prioritizing immediate fixes for critical application-layer gaps, followed by integrating security testing into the development lifecycle to catch similar issues before deployment.<br><br><span class=\"token-company\">[COMPANY NAME]</span> appreciates the opportunity to support <span class=\"token-client\">[CLIENT NAME]</span> throughout this engagement."
-      }
+      "group": "pentest",
+      "scoring": "exploitability",
+      "labels": {
+        "assets": "Affected Assets",
+        "assetHint": "Host, IP or URL"
+      },
+      "legend": "🔴 <strong>Critical (16-25):</strong> Priority remediation. High exploitability, severe business impact.\n\n🟠 <strong>High (10-15):</strong> Immediate patch. Viable exploit vectors, data exposure risk.\n\n🟡 <strong>Medium (5-9):</strong> Standard management. Threats are bounded by existing controls.\n\n🟢 <strong>Low (1-4):</strong> Routine tracking. Informational findings, minimal impact.",
+      "sections": [
+        {
+          "key": "exec",
+          "title": "Executive Summary",
+          "html": "During the designated assessment window, <span class=\"token-company\">[COMPANY NAME]</span> performed a targeted security evaluation of the web application(s) belonging to <span class=\"token-client\">[CLIENT NAME]</span>. The core objective of this engagement was to uncover business logic flaws, injection vulnerabilities, authentication and session management weaknesses, and other application-layer defects that could be exploited by an external attacker without privileged access.\n\nTesting surfaced a concentrated set of findings clustered around [insert key focus areas, e.g., input validation on user-supplied parameters and inconsistent authorization checks across API endpoints]. While <span class=\"token-client\">[CLIENT NAME]</span> demonstrates solid engineering baselines in [insert observed strengths, e.g., transport-layer security and session cookie handling], immediate remediation is recommended for issues affecting core transactional and authentication flows before they can be leveraged in a real-world attack.",
+          "info": "What is important to include here:\n• Know Your Target Audience: Executive leadership, legal departments, and board members read this section first. Maintain a high-level corporate risk perspective, utilizing plain business language rather than deep technical exploit jargon.\n• Focus Intently on Business Impact: Explicitly define what a successful compromise actually implies for [CLIENT NAME] (e.g., loss of client trust, compliance penalties, intellectual property loss), rather than walking through memory offsets or precise execution arrays.\n• Consolidate Findings into High-Level Themes: Avoid discussing single finding IDs. Summarize findings into systemic gaps (e.g., write \"outdated patch lifecycle hygiene across legacy segments\" instead of \"three machines missed an update\").\n• Keep it Dense and Brief: This complete summary layout should ideally fit cleanly on one page, leading smoothly straight down into the centered distribution metrics scorecard below.\n\nWhat is NOT important here:\n• Avoid attaching source code fragments, long command outputs, terminal tool captures, or structural proof-of-concepts; those belong in the Detailed Findings block.\n• Do not list minor informational issues or trivial tracking flags here; keep the text narrative focused on major security impacts.\n• Avoid sounding accusatory or subjective. Maintain an analytical, professional, and advisory tone throughout the entire summary description.",
+          "severityTable": true
+        },
+        {
+          "key": "confidentiality",
+          "title": "Confidentiality Notice",
+          "html": "This report contains sensitive, privileged, and confidential information. Precautions should be taken to protect the confidentiality of the information in this document. Publication of this report may cause reputational damage to <span class=\"token-client\">[CLIENT NAME]</span> or facilitate attacks against <span class=\"token-client\">[CLIENT NAME]</span>. <span class=\"token-company\">[COMPANY NAME]</span> shall not be held liable for special, incidental, collateral or consequential damages arising out of the use of this information."
+        },
+        {
+          "key": "disclaimer",
+          "title": "Disclaimer",
+          "html": "Note that this assessment may not disclose all vulnerabilities that are present on the systems within the scope of the engagement. This report is a summary of the findings from a “point-in-time” assessment made on <span class=\"token-client\">[CLIENT NAME]</span>’s environment. Any changes made to the environment during the period of testing may affect the results of the assessment."
+        },
+        {
+          "key": "purpose",
+          "title": "Purpose",
+          "html": "The primary purpose of this assessment is to provide an independent security review of <span class=\"token-client\">[CLIENT NAME]</span>'s web application(s) within the agreed scope. By attempting to identify and safely validate weaknesses in application logic, input handling, and access controls, <span class=\"token-company\">[COMPANY NAME]</span> aims to assist <span class=\"token-client\">[CLIENT NAME]</span> in reducing its attack surface, meeting regulatory or contractual compliance mandates, and remediating exploitable issues before real-world attackers can discover them.",
+          "info": "What is important to include here:\n• Define the \"Why\": Explicitly frame why this project was triggered (e.g., standard annual hygiene verification, post-incident assurance loop, pre-launch verification of a new infrastructure build).\n• Link to Business Drivers: Explicitly note compliance regulations or corporate parameters guiding the engagement boundaries (e.g., ISO/IEC 27001 tracking, SOC 2 alignment, internal trust requirements).\n\nWhat is NOT important here:\n• Do not discuss testing logistics, specific methodologies, tool lists, or vulnerability findings. Keep this block strictly focused on the strategic motivation behind the report's creation."
+        },
+        {
+          "key": "summary",
+          "title": "Summary",
+          "html": "The technical security baseline of <span class=\"token-client\">[CLIENT NAME]</span>'s web application(s) exhibited varying defensive capabilities across the reviewed functionality. Testing validation confirmed that while [insert positive controls, e.g., transport layer security and password storage] were generally sound, structural control flaws were identified within [insert high-level issue categories, e.g., request handling and API authorization]. These systemic weaknesses allowed engineers to construct verified proof-of-concept attack paths.",
+          "info": "What is important to include here:\n• Technical Overview Bridge: This serves as the technical companion to the Executive Summary. Briefly present the high-level health of the network, applications, or infrastructure builds evaluated.\n• Acknowledge Effective Defenses: Highlight functional security practices observed during testing (e.g., prompt host isolation, active firewall limits).\n\nWhat is NOT important here:\n• Do not duplicate the deep, itemized technical logs, code blocks, or mitigation descriptions found in the Detailed Findings block. Avoid long lists of software versions or asset charts."
+        },
+        {
+          "key": "scope",
+          "title": "Engagement and Scope",
+          "html": "The testing boundaries were bounded by specific web application targets authorized by <span class=\"token-client\">[CLIENT NAME]</span>. Active parameters evaluated production web application(s), associated API endpoints, and linked staging environments.<br><br>Exclusions: All physical facility spaces, employee workstations, internal corporate networks, and unrelated third-party cloud hosting providers were explicitly excluded from this assessment window. No distributed denial-of-service (DDoS) simulations were performed.",
+          "info": "What is important to include here:\n• Absolute Precision: Provide a clean, undisputed statement of all target profiles (e.g., explicit hostnames, IP subnets, target repository branches, or API pathways).\n• Document Explicit Exclusions: Explicitly log out-of-scope layers. This functions as your critical legal and operational safety boundary for the project.\n• Time Constraints: Specify the exact operational timeframe during which testing actions were legally authorized to run.\n\nWhat is NOT important here:\n• Do not provide excessive network structural theory or general corporate definitions. Keep this block strictly focused on factual target parameters."
+        },
+        {
+          "key": "method",
+          "title": "Methodology",
+          "html": "Testing adheres strictly to standard black-box and grey-box verification models, drawing directly from the OWASP Web Security Testing Guide (WSTG). Assessments evaluate authentication and session management, input handling, business logic, and access control across the application's functionality.\n\n<h3>Risk Evaluation Model &amp; Metrics Scoring Key</h3>\nThe report establishes qualitative severity tiers using a joint analysis mapping technical impact against active exploitability factors. The definitions table below outlines the specific assessment parameters guiding scoring determinations:",
+          "scoringTable": true
+        },
+        {
+          "component": "summary",
+          "title": "Findings Summary"
+        },
+        {
+          "component": "findings",
+          "title": "Detailed Findings"
+        },
+        {
+          "key": "conclusion",
+          "title": "Conclusion",
+          "html": "Successfully reducing the threat profile of <span class=\"token-client\">[CLIENT NAME]</span>'s web application(s) requires a structured focus on remediation. <span class=\"token-company\">[COMPANY NAME]</span> recommends prioritizing immediate fixes for critical application-layer gaps, followed by integrating security testing into the development lifecycle to catch similar issues before deployment.<br><br><span class=\"token-company\">[COMPANY NAME]</span> appreciates the opportunity to support <span class=\"token-client\">[CLIENT NAME]</span> throughout this engagement.",
+          "info": "What is important to include here:\n• Strategic Path Forward: Frame security as a continuous lifecycle rather than a single project milestone. Emphasize programmatic changes (e.g., developer training, configuration pipelines) over quick patches.\n• Professional Closing: Conclude the document with a clean, formal advisory sign-off statement.\n\nWhat is NOT important here:\n• Never introduce entirely new vulnerability profiles, metrics, or technical bugs in the conclusion block. Keep the summary high-level and forward-looking."
+        }
+      ]
     },
     "infrastructure-pentest": {
       "label": "Infrastructure Pentest",
-      "sections": {
-        "section-exec": "During the designated assessment window, <span class=\"token-company\">[COMPANY NAME]</span> performed a targeted security evaluation of the network and infrastructure assets belonging to <span class=\"token-client\">[CLIENT NAME]</span>. The core objective of this engagement was to identify exploitable misconfigurations, outdated or vulnerable services, weak credential practices, and lateral movement paths across the in-scope environment.\n\nTesting surfaced a concentrated set of findings clustered around [insert key focus areas, e.g., unpatched externally-facing services and weak network segmentation]. While <span class=\"token-client\">[CLIENT NAME]</span> demonstrates solid baselines in [insert observed strengths, e.g., perimeter firewall configuration], immediate remediation is recommended for issues that could allow an attacker to gain an initial foothold or escalate privileges within the environment.",
-        "section-confidentiality": "This report contains sensitive, privileged, and confidential information. Precautions should be taken to protect the confidentiality of the information in this document. Publication of this report may cause reputational damage to <span class=\"token-client\">[CLIENT NAME]</span> or facilitate attacks against <span class=\"token-client\">[CLIENT NAME]</span>. <span class=\"token-company\">[COMPANY NAME]</span> shall not be held liable for special, incidental, collateral or consequential damages arising out of the use of this information.",
-        "section-disclaimer": "Note that this assessment may not disclose all vulnerabilities that are present on the systems within the scope of the engagement. This report is a summary of the findings from a “point-in-time” assessment made on <span class=\"token-client\">[CLIENT NAME]</span>’s environment. Any changes made to the environment during the period of testing may affect the results of the assessment.",
-        "section-purpose": "The primary purpose of this assessment is to provide an independent security review of <span class=\"token-client\">[CLIENT NAME]</span>'s network and infrastructure assets within the agreed scope. By attempting to identify and safely validate exploitable misconfigurations, vulnerable services, and weak access controls, <span class=\"token-company\">[COMPANY NAME]</span> aims to assist <span class=\"token-client\">[CLIENT NAME]</span> in reducing its external and internal attack surface and hardening the environment against realistic intrusion scenarios.",
-        "section-summary": "The technical security baseline of <span class=\"token-client\">[CLIENT NAME]</span>'s network and infrastructure environment exhibited varying defensive capabilities across the reviewed hosts and services. Testing validation confirmed that while [insert positive controls, e.g., perimeter filtering rules] were generally sound, structural weaknesses were identified within [insert high-level issue categories, e.g., patch management and internal network segmentation]. These systemic weaknesses allowed engineers to construct verified proof-of-concept attack paths.",
-        "section-scope": "The testing boundaries were bounded by specific IP ranges, hosts, and network segments authorized by <span class=\"token-client\">[CLIENT NAME]</span>. Active parameters evaluated externally-facing infrastructure and, where in scope, internal network segments reachable from an assumed foothold.<br><br>Exclusions: All physical facility spaces, employee workstations not explicitly listed, and unrelated third-party cloud hosting providers were explicitly excluded from this assessment window. No distributed denial-of-service (DDoS) simulations were performed.",
-        "section-method": "Testing adheres strictly to standard black-box and grey-box verification models, drawing directly from frameworks such as the PTES and OSSTMM. Assessments evaluate host and service discovery, vulnerability identification, exploitation, and (where authorized) post-exploitation and lateral movement.\n\n<h3>Risk Evaluation Model &amp; Metrics Scoring Key</h3>\nThe report establishes qualitative severity tiers using a joint analysis mapping technical impact against active exploitability factors. The definitions table below outlines the specific assessment parameters guiding scoring determinations:",
-        "section-matrix-legend": "🔴 <strong>Critical (16-25):</strong> Priority remediation. High exploitability, severe business impact.\n\n🟠 <strong>High (10-15):</strong> Immediate patch. Viable exploit vectors, data exposure risk.\n\n🟡 <strong>Medium (5-9):</strong> Standard management. Threats are bounded by existing controls.\n\n🟢 <strong>Low (1-4):</strong> Routine tracking. Informational findings, minimal impact.",
-        "section-conclusion": "Successfully reducing the threat profile of <span class=\"token-client\">[CLIENT NAME]</span>'s network and infrastructure requires a structured focus on remediation. <span class=\"token-company\">[COMPANY NAME]</span> recommends prioritizing immediate patching of critical exposures, followed by establishing a consistent patch management and network segmentation strategy.<br><br><span class=\"token-company\">[COMPANY NAME]</span> appreciates the opportunity to support <span class=\"token-client\">[CLIENT NAME]</span> throughout this engagement."
-      }
-    },
-    "code-review": {
-      "label": "Code Review",
-      "sections": {
-        "section-exec": "During the designated assessment window, <span class=\"token-company\">[COMPANY NAME]</span> performed a manual and tool-assisted source code review of the application(s) belonging to <span class=\"token-client\">[CLIENT NAME]</span>. The core objective of this engagement was to identify insecure coding patterns, logic flaws, and unsafe use of frameworks or libraries that static analysis and black-box testing alone may not surface.\n\nThe review surfaced a concentrated set of findings clustered around [insert key focus areas, e.g., inconsistent input sanitization and unsafe deserialization patterns]. While <span class=\"token-client\">[CLIENT NAME]</span>'s codebase demonstrates solid practices in [insert observed strengths, e.g., dependency management and code modularity], remediation is recommended for the identified issues before the affected code paths reach production.",
-        "section-confidentiality": "This report contains sensitive, privileged, and confidential information. Precautions should be taken to protect the confidentiality of the information in this document. Publication of this report may cause reputational damage to <span class=\"token-client\">[CLIENT NAME]</span> or facilitate attacks against <span class=\"token-client\">[CLIENT NAME]</span>. <span class=\"token-company\">[COMPANY NAME]</span> shall not be held liable for special, incidental, collateral or consequential damages arising out of the use of this information.",
-        "section-disclaimer": "Note that this review may not disclose all vulnerabilities that are present in the codebase within the scope of the engagement. This report is a summary of the findings from a “point-in-time” review of <span class=\"token-client\">[CLIENT NAME]</span>’s source code. Any changes made to the codebase during the period of review may affect the results of the assessment.",
-        "section-purpose": "The primary purpose of this engagement is to provide an independent review of <span class=\"token-client\">[CLIENT NAME]</span>'s source code within the agreed scope. By manually and programmatically analyzing the codebase for insecure patterns, logic flaws, and misuse of frameworks or libraries, <span class=\"token-company\">[COMPANY NAME]</span> aims to assist <span class=\"token-client\">[CLIENT NAME]</span> in catching security defects earlier in the development lifecycle, before they are deployed to production.",
-        "section-summary": "The security posture of <span class=\"token-client\">[CLIENT NAME]</span>'s reviewed codebase varied across modules and components. The review confirmed that while [insert positive practices, e.g., parameterized database access] were applied consistently in most areas, unsafe patterns were identified within [insert high-level issue categories, e.g., input validation and session token generation]. These findings were traced to specific files and line ranges to support fast remediation.",
-        "section-scope": "The review boundaries were bounded by the specific repositories, branches, and commit ranges authorized by <span class=\"token-client\">[CLIENT NAME]</span>. Active parameters evaluated the application source code, its direct dependencies, and associated infrastructure-as-code configuration where provided.<br><br>Exclusions: Third-party library internals, unrelated repositories, and any runtime infrastructure outside the provided codebase were explicitly excluded from this review window.",
-        "section-method": "The review combines automated static analysis tooling with manual line-by-line inspection of security-critical code paths, drawing on guidance from the OWASP Code Review Guide. Analysis focuses on input validation, authentication and authorization logic, cryptographic usage, and dependency risk.\n\n<h3>Risk Evaluation Model &amp; Metrics Scoring Key</h3>\nThe report establishes qualitative severity tiers using a joint analysis mapping technical impact against active exploitability factors. The definitions table below outlines the specific assessment parameters guiding scoring determinations:",
-        "section-matrix-legend": "🔴 <strong>Critical (16-25):</strong> Priority remediation. High exploitability, severe business impact.\n\n🟠 <strong>High (10-15):</strong> Immediate patch. Viable exploit vectors, data exposure risk.\n\n🟡 <strong>Medium (5-9):</strong> Standard management. Threats are bounded by existing controls.\n\n🟢 <strong>Low (1-4):</strong> Routine tracking. Informational findings, minimal impact.",
-        "section-conclusion": "Successfully improving the security posture of <span class=\"token-client\">[CLIENT NAME]</span>'s codebase requires a structured focus on remediation. <span class=\"token-company\">[COMPANY NAME]</span> recommends prioritizing fixes for critical code-level findings, followed by integrating the recommended static analysis rules into the CI/CD pipeline to catch regressions.<br><br><span class=\"token-company\">[COMPANY NAME]</span> appreciates the opportunity to support <span class=\"token-client\">[CLIENT NAME]</span> throughout this engagement."
-      }
+      "group": "pentest",
+      "scoring": "exploitability",
+      "labels": {
+        "assets": "Affected Assets",
+        "assetHint": "Host, IP or URL"
+      },
+      "legend": "🔴 <strong>Critical (16-25):</strong> Priority remediation. High exploitability, severe business impact.\n\n🟠 <strong>High (10-15):</strong> Immediate patch. Viable exploit vectors, data exposure risk.\n\n🟡 <strong>Medium (5-9):</strong> Standard management. Threats are bounded by existing controls.\n\n🟢 <strong>Low (1-4):</strong> Routine tracking. Informational findings, minimal impact.",
+      "sections": [
+        {
+          "key": "exec",
+          "title": "Executive Summary",
+          "html": "During the designated assessment window, <span class=\"token-company\">[COMPANY NAME]</span> performed a targeted security evaluation of the network and infrastructure assets belonging to <span class=\"token-client\">[CLIENT NAME]</span>. The core objective of this engagement was to identify exploitable misconfigurations, outdated or vulnerable services, weak credential practices, and lateral movement paths across the in-scope environment.\n\nTesting surfaced a concentrated set of findings clustered around [insert key focus areas, e.g., unpatched externally-facing services and weak network segmentation]. While <span class=\"token-client\">[CLIENT NAME]</span> demonstrates solid baselines in [insert observed strengths, e.g., perimeter firewall configuration], immediate remediation is recommended for issues that could allow an attacker to gain an initial foothold or escalate privileges within the environment.",
+          "info": "What is important to include here:\n• Know Your Target Audience: Executive leadership, legal departments, and board members read this section first. Maintain a high-level corporate risk perspective, utilizing plain business language rather than deep technical exploit jargon.\n• Focus Intently on Business Impact: Explicitly define what a successful compromise actually implies for [CLIENT NAME] (e.g., loss of client trust, compliance penalties, intellectual property loss), rather than walking through memory offsets or precise execution arrays.\n• Consolidate Findings into High-Level Themes: Avoid discussing single finding IDs. Summarize findings into systemic gaps (e.g., write \"outdated patch lifecycle hygiene across legacy segments\" instead of \"three machines missed an update\").\n• Keep it Dense and Brief: This complete summary layout should ideally fit cleanly on one page, leading smoothly straight down into the centered distribution metrics scorecard below.\n\nWhat is NOT important here:\n• Avoid attaching source code fragments, long command outputs, terminal tool captures, or structural proof-of-concepts; those belong in the Detailed Findings block.\n• Do not list minor informational issues or trivial tracking flags here; keep the text narrative focused on major security impacts.\n• Avoid sounding accusatory or subjective. Maintain an analytical, professional, and advisory tone throughout the entire summary description.",
+          "severityTable": true
+        },
+        {
+          "key": "confidentiality",
+          "title": "Confidentiality Notice",
+          "html": "This report contains sensitive, privileged, and confidential information. Precautions should be taken to protect the confidentiality of the information in this document. Publication of this report may cause reputational damage to <span class=\"token-client\">[CLIENT NAME]</span> or facilitate attacks against <span class=\"token-client\">[CLIENT NAME]</span>. <span class=\"token-company\">[COMPANY NAME]</span> shall not be held liable for special, incidental, collateral or consequential damages arising out of the use of this information."
+        },
+        {
+          "key": "disclaimer",
+          "title": "Disclaimer",
+          "html": "Note that this assessment may not disclose all vulnerabilities that are present on the systems within the scope of the engagement. This report is a summary of the findings from a “point-in-time” assessment made on <span class=\"token-client\">[CLIENT NAME]</span>’s environment. Any changes made to the environment during the period of testing may affect the results of the assessment."
+        },
+        {
+          "key": "purpose",
+          "title": "Purpose",
+          "html": "The primary purpose of this assessment is to provide an independent security review of <span class=\"token-client\">[CLIENT NAME]</span>'s network and infrastructure assets within the agreed scope. By attempting to identify and safely validate exploitable misconfigurations, vulnerable services, and weak access controls, <span class=\"token-company\">[COMPANY NAME]</span> aims to assist <span class=\"token-client\">[CLIENT NAME]</span> in reducing its external and internal attack surface and hardening the environment against realistic intrusion scenarios.",
+          "info": "What is important to include here:\n• Define the \"Why\": Explicitly frame why this project was triggered (e.g., standard annual hygiene verification, post-incident assurance loop, pre-launch verification of a new infrastructure build).\n• Link to Business Drivers: Explicitly note compliance regulations or corporate parameters guiding the engagement boundaries (e.g., ISO/IEC 27001 tracking, SOC 2 alignment, internal trust requirements).\n\nWhat is NOT important here:\n• Do not discuss testing logistics, specific methodologies, tool lists, or vulnerability findings. Keep this block strictly focused on the strategic motivation behind the report's creation."
+        },
+        {
+          "key": "summary",
+          "title": "Summary",
+          "html": "The technical security baseline of <span class=\"token-client\">[CLIENT NAME]</span>'s network and infrastructure environment exhibited varying defensive capabilities across the reviewed hosts and services. Testing validation confirmed that while [insert positive controls, e.g., perimeter filtering rules] were generally sound, structural weaknesses were identified within [insert high-level issue categories, e.g., patch management and internal network segmentation]. These systemic weaknesses allowed engineers to construct verified proof-of-concept attack paths.",
+          "info": "What is important to include here:\n• Technical Overview Bridge: This serves as the technical companion to the Executive Summary. Briefly present the high-level health of the network, applications, or infrastructure builds evaluated.\n• Acknowledge Effective Defenses: Highlight functional security practices observed during testing (e.g., prompt host isolation, active firewall limits).\n\nWhat is NOT important here:\n• Do not duplicate the deep, itemized technical logs, code blocks, or mitigation descriptions found in the Detailed Findings block. Avoid long lists of software versions or asset charts."
+        },
+        {
+          "key": "scope",
+          "title": "Engagement and Scope",
+          "html": "The testing boundaries were bounded by specific IP ranges, hosts, and network segments authorized by <span class=\"token-client\">[CLIENT NAME]</span>. Active parameters evaluated externally-facing infrastructure and, where in scope, internal network segments reachable from an assumed foothold.<br><br>Exclusions: All physical facility spaces, employee workstations not explicitly listed, and unrelated third-party cloud hosting providers were explicitly excluded from this assessment window. No distributed denial-of-service (DDoS) simulations were performed.",
+          "info": "What is important to include here:\n• Absolute Precision: Provide a clean, undisputed statement of all target profiles (e.g., explicit hostnames, IP subnets, target repository branches, or API pathways).\n• Document Explicit Exclusions: Explicitly log out-of-scope layers. This functions as your critical legal and operational safety boundary for the project.\n• Time Constraints: Specify the exact operational timeframe during which testing actions were legally authorized to run.\n\nWhat is NOT important here:\n• Do not provide excessive network structural theory or general corporate definitions. Keep this block strictly focused on factual target parameters."
+        },
+        {
+          "key": "method",
+          "title": "Methodology",
+          "html": "Testing adheres strictly to standard black-box and grey-box verification models, drawing directly from frameworks such as the PTES and OSSTMM. Assessments evaluate host and service discovery, vulnerability identification, exploitation, and (where authorized) post-exploitation and lateral movement.\n\n<h3>Risk Evaluation Model &amp; Metrics Scoring Key</h3>\nThe report establishes qualitative severity tiers using a joint analysis mapping technical impact against active exploitability factors. The definitions table below outlines the specific assessment parameters guiding scoring determinations:",
+          "scoringTable": true
+        },
+        {
+          "component": "summary",
+          "title": "Findings Summary"
+        },
+        {
+          "component": "findings",
+          "title": "Detailed Findings"
+        },
+        {
+          "key": "conclusion",
+          "title": "Conclusion",
+          "html": "Successfully reducing the threat profile of <span class=\"token-client\">[CLIENT NAME]</span>'s network and infrastructure requires a structured focus on remediation. <span class=\"token-company\">[COMPANY NAME]</span> recommends prioritizing immediate patching of critical exposures, followed by establishing a consistent patch management and network segmentation strategy.<br><br><span class=\"token-company\">[COMPANY NAME]</span> appreciates the opportunity to support <span class=\"token-client\">[CLIENT NAME]</span> throughout this engagement.",
+          "info": "What is important to include here:\n• Strategic Path Forward: Frame security as a continuous lifecycle rather than a single project milestone. Emphasize programmatic changes (e.g., developer training, configuration pipelines) over quick patches.\n• Professional Closing: Conclude the document with a clean, formal advisory sign-off statement.\n\nWhat is NOT important here:\n• Never introduce entirely new vulnerability profiles, metrics, or technical bugs in the conclusion block. Keep the summary high-level and forward-looking."
+        }
+      ]
     },
     "mobile-application-pentest": {
       "label": "Mobile Application Pentest",
-      "sections": {
-        "section-exec": "During the designated assessment window, <span class=\"token-company\">[COMPANY NAME]</span> performed a targeted security evaluation of the mobile application(s) belonging to <span class=\"token-client\">[CLIENT NAME]</span>, covering both the client binary and its supporting backend services. The core objective of this engagement was to identify insecure local data storage, weak platform hardening, and vulnerabilities in the mobile-to-backend communication channel.\n\nTesting surfaced a concentrated set of findings clustered around [insert key focus areas, e.g., sensitive data cached on-device and insufficient certificate pinning]. While <span class=\"token-client\">[CLIENT NAME]</span> demonstrates solid baselines in [insert observed strengths, e.g., use of platform keychain/keystore APIs], immediate remediation is recommended for issues that could expose user data on a lost, rooted, or jailbroken device.",
-        "section-confidentiality": "This report contains sensitive, privileged, and confidential information. Precautions should be taken to protect the confidentiality of the information in this document. Publication of this report may cause reputational damage to <span class=\"token-client\">[CLIENT NAME]</span> or facilitate attacks against <span class=\"token-client\">[CLIENT NAME]</span>. <span class=\"token-company\">[COMPANY NAME]</span> shall not be held liable for special, incidental, collateral or consequential damages arising out of the use of this information.",
-        "section-disclaimer": "Note that this assessment may not disclose all vulnerabilities that are present on the systems within the scope of the engagement. This report is a summary of the findings from a “point-in-time” assessment made on <span class=\"token-client\">[CLIENT NAME]</span>’s environment. Any changes made to the application or backend during the period of testing may affect the results of the assessment.",
-        "section-purpose": "The primary purpose of this assessment is to provide an independent security review of <span class=\"token-client\">[CLIENT NAME]</span>'s mobile application(s) and their supporting backend services within the agreed scope. By attempting to identify and safely validate weaknesses in client-side data handling, platform hardening, and network communication, <span class=\"token-company\">[COMPANY NAME]</span> aims to assist <span class=\"token-client\">[CLIENT NAME]</span> in protecting end-user data across the range of devices and operating conditions the application may run in.",
-        "section-summary": "The technical security baseline of <span class=\"token-client\">[CLIENT NAME]</span>'s mobile application(s) exhibited varying defensive capabilities across the reviewed client and backend components. Testing validation confirmed that while [insert positive controls, e.g., use of platform-provided secure storage] were generally sound, structural weaknesses were identified within [insert high-level issue categories, e.g., certificate validation and local data protection]. These systemic weaknesses allowed engineers to construct verified proof-of-concept attack paths.",
-        "section-scope": "The testing boundaries were bounded by the specific mobile application build(s) and platforms (iOS/Android) authorized by <span class=\"token-client\">[CLIENT NAME]</span>. Active parameters evaluated the mobile client binary, local data storage, and its communication with backend API endpoints.<br><br>Exclusions: The underlying mobile operating system, app store review process, and unrelated third-party SDKs bundled solely for analytics were explicitly excluded from this assessment window.",
-        "section-method": "Testing adheres strictly to standard black-box and grey-box verification models, drawing directly from the OWASP Mobile Application Security Testing Guide (MASTG). Assessments evaluate local data storage, platform interaction, network communication, and backend API security relevant to the mobile client.\n\n<h3>Risk Evaluation Model &amp; Metrics Scoring Key</h3>\nThe report establishes qualitative severity tiers using a joint analysis mapping technical impact against active exploitability factors. The definitions table below outlines the specific assessment parameters guiding scoring determinations:",
-        "section-matrix-legend": "🔴 <strong>Critical (16-25):</strong> Priority remediation. High exploitability, severe business impact.\n\n🟠 <strong>High (10-15):</strong> Immediate patch. Viable exploit vectors, data exposure risk.\n\n🟡 <strong>Medium (5-9):</strong> Standard management. Threats are bounded by existing controls.\n\n🟢 <strong>Low (1-4):</strong> Routine tracking. Informational findings, minimal impact.",
-        "section-conclusion": "Successfully reducing the threat profile of <span class=\"token-client\">[CLIENT NAME]</span>'s mobile application(s) requires a structured focus on remediation. <span class=\"token-company\">[COMPANY NAME]</span> recommends prioritizing fixes for critical data protection and communication security gaps, followed by incorporating mobile-specific security testing into future release cycles.<br><br><span class=\"token-company\">[COMPANY NAME]</span> appreciates the opportunity to support <span class=\"token-client\">[CLIENT NAME]</span> throughout this engagement."
-      }
-    },
-    "cloud-security-assessment": {
-      "label": "Cloud Security Assessment",
-      "sections": {
-        "section-exec": "During the designated assessment window, <span class=\"token-company\">[COMPANY NAME]</span> performed a targeted security evaluation of the cloud environment(s) belonging to <span class=\"token-client\">[CLIENT NAME]</span>. The core objective of this engagement was to identify identity and access management weaknesses, insecure resource configurations, and architectural gaps that could expose data or workloads to unauthorized access.\n\nTesting surfaced a concentrated set of findings clustered around [insert key focus areas, e.g., overly permissive IAM roles and publicly reachable storage resources]. While <span class=\"token-client\">[CLIENT NAME]</span> demonstrates solid baselines in [insert observed strengths, e.g., use of infrastructure-as-code for consistent deployments], immediate remediation is recommended for issues that could lead to unauthorized data access or account compromise.",
-        "section-confidentiality": "This report contains sensitive, privileged, and confidential information. Precautions should be taken to protect the confidentiality of the information in this document. Publication of this report may cause reputational damage to <span class=\"token-client\">[CLIENT NAME]</span> or facilitate attacks against <span class=\"token-client\">[CLIENT NAME]</span>. <span class=\"token-company\">[COMPANY NAME]</span> shall not be held liable for special, incidental, collateral or consequential damages arising out of the use of this information.",
-        "section-disclaimer": "Note that this assessment may not disclose all vulnerabilities that are present within the scope of the engagement. This report is a summary of the findings from a “point-in-time” assessment made on <span class=\"token-client\">[CLIENT NAME]</span>’s cloud environment. Any changes made to the environment during the period of testing may affect the results of the assessment.",
-        "section-purpose": "The primary purpose of this assessment is to provide an independent security review of <span class=\"token-client\">[CLIENT NAME]</span>'s cloud environment(s) within the agreed scope. By reviewing identity and access configurations, resource exposure, and architectural design decisions, <span class=\"token-company\">[COMPANY NAME]</span> aims to assist <span class=\"token-client\">[CLIENT NAME]</span> in reducing the risk of unauthorized access, data exposure, and account compromise across its cloud footprint.",
-        "section-summary": "The technical security baseline of <span class=\"token-client\">[CLIENT NAME]</span>'s cloud environment exhibited varying defensive capabilities across the reviewed accounts and services. Testing validation confirmed that while [insert positive controls, e.g., encryption at rest] were generally sound, structural weaknesses were identified within [insert high-level issue categories, e.g., identity and access management and network exposure]. These systemic weaknesses allowed engineers to construct verified proof-of-concept attack paths.",
-        "section-scope": "The assessment boundaries were bounded by the specific cloud accounts, subscriptions, or projects authorized by <span class=\"token-client\">[CLIENT NAME]</span>. Active parameters evaluated identity and access management configuration, resource-level security settings, and network exposure within the provided environment.<br><br>Exclusions: Physical data center security, provider-managed infrastructure below the shared-responsibility line, and unrelated cloud accounts outside the defined scope were explicitly excluded from this assessment window.",
-        "section-method": "Testing adheres strictly to a configuration review and grey-box verification model, drawing directly from frameworks such as the CIS Benchmarks and the relevant cloud provider's Well-Architected security pillar. Assessments evaluate identity and access management, resource configuration, logging and monitoring coverage, and network exposure.\n\n<h3>Risk Evaluation Model &amp; Metrics Scoring Key</h3>\nThe report establishes qualitative severity tiers using a joint analysis mapping technical impact against active exploitability factors. The definitions table below outlines the specific assessment parameters guiding scoring determinations:",
-        "section-matrix-legend": "🔴 <strong>Critical (16-25):</strong> Priority remediation. High exploitability, severe business impact.\n\n🟠 <strong>High (10-15):</strong> Immediate patch. Viable exploit vectors, data exposure risk.\n\n🟡 <strong>Medium (5-9):</strong> Standard management. Threats are bounded by existing controls.\n\n🟢 <strong>Low (1-4):</strong> Routine tracking. Informational findings, minimal impact.",
-        "section-conclusion": "Successfully reducing the threat profile of <span class=\"token-client\">[CLIENT NAME]</span>'s cloud environment requires a structured focus on remediation. <span class=\"token-company\">[COMPANY NAME]</span> recommends prioritizing fixes for critical identity and access management and exposure findings, followed by adopting continuous configuration monitoring to prevent drift.<br><br><span class=\"token-company\">[COMPANY NAME]</span> appreciates the opportunity to support <span class=\"token-client\">[CLIENT NAME]</span> throughout this engagement."
-      }
+      "group": "pentest",
+      "scoring": "exploitability",
+      "labels": {
+        "assets": "Affected Assets",
+        "assetHint": "Host, IP or URL"
+      },
+      "legend": "🔴 <strong>Critical (16-25):</strong> Priority remediation. High exploitability, severe business impact.\n\n🟠 <strong>High (10-15):</strong> Immediate patch. Viable exploit vectors, data exposure risk.\n\n🟡 <strong>Medium (5-9):</strong> Standard management. Threats are bounded by existing controls.\n\n🟢 <strong>Low (1-4):</strong> Routine tracking. Informational findings, minimal impact.",
+      "sections": [
+        {
+          "key": "exec",
+          "title": "Executive Summary",
+          "html": "During the designated assessment window, <span class=\"token-company\">[COMPANY NAME]</span> performed a targeted security evaluation of the mobile application(s) belonging to <span class=\"token-client\">[CLIENT NAME]</span>, covering both the client binary and its supporting backend services. The core objective of this engagement was to identify insecure local data storage, weak platform hardening, and vulnerabilities in the mobile-to-backend communication channel.\n\nTesting surfaced a concentrated set of findings clustered around [insert key focus areas, e.g., sensitive data cached on-device and insufficient certificate pinning]. While <span class=\"token-client\">[CLIENT NAME]</span> demonstrates solid baselines in [insert observed strengths, e.g., use of platform keychain/keystore APIs], immediate remediation is recommended for issues that could expose user data on a lost, rooted, or jailbroken device.",
+          "info": "What is important to include here:\n• Know Your Target Audience: Executive leadership, legal departments, and board members read this section first. Maintain a high-level corporate risk perspective, utilizing plain business language rather than deep technical exploit jargon.\n• Focus Intently on Business Impact: Explicitly define what a successful compromise actually implies for [CLIENT NAME] (e.g., loss of client trust, compliance penalties, intellectual property loss), rather than walking through memory offsets or precise execution arrays.\n• Consolidate Findings into High-Level Themes: Avoid discussing single finding IDs. Summarize findings into systemic gaps (e.g., write \"outdated patch lifecycle hygiene across legacy segments\" instead of \"three machines missed an update\").\n• Keep it Dense and Brief: This complete summary layout should ideally fit cleanly on one page, leading smoothly straight down into the centered distribution metrics scorecard below.\n\nWhat is NOT important here:\n• Avoid attaching source code fragments, long command outputs, terminal tool captures, or structural proof-of-concepts; those belong in the Detailed Findings block.\n• Do not list minor informational issues or trivial tracking flags here; keep the text narrative focused on major security impacts.\n• Avoid sounding accusatory or subjective. Maintain an analytical, professional, and advisory tone throughout the entire summary description.",
+          "severityTable": true
+        },
+        {
+          "key": "confidentiality",
+          "title": "Confidentiality Notice",
+          "html": "This report contains sensitive, privileged, and confidential information. Precautions should be taken to protect the confidentiality of the information in this document. Publication of this report may cause reputational damage to <span class=\"token-client\">[CLIENT NAME]</span> or facilitate attacks against <span class=\"token-client\">[CLIENT NAME]</span>. <span class=\"token-company\">[COMPANY NAME]</span> shall not be held liable for special, incidental, collateral or consequential damages arising out of the use of this information."
+        },
+        {
+          "key": "disclaimer",
+          "title": "Disclaimer",
+          "html": "Note that this assessment may not disclose all vulnerabilities that are present on the systems within the scope of the engagement. This report is a summary of the findings from a “point-in-time” assessment made on <span class=\"token-client\">[CLIENT NAME]</span>’s environment. Any changes made to the application or backend during the period of testing may affect the results of the assessment."
+        },
+        {
+          "key": "purpose",
+          "title": "Purpose",
+          "html": "The primary purpose of this assessment is to provide an independent security review of <span class=\"token-client\">[CLIENT NAME]</span>'s mobile application(s) and their supporting backend services within the agreed scope. By attempting to identify and safely validate weaknesses in client-side data handling, platform hardening, and network communication, <span class=\"token-company\">[COMPANY NAME]</span> aims to assist <span class=\"token-client\">[CLIENT NAME]</span> in protecting end-user data across the range of devices and operating conditions the application may run in.",
+          "info": "What is important to include here:\n• Define the \"Why\": Explicitly frame why this project was triggered (e.g., standard annual hygiene verification, post-incident assurance loop, pre-launch verification of a new infrastructure build).\n• Link to Business Drivers: Explicitly note compliance regulations or corporate parameters guiding the engagement boundaries (e.g., ISO/IEC 27001 tracking, SOC 2 alignment, internal trust requirements).\n\nWhat is NOT important here:\n• Do not discuss testing logistics, specific methodologies, tool lists, or vulnerability findings. Keep this block strictly focused on the strategic motivation behind the report's creation."
+        },
+        {
+          "key": "summary",
+          "title": "Summary",
+          "html": "The technical security baseline of <span class=\"token-client\">[CLIENT NAME]</span>'s mobile application(s) exhibited varying defensive capabilities across the reviewed client and backend components. Testing validation confirmed that while [insert positive controls, e.g., use of platform-provided secure storage] were generally sound, structural weaknesses were identified within [insert high-level issue categories, e.g., certificate validation and local data protection]. These systemic weaknesses allowed engineers to construct verified proof-of-concept attack paths.",
+          "info": "What is important to include here:\n• Technical Overview Bridge: This serves as the technical companion to the Executive Summary. Briefly present the high-level health of the network, applications, or infrastructure builds evaluated.\n• Acknowledge Effective Defenses: Highlight functional security practices observed during testing (e.g., prompt host isolation, active firewall limits).\n\nWhat is NOT important here:\n• Do not duplicate the deep, itemized technical logs, code blocks, or mitigation descriptions found in the Detailed Findings block. Avoid long lists of software versions or asset charts."
+        },
+        {
+          "key": "scope",
+          "title": "Engagement and Scope",
+          "html": "The testing boundaries were bounded by the specific mobile application build(s) and platforms (iOS/Android) authorized by <span class=\"token-client\">[CLIENT NAME]</span>. Active parameters evaluated the mobile client binary, local data storage, and its communication with backend API endpoints.<br><br>Exclusions: The underlying mobile operating system, app store review process, and unrelated third-party SDKs bundled solely for analytics were explicitly excluded from this assessment window.",
+          "info": "What is important to include here:\n• Absolute Precision: Provide a clean, undisputed statement of all target profiles (e.g., explicit hostnames, IP subnets, target repository branches, or API pathways).\n• Document Explicit Exclusions: Explicitly log out-of-scope layers. This functions as your critical legal and operational safety boundary for the project.\n• Time Constraints: Specify the exact operational timeframe during which testing actions were legally authorized to run.\n\nWhat is NOT important here:\n• Do not provide excessive network structural theory or general corporate definitions. Keep this block strictly focused on factual target parameters."
+        },
+        {
+          "key": "method",
+          "title": "Methodology",
+          "html": "Testing adheres strictly to standard black-box and grey-box verification models, drawing directly from the OWASP Mobile Application Security Testing Guide (MASTG). Assessments evaluate local data storage, platform interaction, network communication, and backend API security relevant to the mobile client.\n\n<h3>Risk Evaluation Model &amp; Metrics Scoring Key</h3>\nThe report establishes qualitative severity tiers using a joint analysis mapping technical impact against active exploitability factors. The definitions table below outlines the specific assessment parameters guiding scoring determinations:",
+          "scoringTable": true
+        },
+        {
+          "component": "summary",
+          "title": "Findings Summary"
+        },
+        {
+          "component": "findings",
+          "title": "Detailed Findings"
+        },
+        {
+          "key": "conclusion",
+          "title": "Conclusion",
+          "html": "Successfully reducing the threat profile of <span class=\"token-client\">[CLIENT NAME]</span>'s mobile application(s) requires a structured focus on remediation. <span class=\"token-company\">[COMPANY NAME]</span> recommends prioritizing fixes for critical data protection and communication security gaps, followed by incorporating mobile-specific security testing into future release cycles.<br><br><span class=\"token-company\">[COMPANY NAME]</span> appreciates the opportunity to support <span class=\"token-client\">[CLIENT NAME]</span> throughout this engagement.",
+          "info": "What is important to include here:\n• Strategic Path Forward: Frame security as a continuous lifecycle rather than a single project milestone. Emphasize programmatic changes (e.g., developer training, configuration pipelines) over quick patches.\n• Professional Closing: Conclude the document with a clean, formal advisory sign-off statement.\n\nWhat is NOT important here:\n• Never introduce entirely new vulnerability profiles, metrics, or technical bugs in the conclusion block. Keep the summary high-level and forward-looking."
+        }
+      ]
     },
     "api-penetration-test": {
       "label": "API Penetration Test",
-      "sections": {
-        "section-exec": "During the designated assessment window, <span class=\"token-company\">[COMPANY NAME]</span> performed a targeted security evaluation of the API(s) belonging to <span class=\"token-client\">[CLIENT NAME]</span>. The core objective of this engagement was to identify broken object- and function-level authorization, weak authentication, and improper rate limiting or input handling across the exposed endpoints.\n\nTesting surfaced a concentrated set of findings clustered around [insert key focus areas, e.g., inconsistent authorization checks between endpoints and verbose error responses]. While <span class=\"token-client\">[CLIENT NAME]</span> demonstrates solid baselines in [insert observed strengths, e.g., consistent use of token-based authentication], immediate remediation is recommended for issues that could allow an attacker to access or modify data belonging to other users.",
-        "section-confidentiality": "This report contains sensitive, privileged, and confidential information. Precautions should be taken to protect the confidentiality of the information in this document. Publication of this report may cause reputational damage to <span class=\"token-client\">[CLIENT NAME]</span> or facilitate attacks against <span class=\"token-client\">[CLIENT NAME]</span>. <span class=\"token-company\">[COMPANY NAME]</span> shall not be held liable for special, incidental, collateral or consequential damages arising out of the use of this information.",
-        "section-disclaimer": "Note that this assessment may not disclose all vulnerabilities that are present on the systems within the scope of the engagement. This report is a summary of the findings from a “point-in-time” assessment made on <span class=\"token-client\">[CLIENT NAME]</span>’s API(s). Any changes made to the API during the period of testing may affect the results of the assessment.",
-        "section-purpose": "The primary purpose of this assessment is to provide an independent security review of <span class=\"token-client\">[CLIENT NAME]</span>'s API(s) within the agreed scope. By attempting to identify and safely validate authentication, authorization, and input-handling weaknesses across exposed endpoints, <span class=\"token-company\">[COMPANY NAME]</span> aims to assist <span class=\"token-client\">[CLIENT NAME]</span> in reducing the risk of unauthorized data access before these interfaces are targeted by real-world attackers.",
-        "section-summary": "The technical security baseline of <span class=\"token-client\">[CLIENT NAME]</span>'s API(s) exhibited varying defensive capabilities across the reviewed endpoints. Testing validation confirmed that while [insert positive controls, e.g., transport layer security and input schema validation] were generally sound, structural weaknesses were identified within [insert high-level issue categories, e.g., object-level authorization and rate limiting]. These systemic weaknesses allowed engineers to construct verified proof-of-concept attack paths.",
-        "section-scope": "The testing boundaries were bounded by the specific API endpoints and documentation (e.g., OpenAPI/Swagger, Postman collection) authorized by <span class=\"token-client\">[CLIENT NAME]</span>. Active parameters evaluated authentication, authorization, and input handling across the provided endpoint set.<br><br>Exclusions: Underlying infrastructure hosting the API, unrelated internal-only endpoints, and third-party integrations outside <span class=\"token-client\">[CLIENT NAME]</span>'s control were explicitly excluded from this assessment window. No distributed denial-of-service (DDoS) simulations were performed.",
-        "section-method": "Testing adheres strictly to standard black-box and grey-box verification models, drawing directly from the OWASP API Security Top 10. Assessments evaluate authentication, object- and function-level authorization, input handling, and rate limiting across the exposed endpoint set.\n\n<h3>Risk Evaluation Model &amp; Metrics Scoring Key</h3>\nThe report establishes qualitative severity tiers using a joint analysis mapping technical impact against active exploitability factors. The definitions table below outlines the specific assessment parameters guiding scoring determinations:",
-        "section-matrix-legend": "🔴 <strong>Critical (16-25):</strong> Priority remediation. High exploitability, severe business impact.\n\n🟠 <strong>High (10-15):</strong> Immediate patch. Viable exploit vectors, data exposure risk.\n\n🟡 <strong>Medium (5-9):</strong> Standard management. Threats are bounded by existing controls.\n\n🟢 <strong>Low (1-4):</strong> Routine tracking. Informational findings, minimal impact.",
-        "section-conclusion": "Successfully reducing the threat profile of <span class=\"token-client\">[CLIENT NAME]</span>'s API(s) requires a structured focus on remediation. <span class=\"token-company\">[COMPANY NAME]</span> recommends prioritizing fixes for critical authorization and authentication gaps, followed by establishing consistent API security testing as new endpoints are introduced.<br><br><span class=\"token-company\">[COMPANY NAME]</span> appreciates the opportunity to support <span class=\"token-client\">[CLIENT NAME]</span> throughout this engagement."
-      }
+      "group": "pentest",
+      "scoring": "exploitability",
+      "labels": {
+        "assets": "Affected Assets",
+        "assetHint": "Host, IP or URL"
+      },
+      "legend": "🔴 <strong>Critical (16-25):</strong> Priority remediation. High exploitability, severe business impact.\n\n🟠 <strong>High (10-15):</strong> Immediate patch. Viable exploit vectors, data exposure risk.\n\n🟡 <strong>Medium (5-9):</strong> Standard management. Threats are bounded by existing controls.\n\n🟢 <strong>Low (1-4):</strong> Routine tracking. Informational findings, minimal impact.",
+      "sections": [
+        {
+          "key": "exec",
+          "title": "Executive Summary",
+          "html": "During the designated assessment window, <span class=\"token-company\">[COMPANY NAME]</span> performed a targeted security evaluation of the API(s) belonging to <span class=\"token-client\">[CLIENT NAME]</span>. The core objective of this engagement was to identify broken object- and function-level authorization, weak authentication, and improper rate limiting or input handling across the exposed endpoints.\n\nTesting surfaced a concentrated set of findings clustered around [insert key focus areas, e.g., inconsistent authorization checks between endpoints and verbose error responses]. While <span class=\"token-client\">[CLIENT NAME]</span> demonstrates solid baselines in [insert observed strengths, e.g., consistent use of token-based authentication], immediate remediation is recommended for issues that could allow an attacker to access or modify data belonging to other users.",
+          "info": "What is important to include here:\n• Know Your Target Audience: Executive leadership, legal departments, and board members read this section first. Maintain a high-level corporate risk perspective, utilizing plain business language rather than deep technical exploit jargon.\n• Focus Intently on Business Impact: Explicitly define what a successful compromise actually implies for [CLIENT NAME] (e.g., loss of client trust, compliance penalties, intellectual property loss), rather than walking through memory offsets or precise execution arrays.\n• Consolidate Findings into High-Level Themes: Avoid discussing single finding IDs. Summarize findings into systemic gaps (e.g., write \"outdated patch lifecycle hygiene across legacy segments\" instead of \"three machines missed an update\").\n• Keep it Dense and Brief: This complete summary layout should ideally fit cleanly on one page, leading smoothly straight down into the centered distribution metrics scorecard below.\n\nWhat is NOT important here:\n• Avoid attaching source code fragments, long command outputs, terminal tool captures, or structural proof-of-concepts; those belong in the Detailed Findings block.\n• Do not list minor informational issues or trivial tracking flags here; keep the text narrative focused on major security impacts.\n• Avoid sounding accusatory or subjective. Maintain an analytical, professional, and advisory tone throughout the entire summary description.",
+          "severityTable": true
+        },
+        {
+          "key": "confidentiality",
+          "title": "Confidentiality Notice",
+          "html": "This report contains sensitive, privileged, and confidential information. Precautions should be taken to protect the confidentiality of the information in this document. Publication of this report may cause reputational damage to <span class=\"token-client\">[CLIENT NAME]</span> or facilitate attacks against <span class=\"token-client\">[CLIENT NAME]</span>. <span class=\"token-company\">[COMPANY NAME]</span> shall not be held liable for special, incidental, collateral or consequential damages arising out of the use of this information."
+        },
+        {
+          "key": "disclaimer",
+          "title": "Disclaimer",
+          "html": "Note that this assessment may not disclose all vulnerabilities that are present on the systems within the scope of the engagement. This report is a summary of the findings from a “point-in-time” assessment made on <span class=\"token-client\">[CLIENT NAME]</span>’s API(s). Any changes made to the API during the period of testing may affect the results of the assessment."
+        },
+        {
+          "key": "purpose",
+          "title": "Purpose",
+          "html": "The primary purpose of this assessment is to provide an independent security review of <span class=\"token-client\">[CLIENT NAME]</span>'s API(s) within the agreed scope. By attempting to identify and safely validate authentication, authorization, and input-handling weaknesses across exposed endpoints, <span class=\"token-company\">[COMPANY NAME]</span> aims to assist <span class=\"token-client\">[CLIENT NAME]</span> in reducing the risk of unauthorized data access before these interfaces are targeted by real-world attackers.",
+          "info": "What is important to include here:\n• Define the \"Why\": Explicitly frame why this project was triggered (e.g., standard annual hygiene verification, post-incident assurance loop, pre-launch verification of a new infrastructure build).\n• Link to Business Drivers: Explicitly note compliance regulations or corporate parameters guiding the engagement boundaries (e.g., ISO/IEC 27001 tracking, SOC 2 alignment, internal trust requirements).\n\nWhat is NOT important here:\n• Do not discuss testing logistics, specific methodologies, tool lists, or vulnerability findings. Keep this block strictly focused on the strategic motivation behind the report's creation."
+        },
+        {
+          "key": "summary",
+          "title": "Summary",
+          "html": "The technical security baseline of <span class=\"token-client\">[CLIENT NAME]</span>'s API(s) exhibited varying defensive capabilities across the reviewed endpoints. Testing validation confirmed that while [insert positive controls, e.g., transport layer security and input schema validation] were generally sound, structural weaknesses were identified within [insert high-level issue categories, e.g., object-level authorization and rate limiting]. These systemic weaknesses allowed engineers to construct verified proof-of-concept attack paths.",
+          "info": "What is important to include here:\n• Technical Overview Bridge: This serves as the technical companion to the Executive Summary. Briefly present the high-level health of the network, applications, or infrastructure builds evaluated.\n• Acknowledge Effective Defenses: Highlight functional security practices observed during testing (e.g., prompt host isolation, active firewall limits).\n\nWhat is NOT important here:\n• Do not duplicate the deep, itemized technical logs, code blocks, or mitigation descriptions found in the Detailed Findings block. Avoid long lists of software versions or asset charts."
+        },
+        {
+          "key": "scope",
+          "title": "Engagement and Scope",
+          "html": "The testing boundaries were bounded by the specific API endpoints and documentation (e.g., OpenAPI/Swagger, Postman collection) authorized by <span class=\"token-client\">[CLIENT NAME]</span>. Active parameters evaluated authentication, authorization, and input handling across the provided endpoint set.<br><br>Exclusions: Underlying infrastructure hosting the API, unrelated internal-only endpoints, and third-party integrations outside <span class=\"token-client\">[CLIENT NAME]</span>'s control were explicitly excluded from this assessment window. No distributed denial-of-service (DDoS) simulations were performed.",
+          "info": "What is important to include here:\n• Absolute Precision: Provide a clean, undisputed statement of all target profiles (e.g., explicit hostnames, IP subnets, target repository branches, or API pathways).\n• Document Explicit Exclusions: Explicitly log out-of-scope layers. This functions as your critical legal and operational safety boundary for the project.\n• Time Constraints: Specify the exact operational timeframe during which testing actions were legally authorized to run.\n\nWhat is NOT important here:\n• Do not provide excessive network structural theory or general corporate definitions. Keep this block strictly focused on factual target parameters."
+        },
+        {
+          "key": "method",
+          "title": "Methodology",
+          "html": "Testing adheres strictly to standard black-box and grey-box verification models, drawing directly from the OWASP API Security Top 10. Assessments evaluate authentication, object- and function-level authorization, input handling, and rate limiting across the exposed endpoint set.\n\n<h3>Risk Evaluation Model &amp; Metrics Scoring Key</h3>\nThe report establishes qualitative severity tiers using a joint analysis mapping technical impact against active exploitability factors. The definitions table below outlines the specific assessment parameters guiding scoring determinations:",
+          "scoringTable": true
+        },
+        {
+          "component": "summary",
+          "title": "Findings Summary"
+        },
+        {
+          "component": "findings",
+          "title": "Detailed Findings"
+        },
+        {
+          "key": "conclusion",
+          "title": "Conclusion",
+          "html": "Successfully reducing the threat profile of <span class=\"token-client\">[CLIENT NAME]</span>'s API(s) requires a structured focus on remediation. <span class=\"token-company\">[COMPANY NAME]</span> recommends prioritizing fixes for critical authorization and authentication gaps, followed by establishing consistent API security testing as new endpoints are introduced.<br><br><span class=\"token-company\">[COMPANY NAME]</span> appreciates the opportunity to support <span class=\"token-client\">[CLIENT NAME]</span> throughout this engagement.",
+          "info": "What is important to include here:\n• Strategic Path Forward: Frame security as a continuous lifecycle rather than a single project milestone. Emphasize programmatic changes (e.g., developer training, configuration pipelines) over quick patches.\n• Professional Closing: Conclude the document with a clean, formal advisory sign-off statement.\n\nWhat is NOT important here:\n• Never introduce entirely new vulnerability profiles, metrics, or technical bugs in the conclusion block. Keep the summary high-level and forward-looking."
+        }
+      ]
+    },
+    "cloud-security-assessment": {
+      "label": "Cloud Security Assessment",
+      "group": "pentest",
+      "scoring": "exploitability",
+      "labels": {
+        "assets": "Affected Assets",
+        "assetHint": "Host, IP or URL"
+      },
+      "legend": "🔴 <strong>Critical (16-25):</strong> Priority remediation. High exploitability, severe business impact.\n\n🟠 <strong>High (10-15):</strong> Immediate patch. Viable exploit vectors, data exposure risk.\n\n🟡 <strong>Medium (5-9):</strong> Standard management. Threats are bounded by existing controls.\n\n🟢 <strong>Low (1-4):</strong> Routine tracking. Informational findings, minimal impact.",
+      "sections": [
+        {
+          "key": "exec",
+          "title": "Executive Summary",
+          "html": "During the designated assessment window, <span class=\"token-company\">[COMPANY NAME]</span> performed a targeted security evaluation of the cloud environment(s) belonging to <span class=\"token-client\">[CLIENT NAME]</span>. The core objective of this engagement was to identify identity and access management weaknesses, insecure resource configurations, and architectural gaps that could expose data or workloads to unauthorized access.\n\nTesting surfaced a concentrated set of findings clustered around [insert key focus areas, e.g., overly permissive IAM roles and publicly reachable storage resources]. While <span class=\"token-client\">[CLIENT NAME]</span> demonstrates solid baselines in [insert observed strengths, e.g., use of infrastructure-as-code for consistent deployments], immediate remediation is recommended for issues that could lead to unauthorized data access or account compromise.",
+          "info": "What is important to include here:\n• Know Your Target Audience: Executive leadership, legal departments, and board members read this section first. Maintain a high-level corporate risk perspective, utilizing plain business language rather than deep technical exploit jargon.\n• Focus Intently on Business Impact: Explicitly define what a successful compromise actually implies for [CLIENT NAME] (e.g., loss of client trust, compliance penalties, intellectual property loss), rather than walking through memory offsets or precise execution arrays.\n• Consolidate Findings into High-Level Themes: Avoid discussing single finding IDs. Summarize findings into systemic gaps (e.g., write \"outdated patch lifecycle hygiene across legacy segments\" instead of \"three machines missed an update\").\n• Keep it Dense and Brief: This complete summary layout should ideally fit cleanly on one page, leading smoothly straight down into the centered distribution metrics scorecard below.\n\nWhat is NOT important here:\n• Avoid attaching source code fragments, long command outputs, terminal tool captures, or structural proof-of-concepts; those belong in the Detailed Findings block.\n• Do not list minor informational issues or trivial tracking flags here; keep the text narrative focused on major security impacts.\n• Avoid sounding accusatory or subjective. Maintain an analytical, professional, and advisory tone throughout the entire summary description.",
+          "severityTable": true
+        },
+        {
+          "key": "confidentiality",
+          "title": "Confidentiality Notice",
+          "html": "This report contains sensitive, privileged, and confidential information. Precautions should be taken to protect the confidentiality of the information in this document. Publication of this report may cause reputational damage to <span class=\"token-client\">[CLIENT NAME]</span> or facilitate attacks against <span class=\"token-client\">[CLIENT NAME]</span>. <span class=\"token-company\">[COMPANY NAME]</span> shall not be held liable for special, incidental, collateral or consequential damages arising out of the use of this information."
+        },
+        {
+          "key": "disclaimer",
+          "title": "Disclaimer",
+          "html": "Note that this assessment may not disclose all vulnerabilities that are present within the scope of the engagement. This report is a summary of the findings from a “point-in-time” assessment made on <span class=\"token-client\">[CLIENT NAME]</span>’s cloud environment. Any changes made to the environment during the period of testing may affect the results of the assessment."
+        },
+        {
+          "key": "purpose",
+          "title": "Purpose",
+          "html": "The primary purpose of this assessment is to provide an independent security review of <span class=\"token-client\">[CLIENT NAME]</span>'s cloud environment(s) within the agreed scope. By reviewing identity and access configurations, resource exposure, and architectural design decisions, <span class=\"token-company\">[COMPANY NAME]</span> aims to assist <span class=\"token-client\">[CLIENT NAME]</span> in reducing the risk of unauthorized access, data exposure, and account compromise across its cloud footprint.",
+          "info": "What is important to include here:\n• Define the \"Why\": Explicitly frame why this project was triggered (e.g., standard annual hygiene verification, post-incident assurance loop, pre-launch verification of a new infrastructure build).\n• Link to Business Drivers: Explicitly note compliance regulations or corporate parameters guiding the engagement boundaries (e.g., ISO/IEC 27001 tracking, SOC 2 alignment, internal trust requirements).\n\nWhat is NOT important here:\n• Do not discuss testing logistics, specific methodologies, tool lists, or vulnerability findings. Keep this block strictly focused on the strategic motivation behind the report's creation."
+        },
+        {
+          "key": "summary",
+          "title": "Summary",
+          "html": "The technical security baseline of <span class=\"token-client\">[CLIENT NAME]</span>'s cloud environment exhibited varying defensive capabilities across the reviewed accounts and services. Testing validation confirmed that while [insert positive controls, e.g., encryption at rest] were generally sound, structural weaknesses were identified within [insert high-level issue categories, e.g., identity and access management and network exposure]. These systemic weaknesses allowed engineers to construct verified proof-of-concept attack paths.",
+          "info": "What is important to include here:\n• Technical Overview Bridge: This serves as the technical companion to the Executive Summary. Briefly present the high-level health of the network, applications, or infrastructure builds evaluated.\n• Acknowledge Effective Defenses: Highlight functional security practices observed during testing (e.g., prompt host isolation, active firewall limits).\n\nWhat is NOT important here:\n• Do not duplicate the deep, itemized technical logs, code blocks, or mitigation descriptions found in the Detailed Findings block. Avoid long lists of software versions or asset charts."
+        },
+        {
+          "key": "scope",
+          "title": "Engagement and Scope",
+          "html": "The assessment boundaries were bounded by the specific cloud accounts, subscriptions, or projects authorized by <span class=\"token-client\">[CLIENT NAME]</span>. Active parameters evaluated identity and access management configuration, resource-level security settings, and network exposure within the provided environment.<br><br>Exclusions: Physical data center security, provider-managed infrastructure below the shared-responsibility line, and unrelated cloud accounts outside the defined scope were explicitly excluded from this assessment window.",
+          "info": "What is important to include here:\n• Absolute Precision: Provide a clean, undisputed statement of all target profiles (e.g., explicit hostnames, IP subnets, target repository branches, or API pathways).\n• Document Explicit Exclusions: Explicitly log out-of-scope layers. This functions as your critical legal and operational safety boundary for the project.\n• Time Constraints: Specify the exact operational timeframe during which testing actions were legally authorized to run.\n\nWhat is NOT important here:\n• Do not provide excessive network structural theory or general corporate definitions. Keep this block strictly focused on factual target parameters."
+        },
+        {
+          "key": "method",
+          "title": "Methodology",
+          "html": "Testing adheres strictly to a configuration review and grey-box verification model, drawing directly from frameworks such as the CIS Benchmarks and the relevant cloud provider's Well-Architected security pillar. Assessments evaluate identity and access management, resource configuration, logging and monitoring coverage, and network exposure.\n\n<h3>Risk Evaluation Model &amp; Metrics Scoring Key</h3>\nThe report establishes qualitative severity tiers using a joint analysis mapping technical impact against active exploitability factors. The definitions table below outlines the specific assessment parameters guiding scoring determinations:",
+          "scoringTable": true
+        },
+        {
+          "component": "summary",
+          "title": "Findings Summary"
+        },
+        {
+          "component": "findings",
+          "title": "Detailed Findings"
+        },
+        {
+          "key": "conclusion",
+          "title": "Conclusion",
+          "html": "Successfully reducing the threat profile of <span class=\"token-client\">[CLIENT NAME]</span>'s cloud environment requires a structured focus on remediation. <span class=\"token-company\">[COMPANY NAME]</span> recommends prioritizing fixes for critical identity and access management and exposure findings, followed by adopting continuous configuration monitoring to prevent drift.<br><br><span class=\"token-company\">[COMPANY NAME]</span> appreciates the opportunity to support <span class=\"token-client\">[CLIENT NAME]</span> throughout this engagement.",
+          "info": "What is important to include here:\n• Strategic Path Forward: Frame security as a continuous lifecycle rather than a single project milestone. Emphasize programmatic changes (e.g., developer training, configuration pipelines) over quick patches.\n• Professional Closing: Conclude the document with a clean, formal advisory sign-off statement.\n\nWhat is NOT important here:\n• Never introduce entirely new vulnerability profiles, metrics, or technical bugs in the conclusion block. Keep the summary high-level and forward-looking."
+        }
+      ]
     },
     "red-team-assessment": {
       "label": "Red Team / Adversary Simulation",
-      "sections": {
-        "section-exec": "During the designated engagement window, <span class=\"token-company\">[COMPANY NAME]</span> conducted a goal-oriented adversary simulation against <span class=\"token-client\">[CLIENT NAME]</span>, emulating the tactics, techniques, and procedures of a realistic threat actor rather than performing a broad vulnerability sweep. The objective was to test <span class=\"token-client\">[CLIENT NAME]</span>'s detection and response capabilities alongside its technical defenses.\n\nThe operation achieved [insert operational outcome, e.g., an initial foothold via a phishing pretext, followed by lateral movement to a domain-joined host] before [insert stopping condition, e.g., reaching the agreed engagement objective / being detected by the blue team]. While <span class=\"token-client\">[CLIENT NAME]</span> demonstrates solid baselines in [insert observed strengths, e.g., endpoint detection tooling], immediate attention is recommended for the gaps that allowed the simulated intrusion to progress as far as it did.",
-        "section-confidentiality": "This report contains sensitive, privileged, and confidential information. Precautions should be taken to protect the confidentiality of the information in this document. Publication of this report may cause reputational damage to <span class=\"token-client\">[CLIENT NAME]</span> or facilitate attacks against <span class=\"token-client\">[CLIENT NAME]</span>. <span class=\"token-company\">[COMPANY NAME]</span> shall not be held liable for special, incidental, collateral or consequential damages arising out of the use of this information.",
-        "section-disclaimer": "Note that this engagement targeted a specific, agreed-upon objective and does not represent an exhaustive review of every vulnerability present in <span class=\"token-client\">[CLIENT NAME]</span>'s environment. This report reflects the outcome of a “point-in-time” operation. Any changes made to the environment, personnel, or controls after the engagement window may affect the applicability of these results.",
-        "section-purpose": "The primary purpose of this engagement is to evaluate <span class=\"token-client\">[CLIENT NAME]</span>'s ability to prevent, detect, and respond to a realistic, goal-oriented intrusion attempt carried out by <span class=\"token-company\">[COMPANY NAME]</span> under a defined rules of engagement. Rather than cataloguing every possible vulnerability, this exercise aims to validate whether existing people, process, and technology controls would actually stop or catch an attacker pursuing a specific objective.",
-        "section-summary": "The simulated intrusion revealed varying levels of resilience across <span class=\"token-client\">[CLIENT NAME]</span>'s people, process, and technology controls. While [insert positive observations, e.g., the security operations team correctly triaged an unrelated alert during the engagement] demonstrated effective baseline monitoring, the operation was able to progress through [insert high-level stages, e.g., initial access, privilege escalation, and lateral movement] largely undetected. These gaps are analyzed in detail in the findings below.",
-        "section-scope": "The engagement boundaries, objectives, and rules of engagement were agreed upon in advance with <span class=\"token-client\">[CLIENT NAME]</span> and a designated trusted agent. Active parameters permitted [insert permitted vectors, e.g., phishing, external network exploitation, and physical access attempts against the named office location].<br><br>Exclusions: [insert explicitly excluded vectors, e.g., destructive actions, production data exfiltration beyond proof-of-access, and any system not listed in the signed rules of engagement] were explicitly excluded from this engagement.",
-        "section-method": "The operation follows a structured cyber kill chain methodology, drawing on frameworks such as MITRE ATT&amp;CK, and is governed by a signed rules-of-engagement document agreed with <span class=\"token-client\">[CLIENT NAME]</span> in advance. Activities are conducted with an emphasis on operational security to realistically test detection and response capability.\n\n<h3>Risk Evaluation Model &amp; Metrics Scoring Key</h3>\nThe report establishes qualitative severity tiers using a joint analysis mapping technical impact against active exploitability factors. The definitions table below outlines the specific assessment parameters guiding scoring determinations:",
-        "section-matrix-legend": "🔴 <strong>Critical (16-25):</strong> Priority remediation. High exploitability, severe business impact.\n\n🟠 <strong>High (10-15):</strong> Immediate patch. Viable exploit vectors, data exposure risk.\n\n🟡 <strong>Medium (5-9):</strong> Standard management. Threats are bounded by existing controls.\n\n🟢 <strong>Low (1-4):</strong> Routine tracking. Informational findings, minimal impact.",
-        "section-conclusion": "The findings from this simulated intrusion should inform <span class=\"token-client\">[CLIENT NAME]</span>'s detection and response roadmap, not just its patching backlog. <span class=\"token-company\">[COMPANY NAME]</span> recommends prioritizing the control and process gaps that allowed the operation to progress, followed by a purple-team debrief to transfer knowledge to the defensive team.<br><br><span class=\"token-company\">[COMPANY NAME]</span> appreciates the opportunity to support <span class=\"token-client\">[CLIENT NAME]</span> throughout this engagement."
-      }
+      "group": "pentest",
+      "scoring": "exploitability",
+      "labels": {
+        "assets": "Affected Assets",
+        "assetHint": "Host, IP or URL"
+      },
+      "legend": "🔴 <strong>Critical (16-25):</strong> Priority remediation. High exploitability, severe business impact.\n\n🟠 <strong>High (10-15):</strong> Immediate patch. Viable exploit vectors, data exposure risk.\n\n🟡 <strong>Medium (5-9):</strong> Standard management. Threats are bounded by existing controls.\n\n🟢 <strong>Low (1-4):</strong> Routine tracking. Informational findings, minimal impact.",
+      "sections": [
+        {
+          "key": "exec",
+          "title": "Executive Summary",
+          "html": "During the designated engagement window, <span class=\"token-company\">[COMPANY NAME]</span> conducted a goal-oriented adversary simulation against <span class=\"token-client\">[CLIENT NAME]</span>, emulating the tactics, techniques, and procedures of a realistic threat actor rather than performing a broad vulnerability sweep. The objective was to test <span class=\"token-client\">[CLIENT NAME]</span>'s detection and response capabilities alongside its technical defenses.\n\nThe operation achieved [insert operational outcome, e.g., an initial foothold via a phishing pretext, followed by lateral movement to a domain-joined host] before [insert stopping condition, e.g., reaching the agreed engagement objective / being detected by the blue team]. While <span class=\"token-client\">[CLIENT NAME]</span> demonstrates solid baselines in [insert observed strengths, e.g., endpoint detection tooling], immediate attention is recommended for the gaps that allowed the simulated intrusion to progress as far as it did.",
+          "info": "What is important to include here:\n• Know Your Target Audience: Executive leadership, legal departments, and board members read this section first. Maintain a high-level corporate risk perspective, utilizing plain business language rather than deep technical exploit jargon.\n• Focus Intently on Business Impact: Explicitly define what a successful compromise actually implies for [CLIENT NAME] (e.g., loss of client trust, compliance penalties, intellectual property loss), rather than walking through memory offsets or precise execution arrays.\n• Consolidate Findings into High-Level Themes: Avoid discussing single finding IDs. Summarize findings into systemic gaps (e.g., write \"outdated patch lifecycle hygiene across legacy segments\" instead of \"three machines missed an update\").\n• Keep it Dense and Brief: This complete summary layout should ideally fit cleanly on one page, leading smoothly straight down into the centered distribution metrics scorecard below.\n\nWhat is NOT important here:\n• Avoid attaching source code fragments, long command outputs, terminal tool captures, or structural proof-of-concepts; those belong in the Detailed Findings block.\n• Do not list minor informational issues or trivial tracking flags here; keep the text narrative focused on major security impacts.\n• Avoid sounding accusatory or subjective. Maintain an analytical, professional, and advisory tone throughout the entire summary description.",
+          "severityTable": true
+        },
+        {
+          "key": "confidentiality",
+          "title": "Confidentiality Notice",
+          "html": "This report contains sensitive, privileged, and confidential information. Precautions should be taken to protect the confidentiality of the information in this document. Publication of this report may cause reputational damage to <span class=\"token-client\">[CLIENT NAME]</span> or facilitate attacks against <span class=\"token-client\">[CLIENT NAME]</span>. <span class=\"token-company\">[COMPANY NAME]</span> shall not be held liable for special, incidental, collateral or consequential damages arising out of the use of this information."
+        },
+        {
+          "key": "disclaimer",
+          "title": "Disclaimer",
+          "html": "Note that this engagement targeted a specific, agreed-upon objective and does not represent an exhaustive review of every vulnerability present in <span class=\"token-client\">[CLIENT NAME]</span>'s environment. This report reflects the outcome of a “point-in-time” operation. Any changes made to the environment, personnel, or controls after the engagement window may affect the applicability of these results."
+        },
+        {
+          "key": "purpose",
+          "title": "Purpose",
+          "html": "The primary purpose of this engagement is to evaluate <span class=\"token-client\">[CLIENT NAME]</span>'s ability to prevent, detect, and respond to a realistic, goal-oriented intrusion attempt carried out by <span class=\"token-company\">[COMPANY NAME]</span> under a defined rules of engagement. Rather than cataloguing every possible vulnerability, this exercise aims to validate whether existing people, process, and technology controls would actually stop or catch an attacker pursuing a specific objective.",
+          "info": "What is important to include here:\n• Define the \"Why\": Explicitly frame why this project was triggered (e.g., standard annual hygiene verification, post-incident assurance loop, pre-launch verification of a new infrastructure build).\n• Link to Business Drivers: Explicitly note compliance regulations or corporate parameters guiding the engagement boundaries (e.g., ISO/IEC 27001 tracking, SOC 2 alignment, internal trust requirements).\n\nWhat is NOT important here:\n• Do not discuss testing logistics, specific methodologies, tool lists, or vulnerability findings. Keep this block strictly focused on the strategic motivation behind the report's creation."
+        },
+        {
+          "key": "summary",
+          "title": "Summary",
+          "html": "The simulated intrusion revealed varying levels of resilience across <span class=\"token-client\">[CLIENT NAME]</span>'s people, process, and technology controls. While [insert positive observations, e.g., the security operations team correctly triaged an unrelated alert during the engagement] demonstrated effective baseline monitoring, the operation was able to progress through [insert high-level stages, e.g., initial access, privilege escalation, and lateral movement] largely undetected. These gaps are analyzed in detail in the findings below.",
+          "info": "What is important to include here:\n• Technical Overview Bridge: This serves as the technical companion to the Executive Summary. Briefly present the high-level health of the network, applications, or infrastructure builds evaluated.\n• Acknowledge Effective Defenses: Highlight functional security practices observed during testing (e.g., prompt host isolation, active firewall limits).\n\nWhat is NOT important here:\n• Do not duplicate the deep, itemized technical logs, code blocks, or mitigation descriptions found in the Detailed Findings block. Avoid long lists of software versions or asset charts."
+        },
+        {
+          "key": "scope",
+          "title": "Engagement and Scope",
+          "html": "The engagement boundaries, objectives, and rules of engagement were agreed upon in advance with <span class=\"token-client\">[CLIENT NAME]</span> and a designated trusted agent. Active parameters permitted [insert permitted vectors, e.g., phishing, external network exploitation, and physical access attempts against the named office location].<br><br>Exclusions: [insert explicitly excluded vectors, e.g., destructive actions, production data exfiltration beyond proof-of-access, and any system not listed in the signed rules of engagement] were explicitly excluded from this engagement.",
+          "info": "What is important to include here:\n• Absolute Precision: Provide a clean, undisputed statement of all target profiles (e.g., explicit hostnames, IP subnets, target repository branches, or API pathways).\n• Document Explicit Exclusions: Explicitly log out-of-scope layers. This functions as your critical legal and operational safety boundary for the project.\n• Time Constraints: Specify the exact operational timeframe during which testing actions were legally authorized to run.\n\nWhat is NOT important here:\n• Do not provide excessive network structural theory or general corporate definitions. Keep this block strictly focused on factual target parameters."
+        },
+        {
+          "key": "method",
+          "title": "Methodology",
+          "html": "The operation follows a structured cyber kill chain methodology, drawing on frameworks such as MITRE ATT&amp;CK, and is governed by a signed rules-of-engagement document agreed with <span class=\"token-client\">[CLIENT NAME]</span> in advance. Activities are conducted with an emphasis on operational security to realistically test detection and response capability.\n\n<h3>Risk Evaluation Model &amp; Metrics Scoring Key</h3>\nThe report establishes qualitative severity tiers using a joint analysis mapping technical impact against active exploitability factors. The definitions table below outlines the specific assessment parameters guiding scoring determinations:",
+          "scoringTable": true
+        },
+        {
+          "component": "summary",
+          "title": "Findings Summary"
+        },
+        {
+          "component": "findings",
+          "title": "Detailed Findings"
+        },
+        {
+          "key": "conclusion",
+          "title": "Conclusion",
+          "html": "The findings from this simulated intrusion should inform <span class=\"token-client\">[CLIENT NAME]</span>'s detection and response roadmap, not just its patching backlog. <span class=\"token-company\">[COMPANY NAME]</span> recommends prioritizing the control and process gaps that allowed the operation to progress, followed by a purple-team debrief to transfer knowledge to the defensive team.<br><br><span class=\"token-company\">[COMPANY NAME]</span> appreciates the opportunity to support <span class=\"token-client\">[CLIENT NAME]</span> throughout this engagement.",
+          "info": "What is important to include here:\n• Strategic Path Forward: Frame security as a continuous lifecycle rather than a single project milestone. Emphasize programmatic changes (e.g., developer training, configuration pipelines) over quick patches.\n• Professional Closing: Conclude the document with a clean, formal advisory sign-off statement.\n\nWhat is NOT important here:\n• Never introduce entirely new vulnerability profiles, metrics, or technical bugs in the conclusion block. Keep the summary high-level and forward-looking."
+        }
+      ]
+    },
+    "code-review": {
+      "label": "Code Review",
+      "group": "review",
+      "scoring": "likelihood",
+      "labels": {
+        "assets": "Affected Files / Components",
+        "assetHint": "File, function or component, e.g. src/api/auth.ts:42"
+      },
+      "sections": [
+        {
+          "key": "exec",
+          "title": "Executive Summary",
+          "html": "During the designated assessment window, <span class=\"token-company\">[COMPANY NAME]</span> performed a manual and tool-assisted source code review of the application(s) belonging to <span class=\"token-client\">[CLIENT NAME]</span>. The core objective of this engagement was to identify insecure coding patterns, logic flaws, and unsafe use of frameworks or libraries that static analysis and black-box testing alone may not surface.\n\nThe review surfaced a concentrated set of findings clustered around [insert key focus areas, e.g., inconsistent input sanitization and unsafe deserialization patterns]. While <span class=\"token-client\">[CLIENT NAME]</span>'s codebase demonstrates solid practices in [insert observed strengths, e.g., dependency management and code modularity], remediation is recommended for the identified issues before the affected code paths reach production.",
+          "info": "What is important to include here:\n• Know Your Target Audience: Executive leadership, legal departments, and board members read this section first. Maintain a high-level corporate risk perspective, utilizing plain business language rather than deep technical exploit jargon.\n• Focus Intently on Business Impact: Explicitly define what a successful compromise actually implies for [CLIENT NAME] (e.g., loss of client trust, compliance penalties, intellectual property loss), rather than walking through memory offsets or precise execution arrays.\n• Consolidate Findings into High-Level Themes: Avoid discussing single finding IDs. Summarize findings into systemic gaps (e.g., write \"outdated patch lifecycle hygiene across legacy segments\" instead of \"three machines missed an update\").\n• Keep it Dense and Brief: This complete summary layout should ideally fit cleanly on one page, leading smoothly straight down into the centered distribution metrics scorecard below.\n\nWhat is NOT important here:\n• Avoid attaching source code fragments, long command outputs, terminal tool captures, or structural proof-of-concepts; those belong in the Detailed Findings block.\n• Do not list minor informational issues or trivial tracking flags here; keep the text narrative focused on major security impacts.\n• Avoid sounding accusatory or subjective. Maintain an analytical, professional, and advisory tone throughout the entire summary description.",
+          "severityTable": true
+        },
+        {
+          "key": "confidentiality",
+          "title": "Confidentiality Notice",
+          "html": "This report contains sensitive, privileged, and confidential information. Precautions should be taken to protect the confidentiality of the information in this document. Publication of this report may cause reputational damage to <span class=\"token-client\">[CLIENT NAME]</span> or facilitate attacks against <span class=\"token-client\">[CLIENT NAME]</span>. <span class=\"token-company\">[COMPANY NAME]</span> shall not be held liable for special, incidental, collateral or consequential damages arising out of the use of this information."
+        },
+        {
+          "key": "disclaimer",
+          "title": "Disclaimer",
+          "html": "Note that this review may not disclose all vulnerabilities that are present in the codebase within the scope of the engagement. This report is a summary of the findings from a “point-in-time” review of <span class=\"token-client\">[CLIENT NAME]</span>’s source code. Any changes made to the codebase during the period of review may affect the results of the assessment."
+        },
+        {
+          "key": "purpose",
+          "title": "Purpose",
+          "html": "The primary purpose of this engagement is to provide an independent review of <span class=\"token-client\">[CLIENT NAME]</span>'s source code within the agreed scope. By manually and programmatically analyzing the codebase for insecure patterns, logic flaws, and misuse of frameworks or libraries, <span class=\"token-company\">[COMPANY NAME]</span> aims to assist <span class=\"token-client\">[CLIENT NAME]</span> in catching security defects earlier in the development lifecycle, before they are deployed to production.",
+          "info": "What is important to include here:\n• Define the \"Why\": Explicitly frame why this project was triggered (e.g., standard annual hygiene verification, post-incident assurance loop, pre-launch verification of a new infrastructure build).\n• Link to Business Drivers: Explicitly note compliance regulations or corporate parameters guiding the engagement boundaries (e.g., ISO/IEC 27001 tracking, SOC 2 alignment, internal trust requirements).\n\nWhat is NOT important here:\n• Do not discuss testing logistics, specific methodologies, tool lists, or vulnerability findings. Keep this block strictly focused on the strategic motivation behind the report's creation."
+        },
+        {
+          "key": "scope",
+          "title": "Scope: Repositories and Revision",
+          "html": "The review covered the following source code, supplied by [CLIENT NAME] and reviewed at a fixed revision so that every finding can be traced to an exact line of code:\n\n<strong>Repositories:</strong> [insert repository names or URLs]\n<strong>Branch and commit:</strong> [insert branch and commit hash, e.g., main @ 3f2a9c1]\n<strong>Languages and frameworks:</strong> [insert languages and frameworks, e.g., TypeScript, Node.js, React]\n<strong>Size:</strong> [insert approximate lines of code or number of modules reviewed]\n\n<strong>Out of scope:</strong> [insert exclusions, e.g., third-party libraries beyond dependency analysis, generated code, infrastructure not defined in the repository]",
+          "info": "What is important to include here:\n• The exact repositories, branch and commit hash reviewed, so every finding can be traced.\n• Languages, frameworks and approximate size.\n• What was excluded, and the access you had (read-only repository access, build instructions, developer contacts).\n\nWhat is NOT important here:\n• Findings or tool output."
+        },
+        {
+          "key": "method",
+          "title": "Review Approach",
+          "html": "The review combined automated analysis with manual inspection of the code:\n\n• <strong>Static analysis (SAST)</strong> with [insert tools, e.g., Semgrep, CodeQL] across the whole codebase.\n• <strong>Dependency analysis (SCA)</strong> of third-party packages with [insert tool].\n• <strong>Secret scanning</strong> of the code and its version history.\n• <strong>Manual review</strong> of security-critical paths agreed with [CLIENT NAME]'s developers: authentication, authorization, input handling, cryptography, data access and error handling, using the OWASP Code Review Guide and OWASP ASVS as reference.\n\nAutomated results were triaged by hand; only confirmed or plausible issues are reported.\n\n<h3>Risk Rating</h3>\nEach finding is rated by its impact and the likelihood that it can be exploited in the deployed application. The table below defines the scale used.",
+          "scoringTable": true
+        },
+        {
+          "key": "summary",
+          "title": "Summary of Observations",
+          "html": "The security posture of <span class=\"token-client\">[CLIENT NAME]</span>'s reviewed codebase varied across modules and components. The review confirmed that while [insert positive practices, e.g., parameterized database access] were applied consistently in most areas, unsafe patterns were identified within [insert high-level issue categories, e.g., input validation and session token generation]. These findings were traced to specific files and line ranges to support fast remediation.",
+          "info": "What is important to include here:\n• Technical Overview Bridge: This serves as the technical companion to the Executive Summary. Briefly present the high-level health of the network, applications, or infrastructure builds evaluated.\n• Acknowledge Effective Defenses: Highlight functional security practices observed during testing (e.g., prompt host isolation, active firewall limits).\n\nWhat is NOT important here:\n• Do not duplicate the deep, itemized technical logs, code blocks, or mitigation descriptions found in the Detailed Findings block. Avoid long lists of software versions or asset charts."
+        },
+        {
+          "component": "summary",
+          "title": "Findings Summary"
+        },
+        {
+          "component": "findings",
+          "title": "Detailed Findings"
+        },
+        {
+          "key": "sdlc",
+          "title": "Secure Development Recommendations",
+          "html": "Beyond fixing the individual findings, the following changes to [CLIENT NAME]'s development process would prevent similar issues from being reintroduced:\n\n• <strong>Automated checks in CI:</strong> run static analysis, dependency and secret scanning on every pull request, and block merges on high-severity results.\n• <strong>Shared secure building blocks:</strong> [insert, e.g., one input validation and output encoding library used by all services].\n• <strong>Security in code review:</strong> add authorization, input handling and logging of sensitive data to the pull request checklist.\n• <strong>Dependency hygiene:</strong> keep dependencies current with automated updates and remove unused packages.\n• <strong>Training:</strong> [insert targeted topics based on the findings, e.g., secure session handling in Express].",
+          "info": "What is important to include here:\n• Process-level improvements that stop whole classes of findings from coming back.\n\nWhat is NOT important here:\n• Repeating individual findings."
+        },
+        {
+          "key": "conclusion",
+          "title": "Conclusion",
+          "html": "Successfully improving the security posture of <span class=\"token-client\">[CLIENT NAME]</span>'s codebase requires a structured focus on remediation. <span class=\"token-company\">[COMPANY NAME]</span> recommends prioritizing fixes for critical code-level findings, followed by integrating the recommended static analysis rules into the CI/CD pipeline to catch regressions.<br><br><span class=\"token-company\">[COMPANY NAME]</span> appreciates the opportunity to support <span class=\"token-client\">[CLIENT NAME]</span> throughout this engagement.",
+          "info": "What is important to include here:\n• Strategic Path Forward: Frame security as a continuous lifecycle rather than a single project milestone. Emphasize programmatic changes (e.g., developer training, configuration pipelines) over quick patches.\n• Professional Closing: Conclude the document with a clean, formal advisory sign-off statement.\n\nWhat is NOT important here:\n• Never introduce entirely new vulnerability profiles, metrics, or technical bugs in the conclusion block. Keep the summary high-level and forward-looking."
+        }
+      ]
+    },
+    "general-security-review": {
+      "label": "General Security Review",
+      "group": "review",
+      "scoring": "likelihood",
+      "labels": {
+        "assets": "Affected Areas / Systems",
+        "assetHint": "Area, system or process"
+      },
+      "sections": [
+        {
+          "key": "exec",
+          "title": "Executive Summary",
+          "html": "[COMPANY NAME] carried out a general security review of [CLIENT NAME] during the assessment window. The review assessed how well [CLIENT NAME]'s organisational, procedural and technical security measures protect the business, combining interviews with key personnel, a review of policies and documentation, and spot checks of technical controls.\n\nOverall, [CLIENT NAME] [insert overall assessment, e.g., has a solid foundation in identity management and backups, but lacks a structured process for vulnerability management and incident response]. The most important observations concern [insert key themes]. Addressing the high-priority recommendations in this report would [insert expected benefit, e.g., significantly reduce the risk of a ransomware incident causing extended downtime].\n\nThe table below summarises the observations by severity.",
+          "info": "What is important to include here:\n• Written for management: what was reviewed, the overall verdict, and the few themes that matter most.\n• Business consequences in plain language, and what the most important recommendations would achieve.\n\nWhat is NOT important here:\n• Technical detail, tool output or individual configuration values: those belong in the findings.",
+          "severityTable": true
+        },
+        {
+          "key": "confidentiality",
+          "title": "Confidentiality Notice",
+          "html": "This report contains confidential information about the security of [CLIENT NAME]'s organisation and systems. It should be shared only with people who need it to act on the findings. Unauthorised disclosure could help an attacker or damage [CLIENT NAME]'s reputation."
+        },
+        {
+          "key": "disclaimer",
+          "title": "Disclaimer",
+          "html": "This review is based on information provided by [CLIENT NAME] in interviews and documentation, and on technical spot checks made during the assessment window. It is not an exhaustive audit or a certification against any standard: controls were sampled rather than tested in full, and how a control works in practice may differ from how it is documented. Changes made after the review are not reflected in this report."
+        },
+        {
+          "key": "objectives",
+          "title": "Background and Objectives",
+          "html": "[CLIENT NAME] commissioned this review to [insert driver, e.g., get an independent picture of its security posture ahead of the NIS2 requirements]. The objectives were to:\n\n• identify the most significant security risks to [CLIENT NAME]'s operations;\n• assess the maturity of key security processes and controls;\n• provide prioritised, practical recommendations that fit [CLIENT NAME]'s size and resources.",
+          "info": "What is important to include here:\n• Define the \"Why\": Explicitly frame why this project was triggered (e.g., standard annual hygiene verification, post-incident assurance loop, pre-launch verification of a new infrastructure build).\n• Link to Business Drivers: Explicitly note compliance regulations or corporate parameters guiding the engagement boundaries (e.g., ISO/IEC 27001 tracking, SOC 2 alignment, internal trust requirements).\n\nWhat is NOT important here:\n• Do not discuss testing logistics, specific methodologies, tool lists, or vulnerability findings. Keep this block strictly focused on the strategic motivation behind the report's creation."
+        },
+        {
+          "key": "scope",
+          "title": "Scope and Approach",
+          "html": "The review covered [insert scope, e.g., the whole organisation, or the IT department and its main business systems]. It was structured around [insert framework, e.g., the control themes of ISO/IEC 27001:2022 Annex A, the NIS2 risk-management measures, or the CIS Critical Security Controls] and carried out through:\n\n• <strong>Interviews</strong> with [insert roles, e.g., the CIO, IT operations, HR and a business system owner];\n• <strong>Document review</strong> of [insert documents, e.g., the information security policy, risk assessments, incident procedures];\n• <strong>Technical spot checks</strong> of [insert checks, e.g., MFA coverage, patch levels, backup restore logs, the inventory of admin accounts].\n\n<strong>Out of scope:</strong> [insert exclusions]",
+          "info": "What is important to include here:\n• Exactly what was reviewed and how (systems, versions, documents, interviews, access level).\n• What was explicitly out of scope.\n\nWhat is NOT important here:\n• Findings or recommendations."
+        },
+        {
+          "key": "method",
+          "title": "Rating Model",
+          "html": "Each observation is rated by the impact it could have on [CLIENT NAME]'s operations and the likelihood that the weakness leads to an incident. The resulting severity shows how urgently the recommendation should be addressed.",
+          "scoringTable": true
+        },
+        {
+          "key": "overview",
+          "title": "Control Area Overview",
+          "html": "The table gives a high-level picture of the maturity observed in each area. <strong>Good</strong>: established and working. <strong>Adequate</strong>: in place with minor gaps. <strong>Needs improvement</strong>: partly in place or inconsistent. <strong>Insufficient</strong>: missing or ineffective.\n\n<table><thead><tr><th>Area</th><th>Assessment</th><th>Comment</th></tr></thead><tbody><tr><td>Governance and policies</td><td>[insert rating]</td><td>[insert comment]</td></tr><tr><td>Risk management</td><td>[insert rating]</td><td>[insert comment]</td></tr><tr><td>Asset management</td><td>[insert rating]</td><td>[insert comment]</td></tr><tr><td>Identity and access management</td><td>[insert rating]</td><td>[insert comment]</td></tr><tr><td>Vulnerability and patch management</td><td>[insert rating]</td><td>[insert comment]</td></tr><tr><td>Logging and monitoring</td><td>[insert rating]</td><td>[insert comment]</td></tr><tr><td>Incident response</td><td>[insert rating]</td><td>[insert comment]</td></tr><tr><td>Backup and recovery</td><td>[insert rating]</td><td>[insert comment]</td></tr><tr><td>Supplier and third-party security</td><td>[insert rating]</td><td>[insert comment]</td></tr><tr><td>Security awareness</td><td>[insert rating]</td><td>[insert comment]</td></tr></tbody></table>",
+          "info": "What is important to include here:\n• A short, honest rating per area, so readers see strengths as well as gaps.\n\nWhat is NOT important here:\n• Detailed evidence: keep that in the observations."
+        },
+        {
+          "component": "summary",
+          "title": "Observations Summary"
+        },
+        {
+          "component": "findings",
+          "title": "Observations and Recommendations"
+        },
+        {
+          "key": "roadmap",
+          "title": "Recommended Roadmap",
+          "html": "To make the recommendations manageable, they are grouped into a suggested roadmap:\n\n<strong>Short term (0–3 months):</strong> [insert the critical and high-priority recommendations, e.g., enforce MFA for all remote access, set up offline backups]\n<strong>Medium term (3–12 months):</strong> [insert, e.g., introduce a vulnerability management process, document incident response]\n<strong>Long term (12+ months):</strong> [insert, e.g., establish a risk-management cycle aligned with ISO/IEC 27001]"
+        },
+        {
+          "key": "conclusion",
+          "title": "Conclusion",
+          "html": "[CLIENT NAME] [insert overall verdict]. Information security is a continuous process: the recommendations in this report are most effective when each has a named owner, is followed up regularly, and is revisited as the business and the threat landscape change. [COMPANY NAME] recommends a follow-up review in [insert timeframe, e.g., 12 months] to measure progress against the roadmap above.\n\n[COMPANY NAME] thanks [CLIENT NAME] and everyone who took part in the interviews for their openness and cooperation.",
+          "info": "What is important to include here:\n• Strategic Path Forward: Frame security as a continuous lifecycle rather than a single project milestone. Emphasize programmatic changes (e.g., developer training, configuration pipelines) over quick patches.\n• Professional Closing: Conclude the document with a clean, formal advisory sign-off statement.\n\nWhat is NOT important here:\n• Never introduce entirely new vulnerability profiles, metrics, or technical bugs in the conclusion block. Keep the summary high-level and forward-looking."
+        }
+      ]
+    },
+    "vulnerability-assessment": {
+      "label": "Vulnerability Assessment",
+      "group": "review",
+      "scoring": "likelihood",
+      "labels": {
+        "assets": "Affected Hosts",
+        "assetHint": "Host name or IP address"
+      },
+      "sections": [
+        {
+          "key": "exec",
+          "title": "Executive Summary",
+          "html": "[COMPANY NAME] performed a vulnerability assessment of [CLIENT NAME]'s [insert environment, e.g., internet-facing systems or internal server network] during the assessment window. Unlike a penetration test, a vulnerability assessment identifies and validates known weaknesses across many systems without attempting to exploit them, giving a broad picture of patch levels and configuration hygiene.\n\nThe assessment covered [insert number] hosts, of which [insert number] were reachable. The most significant issues relate to [insert key themes, e.g., unsupported operating systems and services exposed with default configuration]. The table below summarises the findings by severity.",
+          "info": "What is important to include here:\n• Know Your Target Audience: Executive leadership, legal departments, and board members read this section first. Maintain a high-level corporate risk perspective, utilizing plain business language rather than deep technical exploit jargon.\n• Focus Intently on Business Impact: Explicitly define what a successful compromise actually implies for [CLIENT NAME] (e.g., loss of client trust, compliance penalties, intellectual property loss), rather than walking through memory offsets or precise execution arrays.\n• Consolidate Findings into High-Level Themes: Avoid discussing single finding IDs. Summarize findings into systemic gaps (e.g., write \"outdated patch lifecycle hygiene across legacy segments\" instead of \"three machines missed an update\").\n• Keep it Dense and Brief: This complete summary layout should ideally fit cleanly on one page, leading smoothly straight down into the centered distribution metrics scorecard below.\n\nWhat is NOT important here:\n• Avoid attaching source code fragments, long command outputs, terminal tool captures, or structural proof-of-concepts; those belong in the Detailed Findings block.\n• Do not list minor informational issues or trivial tracking flags here; keep the text narrative focused on major security impacts.\n• Avoid sounding accusatory or subjective. Maintain an analytical, professional, and advisory tone throughout the entire summary description.",
+          "severityTable": true
+        },
+        {
+          "key": "confidentiality",
+          "title": "Confidentiality Notice",
+          "html": "This report contains sensitive, privileged, and confidential information. Precautions should be taken to protect the confidentiality of the information in this document. Publication of this report may cause reputational damage to <span class=\"token-client\">[CLIENT NAME]</span> or facilitate attacks against <span class=\"token-client\">[CLIENT NAME]</span>. <span class=\"token-company\">[COMPANY NAME]</span> shall not be held liable for special, incidental, collateral or consequential damages arising out of the use of this information."
+        },
+        {
+          "key": "disclaimer",
+          "title": "Disclaimer",
+          "html": "Automated scanning identifies known vulnerabilities and misconfigurations that can be detected from the network at the time of the scan. It cannot find every weakness: logic flaws, issues that require more access than the credentials provided, and vulnerabilities disclosed after the scan are not covered. Findings were validated to reduce false positives, but no exploitation was performed, so the real-world impact of some findings may be lower or higher than rated."
+        },
+        {
+          "key": "purpose",
+          "title": "Purpose",
+          "html": "The purpose of the assessment is to give [CLIENT NAME] an up-to-date picture of known vulnerabilities in the systems in scope, so that remediation can be prioritised and patch and configuration management can be verified. [insert driver, e.g., The assessment is part of [CLIENT NAME]'s quarterly vulnerability management cycle.]",
+          "info": "What is important to include here:\n• Define the \"Why\": Explicitly frame why this project was triggered (e.g., standard annual hygiene verification, post-incident assurance loop, pre-launch verification of a new infrastructure build).\n• Link to Business Drivers: Explicitly note compliance regulations or corporate parameters guiding the engagement boundaries (e.g., ISO/IEC 27001 tracking, SOC 2 alignment, internal trust requirements).\n\nWhat is NOT important here:\n• Do not discuss testing logistics, specific methodologies, tool lists, or vulnerability findings. Keep this block strictly focused on the strategic motivation behind the report's creation."
+        },
+        {
+          "key": "scope",
+          "title": "Scope and Targets",
+          "html": "<strong>Targets:</strong> [insert IP ranges, host names or asset groups]\n<strong>Scan perspective:</strong> [insert, e.g., from the internet, or from the internal server network]\n<strong>Scan type:</strong> [insert, e.g., authenticated (credentialed) scan of Windows and Linux servers, unauthenticated scan of network devices]\n<strong>Exclusions:</strong> [insert excluded systems]\n\nAll scanning took place within the agreed time windows, and [CLIENT NAME]'s operations staff were informed in advance.",
+          "info": "What is important to include here:\n• Absolute Precision: Provide a clean, undisputed statement of all target profiles (e.g., explicit hostnames, IP subnets, target repository branches, or API pathways).\n• Document Explicit Exclusions: Explicitly log out-of-scope layers. This functions as your critical legal and operational safety boundary for the project.\n• Time Constraints: Specify the exact operational timeframe during which testing actions were legally authorized to run.\n\nWhat is NOT important here:\n• Do not provide excessive network structural theory or general corporate definitions. Keep this block strictly focused on factual target parameters."
+        },
+        {
+          "key": "method",
+          "title": "Methodology",
+          "html": "Scanning was performed with [insert tools and versions, e.g., Tenable Nessus Professional with the latest plugin set]. Credentialed scans were used where possible, since they detect missing patches and local misconfigurations far more reliably than network-only scans. The results were then reviewed by hand: duplicates were merged, likely false positives were verified or discarded, and related issues were grouped into findings.\n\n<h3>Risk Rating</h3>\nEach finding is rated by its impact and the likelihood of it being exploited, taking into account whether the system is internet-facing and whether public exploits exist. The CVSS score reported by the scanner is included where available.",
+          "scoringTable": true
+        },
+        {
+          "key": "results",
+          "title": "Summary of Results",
+          "html": "<table><thead><tr><th>Metric</th><th>Value</th></tr></thead><tbody><tr><td>Hosts in scope</td><td>[insert number]</td></tr><tr><td>Hosts reachable</td><td>[insert number]</td></tr><tr><td>Hosts scanned with credentials</td><td>[insert number]</td></tr><tr><td>Unique vulnerabilities after validation</td><td>[insert number]</td></tr><tr><td>Hosts running unsupported software</td><td>[insert number]</td></tr></tbody></table>\n\n[insert short commentary, e.g., Most findings are concentrated on a small number of legacy servers.]"
+        },
+        {
+          "component": "summary",
+          "title": "Findings Summary"
+        },
+        {
+          "component": "findings",
+          "title": "Detailed Findings"
+        },
+        {
+          "key": "priorities",
+          "title": "Remediation Priorities",
+          "html": "Recommended order of work:\n\n1. <strong>Critical and high findings on internet-facing systems:</strong> remediate within [insert, e.g., 7 days].\n2. <strong>Unsupported software:</strong> upgrade or isolate systems that no longer receive security updates.\n3. <strong>Critical and high findings on internal systems:</strong> remediate within [insert, e.g., 30 days].\n4. <strong>Medium and low findings:</strong> handle in the normal patch and change cycle.\n\nA re-scan after remediation is recommended to confirm that the findings are resolved."
+        },
+        {
+          "key": "conclusion",
+          "title": "Conclusion",
+          "html": "The assessment shows [insert overall verdict]. Regular credentialed scanning combined with a defined patching process is one of the most cost-effective ways to reduce exposure to opportunistic attacks. [COMPANY NAME] recommends that [CLIENT NAME] [insert recommendation, e.g., establishes a monthly scan cycle with remediation deadlines by severity] and verifies the fixes for this report's findings with a follow-up scan.",
+          "info": "What is important to include here:\n• Strategic Path Forward: Frame security as a continuous lifecycle rather than a single project milestone. Emphasize programmatic changes (e.g., developer training, configuration pipelines) over quick patches.\n• Professional Closing: Conclude the document with a clean, formal advisory sign-off statement.\n\nWhat is NOT important here:\n• Never introduce entirely new vulnerability profiles, metrics, or technical bugs in the conclusion block. Keep the summary high-level and forward-looking."
+        }
+      ]
+    },
+    "phishing-social-engineering": {
+      "label": "Phishing / Social Engineering",
+      "group": "review",
+      "scoring": "likelihood",
+      "labels": {
+        "assets": "Affected Groups / Systems",
+        "assetHint": "Group, department or system"
+      },
+      "sections": [
+        {
+          "key": "exec",
+          "title": "Executive Summary",
+          "html": "With [CLIENT NAME]'s approval, [COMPANY NAME] carried out a simulated phishing campaign against [CLIENT NAME] during the assessment window. The aim was to measure how employees respond to a realistic phishing email, and how well technical and organisational defences detect, block and report it.\n\nOf [insert number] recipients, [insert number] ([insert %]) clicked the link and [insert number] ([insert %]) submitted credentials on the simulated sign-in page, while [insert number] ([insert %]) reported the email. [insert key observation, e.g., The first report reached the IT department after 14 minutes, but no action was taken to warn other employees.]\n\nResults are reported at group level only; no individual employees are named in this report.",
+          "info": "What is important to include here:\n• Written for management: what was reviewed, the overall verdict, and the few themes that matter most.\n• Business consequences in plain language, and what the most important recommendations would achieve.\n\nWhat is NOT important here:\n• Technical detail, tool output or individual configuration values: those belong in the findings.",
+          "severityTable": true
+        },
+        {
+          "key": "confidentiality",
+          "title": "Confidentiality Notice",
+          "html": "This report contains confidential information about [CLIENT NAME]'s security and the results of a test involving its employees. It should be shared only with people who need it to act on the findings. Individual results have been anonymised; raw campaign data is handled according to the agreed rules of engagement and deleted [insert retention, e.g., 30 days after delivery of this report]."
+        },
+        {
+          "key": "disclaimer",
+          "title": "Disclaimer",
+          "html": "The results reflect one campaign with one scenario at one point in time. Click and report rates vary with the pretext, timing and target group, and should not be read as a measure of individual employees. The purpose is to improve processes and awareness, not to assign blame."
+        },
+        {
+          "key": "objectives",
+          "title": "Objectives",
+          "html": "The campaign was designed to:\n\n• measure how many employees click and submit credentials in response to a realistic phishing email;\n• measure how many employees report the email, and how quickly;\n• test whether technical controls (email filtering, link protection, MFA) stop or limit the attack;\n• provide a baseline for [CLIENT NAME]'s security awareness work.",
+          "info": "What is important to include here:\n• Define the \"Why\": Explicitly frame why this project was triggered (e.g., standard annual hygiene verification, post-incident assurance loop, pre-launch verification of a new infrastructure build).\n• Link to Business Drivers: Explicitly note compliance regulations or corporate parameters guiding the engagement boundaries (e.g., ISO/IEC 27001 tracking, SOC 2 alignment, internal trust requirements).\n\nWhat is NOT important here:\n• Do not discuss testing logistics, specific methodologies, tool lists, or vulnerability findings. Keep this block strictly focused on the strategic motivation behind the report's creation."
+        },
+        {
+          "key": "scope",
+          "title": "Scope and Rules of Engagement",
+          "html": "<strong>Target group:</strong> [insert, e.g., all 240 employees at the head office, or the finance department]\n<strong>Campaign period:</strong> [insert dates and sending times]\n<strong>Approved by:</strong> [insert name and role at [CLIENT NAME]]\n<strong>Allowed techniques:</strong> [insert, e.g., email only; no phone calls, physical visits or malware]\n<strong>Data handling:</strong> submitted passwords were not stored; only the fact that a submission occurred was logged.\n<strong>Exclusions:</strong> [insert, e.g., employees on leave]",
+          "info": "What is important to include here:\n• Exactly what was reviewed and how (systems, versions, documents, interviews, access level).\n• What was explicitly out of scope.\n\nWhat is NOT important here:\n• Findings or recommendations."
+        },
+        {
+          "key": "scenario",
+          "title": "Campaign Scenario",
+          "html": "<strong>Pretext:</strong> [insert, e.g., a notification that a shared document requires the employee to sign in again]\n<strong>Sender:</strong> [insert the sender name and look-alike domain used]\n<strong>Landing page:</strong> [insert description, e.g., a copy of the Microsoft 365 sign-in page]\n<strong>Difficulty:</strong> [insert, e.g., medium: generic branding, minor language errors, look-alike domain]\n\n[insert redacted screenshots of the email and the landing page]",
+          "info": "What is important to include here:\n• Enough detail for readers to recognise the scenario, with redacted screenshots of the email and landing page.\n\nWhat is NOT important here:\n• Infrastructure details of the phishing platform."
+        },
+        {
+          "key": "results",
+          "title": "Campaign Results",
+          "html": "<table><thead><tr><th>Measure</th><th>Number</th><th>Share</th></tr></thead><tbody><tr><td>Emails sent</td><td>[insert]</td><td>100%</td></tr><tr><td>Delivered (not stopped by filtering)</td><td>[insert]</td><td>[insert %]</td></tr><tr><td>Clicked the link</td><td>[insert]</td><td>[insert %]</td></tr><tr><td>Submitted credentials</td><td>[insert]</td><td>[insert %]</td></tr><tr><td>Reported the email</td><td>[insert]</td><td>[insert %]</td></tr></tbody></table>\n\n<strong>Time to first click:</strong> [insert]\n<strong>Time to first report:</strong> [insert]\n\n[insert results per department or group, at group level only]"
+        },
+        {
+          "component": "summary",
+          "title": "Findings Summary"
+        },
+        {
+          "component": "findings",
+          "title": "Detailed Findings"
+        },
+        {
+          "key": "recommendations",
+          "title": "Awareness and Technical Recommendations",
+          "html": "<strong>Awareness</strong>\n• Run short, regular training based on the techniques used in this campaign, focusing on [insert, e.g., how to check sign-in pages and senders].\n• Make reporting easy and appreciated: a report button in the mail client and quick feedback to the person who reported.\n• Repeat the simulation [insert frequency, e.g., twice a year] with varying scenarios to measure progress.\n\n<strong>Technical</strong>\n• Require phishing-resistant MFA for email and remote access.\n• [insert based on the findings, e.g., block newly registered domains, enable link rewriting, enforce DMARC with p=reject]"
+        },
+        {
+          "key": "conclusion",
+          "title": "Conclusion",
+          "html": "The campaign shows [insert overall verdict]. Phishing remains one of the most common ways into an organisation, and no awareness programme will stop every click. The strongest protection combines employees who recognise and report suspicious emails with technical controls that limit what an attacker can do with a click or a stolen password. [COMPANY NAME] recommends [insert next step].",
+          "info": "What is important to include here:\n• Strategic Path Forward: Frame security as a continuous lifecycle rather than a single project milestone. Emphasize programmatic changes (e.g., developer training, configuration pipelines) over quick patches.\n• Professional Closing: Conclude the document with a clean, formal advisory sign-off statement.\n\nWhat is NOT important here:\n• Never introduce entirely new vulnerability profiles, metrics, or technical bugs in the conclusion block. Keep the summary high-level and forward-looking."
+        }
+      ]
+    },
+    "configuration-review": {
+      "label": "Configuration Review",
+      "group": "review",
+      "scoring": "likelihood",
+      "labels": {
+        "assets": "Affected Systems / Settings",
+        "assetHint": "System or setting"
+      },
+      "sections": [
+        {
+          "key": "exec",
+          "title": "Executive Summary",
+          "html": "[COMPANY NAME] reviewed the security configuration of [CLIENT NAME]'s [insert systems, e.g., Microsoft 365 tenant and perimeter firewalls] during the assessment window. The configuration was compared with [insert baseline, e.g., the CIS Microsoft 365 Foundations Benchmark and vendor hardening guidance], focusing on the settings with the greatest effect on security.\n\nOverall, [insert overall assessment, e.g., the core identity settings are well configured, but legacy authentication is still allowed and audit logging is incomplete]. The table below summarises the findings by severity.",
+          "info": "What is important to include here:\n• Written for management: what was reviewed, the overall verdict, and the few themes that matter most.\n• Business consequences in plain language, and what the most important recommendations would achieve.\n\nWhat is NOT important here:\n• Technical detail, tool output or individual configuration values: those belong in the findings.",
+          "severityTable": true
+        },
+        {
+          "key": "confidentiality",
+          "title": "Confidentiality Notice",
+          "html": "This report contains confidential details of how [CLIENT NAME]'s systems are configured, which could help an attacker. It should be shared only with people who need it to act on the findings."
+        },
+        {
+          "key": "disclaimer",
+          "title": "Disclaimer",
+          "html": "The review is based on configuration data viewed or exported at the time of the assessment, using read-only access. It shows how systems are configured, not how they behave under attack, and settings applied in other ways (or changed after the review) may not be reflected. Benchmark recommendations were assessed for relevance to [CLIENT NAME]'s environment: not every deviation from a benchmark is a vulnerability."
+        },
+        {
+          "key": "purpose",
+          "title": "Purpose",
+          "html": "The purpose of the review is to verify that [insert systems] are configured securely and consistently with [insert baseline], and to identify the setting changes that would reduce [CLIENT NAME]'s attack surface the most. [insert driver, e.g., The review was requested after the migration to Microsoft 365.]",
+          "info": "What is important to include here:\n• Define the \"Why\": Explicitly frame why this project was triggered (e.g., standard annual hygiene verification, post-incident assurance loop, pre-launch verification of a new infrastructure build).\n• Link to Business Drivers: Explicitly note compliance regulations or corporate parameters guiding the engagement boundaries (e.g., ISO/IEC 27001 tracking, SOC 2 alignment, internal trust requirements).\n\nWhat is NOT important here:\n• Do not discuss testing logistics, specific methodologies, tool lists, or vulnerability findings. Keep this block strictly focused on the strategic motivation behind the report's creation."
+        },
+        {
+          "key": "scope",
+          "title": "Scope and Baseline",
+          "html": "<strong>Systems reviewed:</strong> [insert, e.g., the Microsoft 365 / Entra ID tenant, two firewalls, twelve Windows servers]\n<strong>Baseline:</strong> [insert benchmark and version, e.g., CIS Benchmark for Windows Server 2022, Level 1]\n<strong>Access:</strong> [insert, e.g., read-only Global Reader role, and configuration exports provided by [CLIENT NAME]]\n<strong>Out of scope:</strong> [insert exclusions]",
+          "info": "What is important to include here:\n• Exactly what was reviewed and how (systems, versions, documents, interviews, access level).\n• What was explicitly out of scope.\n\nWhat is NOT important here:\n• Findings or recommendations."
+        },
+        {
+          "key": "method",
+          "title": "Review Approach",
+          "html": "Configuration data was collected through [insert method, e.g., read-only administrative access and exported configuration files] and checked against the baseline using [insert tools, e.g., CIS-CAT, ScubaGear, manual review]. Each deviation was assessed in the context of [CLIENT NAME]'s environment: compensating controls and business requirements were taken into account, and settings without a security effect were not reported.\n\n<h3>Risk Rating</h3>\nEach finding is rated by the impact of the weak setting and the likelihood that it is abused.",
+          "scoringTable": true
+        },
+        {
+          "key": "compliance",
+          "title": "Baseline Compliance Overview",
+          "html": "<table><thead><tr><th>System</th><th>Baseline</th><th>Controls checked</th><th>Compliant</th><th>Deviations</th></tr></thead><tbody><tr><td>[insert system]</td><td>[insert baseline]</td><td>[insert]</td><td>[insert]</td><td>[insert]</td></tr><tr><td>[insert system]</td><td>[insert baseline]</td><td>[insert]</td><td>[insert]</td><td>[insert]</td></tr><tr><td>[insert system]</td><td>[insert baseline]</td><td>[insert]</td><td>[insert]</td><td>[insert]</td></tr></tbody></table>\n\n[insert short commentary on where the deviations are concentrated]"
+        },
+        {
+          "component": "summary",
+          "title": "Findings Summary"
+        },
+        {
+          "component": "findings",
+          "title": "Detailed Findings"
+        },
+        {
+          "key": "conclusion",
+          "title": "Conclusion",
+          "html": "The review shows [insert overall verdict]. Configuration tends to drift as systems change, so [COMPANY NAME] recommends that [CLIENT NAME] [insert recommendation, e.g., keeps the baseline as a documented standard, checks it automatically after changes, and reviews deviations every quarter].",
+          "info": "What is important to include here:\n• Strategic Path Forward: Frame security as a continuous lifecycle rather than a single project milestone. Emphasize programmatic changes (e.g., developer training, configuration pipelines) over quick patches.\n• Professional Closing: Conclude the document with a clean, formal advisory sign-off statement.\n\nWhat is NOT important here:\n• Never introduce entirely new vulnerability profiles, metrics, or technical bugs in the conclusion block. Keep the summary high-level and forward-looking."
+        }
+      ]
     }
   }
 }

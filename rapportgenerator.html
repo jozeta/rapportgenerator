@@ -178,6 +178,11 @@
         .app-toast.visible { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
         .app-toast .btn-link { color: #8ec5ff; font-weight: 600; text-decoration: none; }
         .icon-btn:disabled { opacity: 0.35; cursor: default; background: none; border-color: transparent; }
+        /* tables in section text (e.g. a template's control-area or results table) */
+        .editable-section table { border-collapse: collapse; width: 100%; margin: 6px 0 4px; font-size: 0.85rem; }
+        .editable-section th, .editable-section td { border: 1px solid #dee2e6; padding: 5px 8px; vertical-align: top; text-align: left; }
+        .editable-section thead th { background: #f8f9fa; font-weight: 600; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .editable-section tr { break-inside: avoid; page-break-inside: avoid; }
         .findings-toolbar { display: flex; justify-content: flex-end; margin: 0 0 6px; }
         .retest-original { font-size: 0.8rem; margin-top: 6px; }
         .retest-totals { font-size: 0.85rem; margin: 6px 0 8px; }
@@ -530,11 +535,11 @@
 
             <hr>
 
-            <!-- Assessment Type: picks which report-defaults.json template populates the boilerplate sections -->
+            <!-- Report Template: picks the report-defaults.json template that lays out the report -->
             <div class="mb-3">
-                <label class="form-label small fw-bold text-secondary text-uppercase mb-1" style="font-size:0.65rem;">
-                    Assessment Type
-                    <span class="info-tip" data-tooltip="Swaps the default boilerplate text (Executive Summary, Purpose, Scope, etc.) to match the selected assessment type. Section headlines and order never change.">ⓘ</span>
+                <label for="input-assessment-type" class="form-label small fw-bold text-secondary text-uppercase mb-1" style="font-size:0.65rem;">
+                    Report Template
+                    <span class="info-tip" data-tooltip="Picks the kind of report: its sections, headings, order, default text and rating scale (e.g. a code review rates Likelihood instead of Exploitability). Switching keeps your findings and any sections you added, and can be undone.">ⓘ</span>
                 </label>
                 <select id="input-assessment-type" class="form-select form-select-sm" onchange="onAssessmentTypeChange(this)"></select>
             </div>
@@ -1322,38 +1327,248 @@
         });
     }
 
-    // Default boilerplate text for the narrative report sections (Executive Summary, Purpose,
-    // etc.) lives in report-defaults.json rather than hardcoded in this file, so it can be edited
-    // without touching app logic. The file holds one set of section defaults per assessment type
-    // (report-defaults.json's `templates` map); the Assessment Type dropdown above Target Profiles
-    // switches which set is active. Section headlines and order are fixed in the HTML — only the
-    // text inside each section id changes between templates. Values are HTML (may contain
-    // <span class="token-*">, <br>, or a nested <h3>, but never a whole table/widget — those stay in
-    // this file). Applied before convertLiteralTokensToSpans() runs on init, and again per-element
-    // here, so literal [CLIENT NAME]-style placeholders in the loaded text still convert to live tokens.
-    let reportTemplates = {};
+    // ---- Report templates --------------------------------------------------------------------------
+    // report-defaults.json defines one template per kind of engagement (pentests, code review,
+    // general security review, …). Each template lists its sections in order — heading, default
+    // text (HTML), an optional writing tip — plus two building blocks every report has: the
+    // Findings Summary (risk matrix) and the Detailed Findings list. A template also picks a rating
+    // scale (scoringModels: "Exploitability" for pentests, "Likelihood" for reviews) and a few
+    // labels (e.g. "Affected Files / Components" instead of "Affected Assets").
+    //
+    // The Table of Contents and Assessment Metadata blocks are fixed and never part of a template.
+    // Blocks built from a template carry data-template-section, so switching templates replaces
+    // exactly those and keeps everything the user added (sections, extra findings sections, a retest).
+    // Reports saved before templates had structure are recognised by their known section ids.
+    //
+    // Format 1 of report-defaults.json (`sections` = { elementId: html }) is still accepted and laid
+    // out in the classic pentest structure, so a firm's own customised file keeps working.
+    let reportTemplates = {};     // key -> normalised template
+    let scoringModels = {};       // name -> { impactLabel, likelihoodLabel, tableHeaders, rows, legend }
+    let templateGroups = {};      // group key -> label (dropdown optgroups)
     let currentAssessmentType = '';
+
+    const DEFAULT_TEMPLATE_LABELS = { assets: 'Affected Assets', assetHint: 'Host, IP or URL' };
+    const TEMPLATE_BLOCK_IDS = { exec: 'block-exec-summary', scope: 'block-scope', conclusion: 'block-conclusion' };
+    const LEGACY_TEMPLATE_SECTION_IDS = ['section-exec', 'section-confidentiality', 'section-disclaimer', 'section-purpose',
+                                         'section-summary', 'section-scope', 'section-method', 'section-conclusion'];
+    const CLASSIC_LAYOUT = [
+        ['exec', 'Executive Summary', { severityTable: true }], ['confidentiality', 'Confidentiality Notice'],
+        ['disclaimer', 'Disclaimer'], ['purpose', 'Purpose'], ['summary', 'Summary'], ['scope', 'Engagement and Scope'],
+        ['method', 'Methodology', { scoringTable: true }], '@summary', '@findings', ['conclusion', 'Conclusion'],
+    ];
+
+    function blockIdForSection(key) {
+        return TEMPLATE_BLOCK_IDS[key] || `block-sec-${key}`;
+    }
+
+    function currentTemplateLabels() {
+        const tpl = reportTemplates[currentAssessmentType];
+        return { ...DEFAULT_TEMPLATE_LABELS, ...((tpl && tpl.labels) || {}) };
+    }
+
+    // The rating scale that ships inside this file (the Methodology table of the built-in report),
+    // used for format-1 template files, which don't carry one.
+    function captureBuiltInScoringModel() {
+        const method = document.getElementById('section-method');
+        const table = method && method.closest('.report-block').querySelector('table');
+        const legend = document.getElementById('section-matrix-legend');
+        if (!table) return;
+        scoringModels.builtin = {
+            impactLabel: 'Impact', likelihoodLabel: 'Exploitability',
+            tableHeaders: [...table.querySelectorAll('thead th')].map(th => th.textContent.trim()),
+            rows: [...table.querySelectorAll('tbody tr')].map(tr => [...tr.querySelectorAll('td[contenteditable]')].map(td => td.innerHTML.trim())),
+            legend: legend ? legend.innerHTML : '',
+        };
+    }
+
+    function normaliseReportDefaults(defaults) {
+        const templates = {};
+        const isText = v => typeof v === 'string';
+        if (defaults.formatVersion >= 2) {
+            Object.assign(scoringModels, defaults.scoringModels || {});
+            templateGroups = defaults.groups || {};
+            for (const [key, t] of Object.entries(defaults.templates || {})) {
+                if (!t || !Array.isArray(t.sections)) continue;
+                templates[key] = {
+                    label: isText(t.label) ? t.label : key,
+                    group: isText(t.group) ? t.group : '',
+                    scoring: scoringModels[t.scoring] ? t.scoring : Object.keys(scoringModels)[0],
+                    labels: { ...DEFAULT_TEMPLATE_LABELS, ...(t.labels || {}) },
+                    legend: isText(t.legend) ? t.legend : null,
+                    sections: t.sections.filter(s => s && (s.component === 'summary' || s.component === 'findings' || (isText(s.key) && /^[a-z0-9-]+$/.test(s.key)))),
+                };
+            }
+        } else {
+            for (const [key, t] of Object.entries(defaults.templates || {})) {
+                const html = (t && t.sections) || {};
+                templates[key] = {
+                    label: isText(t.label) ? t.label : key, group: '', scoring: 'builtin',
+                    labels: { ...DEFAULT_TEMPLATE_LABELS }, legend: isText(html['section-matrix-legend']) ? html['section-matrix-legend'] : null,
+                    sections: CLASSIC_LAYOUT.map(entry => {
+                        if (entry === '@summary') return { component: 'summary', title: 'Findings Summary' };
+                        if (entry === '@findings') return { component: 'findings', title: 'Detailed Findings' };
+                        const [k, title, extra] = entry;
+                        return { key: k, title, html: html['section-' + k] || '', ...(extra || {}) };
+                    }),
+                };
+            }
+        }
+        return templates;
+    }
 
     function populateAssessmentTypeSelect() {
         const select = document.getElementById('input-assessment-type');
-        select.innerHTML = Object.entries(reportTemplates)
-            .map(([key, tpl]) => `<option value="${escapeHtml(key)}">${escapeHtml(tpl.label || key)}</option>`)
-            .join('');
+        select.textContent = '';
+        const groups = new Map();
+        for (const [key, tpl] of Object.entries(reportTemplates)) {
+            const groupKey = tpl.group || '';
+            if (!groups.has(groupKey)) {
+                const parent = groupKey && templateGroups[groupKey] ? Object.assign(document.createElement('optgroup'), { label: templateGroups[groupKey] }) : select;
+                if (parent !== select) select.appendChild(parent);
+                groups.set(groupKey, parent);
+            }
+            groups.get(groupKey).appendChild(Object.assign(document.createElement('option'), { value: key, textContent: tpl.label }));
+        }
         select.value = currentAssessmentType;
     }
 
-    // Fills every section id from the given template, whether or not it already has content —
-    // callers decide when that's appropriate (initial load vs. a user-initiated type switch).
-    function applyAssessmentTemplate(key) {
-        const tpl = reportTemplates[key];
-        if (!tpl) return;
-        for (const [id, html] of Object.entries(tpl.sections)) {
-            const el = document.getElementById(id);
-            if (!el) continue;
-            el.innerHTML = html;
-            convertLiteralTokensToSpans(el);
+    const SECTION_CONTROLS_HTML = `<div class="block-controls no-print">
+                <div class="drag-handle" draggable="true"><i class="bi bi-grip-vertical"></i></div>
+                <button class="block-control-btn" onclick="moveSectionUp(this)" data-tooltip="Move section up"><i class="bi bi-chevron-up"></i></button>
+                <button class="block-control-btn" onclick="moveSectionDown(this)" data-tooltip="Move section down"><i class="bi bi-chevron-down"></i></button>
+                <button class="block-control-btn" onclick="insertPageBreakAfter(this)" data-tooltip="Insert page break below this block"><i class="bi bi-scissors"></i></button>
+                <button class="block-control-btn control-danger" onclick="removeSection(this)" data-tooltip="Delete this section"><i class="bi bi-trash"></i></button>
+            </div>`;
+
+    function newTemplateBlock(id, templateKey) {
+        const block = document.createElement('div');
+        block.className = 'report-block';
+        block.id = id;
+        block.dataset.templateSection = templateKey;
+        block.setAttribute('draggable', 'false');
+        return block;
+    }
+
+    function headingRow(title, info, extraClass = '') {
+        const row = document.createElement('div');
+        row.className = 'd-flex justify-content-between align-items-center';
+        const h2 = document.createElement('h2');
+        h2.className = `editable-section section-edit flex-grow-1 ${extraClass}`.trim();
+        h2.contentEditable = 'true';
+        h2.textContent = title;
+        row.appendChild(h2);
+        if (info) {
+            const tip = document.createElement('span');
+            tip.className = 'info-tip no-print';
+            tip.textContent = 'ⓘ';
+            tip.setAttribute('data-tooltip', info);
+            row.appendChild(tip);
         }
+        return row;
+    }
+
+    function scoringTableElement(model) {
+        const wrap = document.createElement('div');
+        wrap.className = 'table-responsive mt-3';
+        const head = model.tableHeaders.map((h, i) => `<th style="width: ${i === 0 ? 10 : 45}%;">${escapeHtml(h)}</th>`).join('');
+        const body = model.rows.map((r, i) => `<tr><td class="fw-bold text-center bg-light">${5 - i}</td>`
+            + r.map(cell => `<td contenteditable="true" class="p-2 bg-white rounded-0">${sanitizeHtml(cell)}</td>`).join('') + '</tr>').join('');
+        wrap.innerHTML = `<table class="table table-sm table-bordered border-light-subtle align-middle" style="font-size: 0.8rem;">
+            <thead class="table-light fw-bold text-uppercase" style="font-size: 0.65rem; letter-spacing: 0.5px;"><tr>${head}</tr></thead>
+            <tbody>${body}</tbody></table>`;
+        return wrap;
+    }
+
+    function buildTemplateBlock(tpl, s) {
+        const model = scoringModels[tpl.scoring] || scoringModels.builtin;
+        if (s.component === 'summary') {
+            const block = newTemplateBlock('block-summary', '@summary');
+            block.innerHTML = SECTION_CONTROLS_HTML;
+            block.appendChild(headingRow(s.title || 'Findings Summary', s.info));
+            block.insertAdjacentHTML('beforeend', `<div id="summaryList" class="summary-list mt-3"></div>
+                <div class="row align-items-center mt-4">
+                    <div class="col-md-6"><div class="matrix-wrapper">
+                        <div class="matrix-axis-y">${escapeHtml(model ? model.impactLabel : 'Impact')} (1-5) →</div>
+                        <table class="risk-matrix" id="matrix"></table>
+                        <div class="matrix-axis-x">${escapeHtml(model ? model.likelihoodLabel : 'Exploitability')} (1-5) →</div>
+                    </div></div>
+                    <div class="col-md-6"><div class="editable-section section-edit matrix-legend" contenteditable="true" id="section-matrix-legend"></div></div>
+                </div>`);
+            block.querySelector('#section-matrix-legend').innerHTML = sanitizeHtml(tpl.legend || (model ? model.legend : ''));
+            return block;
+        }
+        if (s.component === 'findings') {
+            const block = newTemplateBlock('block-details', '@findings');
+            block.classList.add('details-block');
+            block.innerHTML = SECTION_CONTROLS_HTML;
+            block.appendChild(headingRow(s.title || 'Detailed Findings', s.info, 'details-title'));
+            block.insertAdjacentHTML('beforeend', '<div id="findingsContainer" class="findings-container" style="position: relative; min-height: 50px; padding-left: 20px;"></div>');
+            return block;
+        }
+        const block = newTemplateBlock(blockIdForSection(s.key), s.key);
+        block.innerHTML = SECTION_CONTROLS_HTML;
+        block.appendChild(headingRow(s.title || '', s.info));
+        const body = document.createElement('div');
+        body.className = 'editable-section section-edit' + (s.severityTable ? ' mb-3' : '');
+        body.contentEditable = 'true';
+        body.id = `section-${s.key}`;
+        body.innerHTML = sanitizeHtml(typeof s.html === 'string' ? s.html : '');
+        block.appendChild(body);
+        if (s.severityTable) block.insertAdjacentHTML('beforeend', '<div id="execSeverityTableContainer" class="mb-2"></div>');
+        if (s.scoringTable && model) block.appendChild(scoringTableElement(model));
+        return block;
+    }
+
+    // Built from a template, now or by an earlier version of this app (recognised by its section ids).
+    function isTemplateBlock(block) {
+        if (block.dataset.templateSection) return true;
+        if (['block-exec-summary', 'block-scope', 'block-summary', 'block-details', 'block-conclusion'].includes(block.id)) return true;
+        return !!block.querySelector(LEGACY_TEMPLATE_SECTION_IDS.map(id => '#' + id).join(', '));
+    }
+
+    // Lays the report out according to template `key`. Template blocks are replaced; the fixed
+    // blocks (Table of Contents, metadata) stay where they are; everything the user added is kept:
+    // extra Detailed Findings sections after the findings list, a Retest Summary after the Findings
+    // Summary, other sections before the Conclusion. Findings are never touched.
+    function buildReportFromTemplate(key) {
+        const tpl = reportTemplates[key];
+        if (!tpl) return false;
+        const container = document.getElementById('reportBlocksContainer');
+        const keptDetails = [], keptOther = [];
+        let retestBlock = null, previousRemoved = false;
+        for (const block of [...container.children]) {
+            if (!block.classList.contains('report-block') || block.id === 'tocBlock' || block.id === 'block-metadata') { previousRemoved = false; continue; }
+            if (isTemplateBlock(block)) { block.remove(); previousRemoved = true; continue; }
+            if (block.classList.contains('page-break-block') && previousRemoved) { block.remove(); continue; } // its anchor is gone
+            block.remove();
+            previousRemoved = false;
+            if (block.id === 'block-retest') retestBlock = block;
+            else if (block.classList.contains('details-block')) keptDetails.push(block);
+            else keptOther.push(block);
+        }
+        const anchor = document.getElementById('block-metadata');
+        const fresh = tpl.sections.map(s => buildTemplateBlock(tpl, s));
+        let after = anchor;
+        for (const block of fresh) {
+            if (after && after.parentNode === container) after.after(block); else container.prepend(block);
+            after = block;
+        }
+        const findingsBlock = document.getElementById('block-details');
+        keptDetails.reverse().forEach(b => (findingsBlock ? findingsBlock.after(b) : container.appendChild(b)));
+        const conclusion = document.getElementById('block-conclusion');
+        keptOther.forEach(b => (conclusion ? container.insertBefore(b, conclusion) : container.appendChild(b)));
+        if (retestBlock) {
+            const summary = document.getElementById('block-summary');
+            if (summary) summary.after(retestBlock); else container.appendChild(retestBlock);
+        }
+        fresh.forEach(b => convertLiteralTokensToSpans(b));
         currentAssessmentType = key;
+        const select = document.getElementById('input-assessment-type');
+        if (select) select.value = key;
+        createMatrix();
+        setupDragAndDrop();
+        renderAll();
+        return true;
     }
 
     // Used by importReportJson to restore which type was selected without replaying the
@@ -1367,17 +1582,17 @@
 
     async function onAssessmentTypeChange(select) {
         const nextKey = select.value;
-        if (nextKey === currentAssessmentType) return;
-        const ok = await showConfirm("Switching assessment type replaces the Executive Summary, Purpose, Scope, and other boilerplate section text below with this type's defaults. Findings and per-report details (client name, dates, etc.) are unaffected. Continue?");
-        if (!ok) {
-            select.value = currentAssessmentType;
-            return;
+        const tpl = reportTemplates[nextKey];
+        if (nextKey === currentAssessmentType || !tpl) return;
+        // An untouched report can switch freely; otherwise say what happens first.
+        if (hasUnsavedChanges || findings.length > 0) {
+            const ok = await showConfirm(`Switch to the "${tpl.label}" template?\n\nThe report's sections (headings, order and default text) are replaced with the ${tpl.label} layout. Your findings are kept, and so are sections you added yourself. You can undo this.`);
+            if (!ok) { select.value = currentAssessmentType; return; }
         }
-        recordUndoPoint('Switch assessment type');
-        applyAssessmentTemplate(nextKey);
+        recordUndoPoint('Switch report template');
+        buildReportFromTemplate(nextKey);
         markUnsaved();
-        renderChecklist();
-        showToast(`Section text switched to "${(reportTemplates[nextKey] || {}).label || nextKey}".`, { undo: true });
+        showToast(`Switched to the "${tpl.label}" template.`, { undo: true });
     }
 
     async function loadReportDefaults() {
@@ -1387,22 +1602,19 @@
             if (!res.ok) throw new Error('HTTP ' + res.status);
             defaults = await res.json();
         } catch (err) {
-            showExternalFileWarning('report-defaults.json', "Couldn't load the default report text (report-defaults.json). If you opened this file directly (file://), browsers block that — serve this folder over a local web server instead, e.g. `python3 -m http.server`, then reload. The report's boilerplate sections will start blank; you can still type your own text into them.");
+            showExternalFileWarning('report-defaults.json', "Couldn't load the report templates (report-defaults.json). If you opened this file directly (file://), browsers block that — serve this folder over a local web server instead, e.g. `python3 -m http.server`, then reload. The report starts with the built-in pentest layout and blank sections; you can still type your own text into them.");
             return;
         }
-        reportTemplates = defaults.templates || {};
+        reportTemplates = normaliseReportDefaults(defaults);
         currentAssessmentType = (defaults.defaultTemplate && reportTemplates[defaults.defaultTemplate])
             ? defaults.defaultTemplate
             : Object.keys(reportTemplates)[0];
         populateAssessmentTypeSelect();
         if (!currentAssessmentType) return;
-        const tpl = reportTemplates[currentAssessmentType];
-        for (const [id, html] of Object.entries(tpl.sections)) {
-            const el = document.getElementById(id);
-            if (!el || el.innerHTML.trim() !== '') continue; // don't clobber an already-imported/edited report
-            el.innerHTML = html;
-            convertLiteralTokensToSpans(el);
-        }
+        // Lay out the starting report from the default template, unless something has already put
+        // content into it (the built-in skeleton's sections all start empty).
+        const untouched = LEGACY_TEMPLATE_SECTION_IDS.every(id => !document.getElementById(id) || document.getElementById(id).innerHTML.trim() === '');
+        if (untouched) buildReportFromTemplate(currentAssessmentType);
     }
 
     let configuredLogoPath = '';
@@ -1716,6 +1928,7 @@
     function init() {
         const summaryBlock = document.getElementById('block-summary');
         if (summaryBlock) PRISTINE_SUMMARY_BLOCK_HTML = summaryBlock.outerHTML;
+        captureBuiltInScoringModel();
         setupStateLockListeners();
         setupDynamicTokenParsers();
         createMatrix();
@@ -2022,7 +2235,7 @@
         tags: new Set(['div', 'h1', 'h2', 'h3', 'h4', 'p', 'span', 'strong', 'small', 'br', 'i', 'a', 'button', 'input', 'select', 'option', 'label',
                        'table', 'thead', 'tbody', 'tr', 'th', 'td']),
         attributes: {
-            '*': ['class', 'id', 'style', 'contenteditable', 'draggable', 'data-tooltip', 'data-placeholder', 'title', 'aria-label', 'role', 'tabindex'],
+            '*': ['class', 'id', 'style', 'contenteditable', 'draggable', 'data-tooltip', 'data-placeholder', 'data-template-section', 'title', 'aria-label', 'role', 'tabindex'],
             input: ['type', 'value', 'checked', 'placeholder', 'disabled'],
             option: ['value', 'selected'], label: ['for'], a: ['href'], button: ['type'], td: ['colspan', 'rowspan'], th: ['colspan', 'rowspan'],
         },
@@ -4050,7 +4263,7 @@
             const assetsDataList = Array.isArray(f.assets) ? f.assets : [];
             let assetsHtmlString = "";
             
-            assetsHtmlString = `<div class="mt-2${assetsDataList.length === 0 ? ' print-fallback-hidden' : ''}"><strong>Affected Assets:</strong> `;
+            assetsHtmlString = `<div class="mt-2${assetsDataList.length === 0 ? ' print-fallback-hidden' : ''}"><strong>${escapeHtml(currentTemplateLabels().assets)}:</strong> `;
             // UI-002: handled by the delegated listeners in setupAssetEditing()
             if (assetsDataList.length > 0) {
                 assetsHtmlString += assetsDataList.map((asset, aIdx) => `
@@ -4062,7 +4275,7 @@
                 assetsHtmlString += `<span class="text-muted small print-fallback-hidden me-2">No specific target assets linked.</span>`;
             }
             assetsHtmlString += (assetEntry && assetEntry.finding === f)
-                ? `<input type="text" class="asset-entry-input form-control form-control-sm d-inline-block no-print" aria-label="Add affected asset" placeholder="Host, IP or URL — Enter to add, or paste a list">`
+                ? `<input type="text" class="asset-entry-input form-control form-control-sm d-inline-block no-print" aria-label="Add affected asset" placeholder="${escapeHtml(currentTemplateLabels().assetHint)} — Enter to add, or paste a list">`
                 : `<button type="button" class="btn-add-asset-inline no-print" data-asset-add aria-label="Add affected assets" title="Add affected assets">+</button>`;
             assetsHtmlString += `</div>`;
 
