@@ -1409,12 +1409,44 @@ export const cases = [
         } }],
     },
     {
-        id: 'RPT-002', title: 'A report switched to Swedish prints only Swedish labels; findings and own sections kept; undo; export/import', tags: ['report-language'],
+        id: 'RPT-002', title: 'Switching report language clears the report and reloads it in Swedish (profile kept); Swedish labels only; export/import', tags: ['report-language'],
         steps: [
             { run: async () => { localStorage.setItem('rapportgen:uiLanguage', 'en'); localStorage.setItem('rapportgen:reportLanguage', 'en'); } },
             { run: async () => {
-                const { assert, answerModal, cards, sleep, captureDownload } = __t;
+                const { assert, answerModal, sleep } = __t;
                 assert(reportLanguage === 'en' && document.getElementById('reportLanguageSelect').value === 'en', 'should start English');
+                const client = document.getElementById('input-client-name');
+                client.value = 'Acme Corp'; client.dispatchEvent(new Event('input', { bubbles: true }));
+                loadTemplate(0); await addFinding();
+                document.getElementById('newHeadline').value = 'Appendix X'; addNewSection();
+                let reloads = 0;
+                reloadPage = () => { reloads++; };   // the app's reload hook; a real reload would end this step
+                const select = document.getElementById('reportLanguageSelect');
+
+                // Cancel: nothing changes.
+                select.value = 'sv';
+                let switching = onReportLanguageChange(select);
+                await answerModal(false); await switching;
+                assert(reloads === 0 && select.value === 'en' && reportLanguage === 'en' && findings.length === 1, 'cancel should leave the report alone');
+
+                // Confirm: language remembered, draft cleared, page reloaded.
+                select.value = 'sv';
+                switching = onReportLanguageChange(select);
+                const question = await answerModal(true); await switching; await sleep(50);
+                assert(question && question.includes('Swedish') && question.includes('clears'), 'should warn that the report is cleared: ' + question);
+                assert(reloads === 1, 'page not reloaded');
+                assert(localStorage.getItem('rapportgen:reportLanguage') === 'sv', 'new language not remembered');
+                assert(await loadAutosaveSnapshot() === null && !hasUnsavedChanges, 'autosaved draft not cleared');
+            } },
+            { run: async () => {
+                const { assert, answerModal, cards, sleep, captureDownload } = __t;
+                assert(reportLanguage === 'sv' && document.getElementById('reportLanguageSelect').value === 'sv', 'reloaded report is not Swedish');
+                assert(findings.length === 0, 'findings not cleared');
+                assert(![...document.querySelectorAll('#reportBlocksContainer h2')].some(h => h.innerText === 'Appendix X'), 'own section not cleared');
+                assert(document.getElementById('input-client-name').value === 'Acme Corp', 'profile details should be kept');
+                assert(openModalStack.length === 0, 'a draft-restore prompt appeared after the switch');
+                assert(document.querySelector('.sidebar h4').innerText.includes('Reporting Tools'), 'interface changed language too');
+
                 loadTemplate(0); document.getElementById('vAssets').value = 'web01'; await addFinding();
                 loadTemplate(3); await addFinding();
                 document.getElementById('vTitle').value = 'Unscored'; await addFinding();
@@ -1424,20 +1456,11 @@ export const cases = [
                 findings[0].cvssVector = 'CVSS:3.1/AV:N'; findings[0].cvssScore = '9.8'; findings[0].retestDate = '2026-11-08';
                 toggleAllActionPlanners();
                 document.getElementById('toggleTOC').click();
-                document.getElementById('newHeadline').value = 'Appendix X'; addNewSection();
                 const retest = startRetest(); await answerModal(true); await retest;
                 updateFindingStatus(0, 'Remediated');
-                const ids = findings.map(f => f.id);
+                await sleep(50);
 
-                const select = document.getElementById('reportLanguageSelect');
-                select.value = 'sv';
-                const switching = onReportLanguageChange(select);
-                const question = await answerModal(true); await switching; await sleep(50);
-                assert(question && question.includes('Swedish'), 'should ask first (interface is English): ' + question);
-                assert(reportLanguage === 'sv' && document.getElementById('printableReport').getAttribute('lang') === 'sv', 'report language not applied');
-                assert(document.querySelector('.sidebar h4').innerText.includes('Reporting Tools'), 'interface changed language too');
-                assert(findings.map(f => f.id).join() === ids.join(), 'findings changed');
-                assert([...document.querySelectorAll('#reportBlocksContainer h2')].some(h => h.innerText === 'Appendix X'), 'own section lost');
+                assert(document.getElementById('printableReport').getAttribute('lang') === 'sv', 'report lang attribute');
                 const h2s = [...document.querySelectorAll('#reportBlocksContainer h2')].map(h => h.innerText);
                 for (const h of ['Sammanfattning för ledningen', 'Sammanfattning av fynd', 'Detaljerade fynd', 'Slutsats', 'Innehåll', 'Sammanfattning av omtest']) assert(h2s.includes(h), `missing heading ${h}: ${h2s.join(', ')}`);
                 assert(document.querySelector('header h1').innerText === 'RAPPORT FRÅN SÄKERHETSGRANSKNING', 'report title not translated');
@@ -1445,7 +1468,7 @@ export const cases = [
                 assert(cards()[1].querySelector('.status-badge').textContent === 'Åtgärdad', 'status badge');
                 assert(cards()[2].querySelector('.crit-badge').textContent === 'Ej bedömd', 'unscored badge');
                 assert(document.querySelector('.matrix-axis-y').innerText.startsWith('Konsekvens'), 'matrix axis');
-                assert(document.getElementById('section-exec').innerText.includes('genomförde') || /[åäö]/.test(document.getElementById('section-exec').innerText), 'executive summary text not Swedish');
+                assert(/[åäö]/.test(document.getElementById('section-exec').innerText), 'executive summary text not Swedish');
 
                 // Figure captions are numbered "Figur n:" in a Swedish report.
                 const exec = document.getElementById('section-exec');
@@ -1453,6 +1476,7 @@ export const cases = [
                 const cap = exec.querySelector('figcaption');
                 assert(getComputedStyle(cap, '::before').content.includes('Figur '), 'caption prefix: ' + getComputedStyle(cap, '::before').content);
                 assert(cap.innerText === '[infoga bildtext]', 'caption placeholder: ' + cap.innerText);
+                renderAll();
                 assert(document.getElementById('checklistBody').innerText.includes('Leftover boilerplate'), 'Swedish [infoga …] placeholders not flagged by the checklist');
 
                 // Nothing the app prints (outside text the author writes) is left in English.
@@ -1471,15 +1495,6 @@ export const cases = [
                 assert(english.length === 0, 'English left in a Swedish report: ' + english.join(' | '));
                 assert(/^Av de 3 ursprungliga fynden: .+\.$/.test(document.querySelector('.retest-totals').innerText), 'retest totals: ' + document.querySelector('.retest-totals').innerText);
 
-                // Undo goes back to the English report.
-                undoLastChange();
-                assert(reportLanguage === 'en' && document.getElementById('reportLanguageSelect').value === 'en', 'undo did not restore the language');
-                assert(document.querySelector('#block-exec-summary h2').innerText === 'Executive Summary', 'undo did not restore English headings');
-                assert(cards()[0].querySelector('.crit-badge').textContent === 'Critical', 'undo: badge');
-                assert(document.querySelector('#tocBlock h2').innerText === 'Table of Contents', 'undo: TOC title');
-
-                select.value = 'sv';
-                const again = onReportLanguageChange(select); await answerModal(true); await again;
                 const { text } = await captureDownload(() => exportReportJson());
                 assert(JSON.parse(text).reportLanguage === 'sv', 'reportLanguage not exported');
                 return { exported: text };
@@ -1526,12 +1541,12 @@ export const cases = [
                 const { assert } = __t;
                 assert(reportLanguage === 'sv', 'with no earlier report, a Swedish interface should start a Swedish report');
                 assert(document.querySelector('#block-exec-summary h2').innerText === 'Sammanfattning för ledningen', 'startup report not built in Swedish');
-                setReportLanguage('en');   // remembered for the next new report
+                localStorage.setItem('rapportgen:reportLanguage', 'en');   // what a switch remembers for the next new report
             } },
             { run: async () => {
                 const { assert, pickFile } = __t;
                 assert(reportLanguage === 'en', 'the last report language should win over the interface language');
-                setReportLanguage('sv');
+                setReportLanguageSilently('sv');
                 const old = JSON.parse(JSON.stringify(buildReportPayload()));
                 delete old.reportLanguage;
                 await pickFile('importReportFile', JSON.stringify(old));

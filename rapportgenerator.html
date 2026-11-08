@@ -547,7 +547,7 @@
             <div class="mb-3">
                 <label for="reportLanguageSelect" class="form-label small fw-bold text-secondary text-uppercase mb-1" style="font-size:0.65rem;">
                     Report Language
-                    <span class="info-tip" data-tooltip="The language the report is written in: its headings, default text and the labels in the printed report (severities, statuses, tables). Saved with the report, separately from the interface language.">ⓘ</span>
+                    <span class="info-tip" data-tooltip="The language the report is written in: its headings, default text and the labels in the printed report (severities, statuses, tables). Saved with the report, separately from the interface language. Changing it starts a new, empty report in that language.">ⓘ</span>
                 </label>
                 <select id="reportLanguageSelect" class="form-select form-select-sm" onchange="onReportLanguageChange(this)">
                     <option value="en" lang="en" translate="no">English</option>
@@ -1241,12 +1241,10 @@
         "The language of the app's buttons, menus and messages. Automatic follows your browser's language. The report's own language is set under Report Language.": 'Språket för appens knappar, menyer och meddelanden. Automatiskt följer webbläsarens språk. Rapportens eget språk väljs under Rapportspråk.',
         'Automatic (browser language)': 'Automatiskt (webbläsarens språk)',
         'Report Language': 'Rapportspråk',
-        'The language the report is written in: its headings, default text and the labels in the printed report (severities, statuses, tables). Saved with the report, separately from the interface language.': 'Språket rapporten skrivs på: rubriker, standardtext och etiketterna i den utskrivna rapporten (allvarlighetsgrader, status, tabeller). Sparas med rapporten, oberoende av gränssnittsspråket.',
+        'The language the report is written in: its headings, default text and the labels in the printed report (severities, statuses, tables). Saved with the report, separately from the interface language. Changing it starts a new, empty report in that language.': 'Språket rapporten skrivs på: rubriker, standardtext och etiketterna i den utskrivna rapporten (allvarlighetsgrader, status, tabeller). Sparas med rapporten, oberoende av gränssnittsspråket. Byter du språk startas en ny, tom rapport på det språket.',
         'Swedish': 'svenska',
         'English': 'engelska',
-        'Write this report in {language}?\n\nThe template\'s sections (headings and default text) are replaced with the {language} version, and the labels the app prints (severities, statuses, tables) change language. Text you wrote in those sections is replaced too. Your findings and sections you added yourself are kept. You can undo this.': 'Skriva den här rapporten på {language}?\n\nMallens avsnitt (rubriker och standardtext) ersätts med versionen på {language}, och etiketterna som appen skriver ut (allvarlighetsgrader, status, tabeller) byter språk. Text du har skrivit i de avsnitten ersätts också. Dina fynd och avsnitt du själv har lagt till behålls. Du kan ångra bytet.',
-        'Change report language': 'Byt rapportspråk',
-        'The report is now in {language}.': 'Rapporten är nu på {language}.',
+        'Start a new report in {language}?\n\nThis clears the current report (findings, section text and the logo) and reloads the page with the template in {language}. Client, company, contact, dates and classification are kept. Export the report first if you want to keep it. This cannot be undone.': 'Starta en ny rapport på {language}?\n\nDen aktuella rapporten töms (fynd, avsnittstext och logotyp) och sidan laddas om med mallen på {language}. Kund, företag, kontaktperson, datum och klassificering behålls. Exportera rapporten först om du vill spara den. Det går inte att ångra.',
         'Likelihood:': 'Sannolikhet:',
         'Host, IP or URL': 'Värd, IP-adress eller URL',
         'File, function or component, e.g. src/api/auth.ts:42': 'Fil, funktion eller komponent, t.ex. src/api/auth.ts:42',
@@ -1916,30 +1914,25 @@
         localizeReportFixedText();
     }
 
-    // Sidebar "Report Language": rebuilds the template's sections in the new language (like switching
-    // template), translates the fixed labels and re-renders the generated parts. Undoable.
+    // Sidebar "Report Language": starts a new, empty report in that language. The current report is
+    // cleared (findings, section text, logo, the autosaved draft) and the page reloads, so the template
+    // is built fresh in the new language. Profile details (client, company, contact, dates,
+    // classification) are kept: they live in localStorage. Asks first when there is anything to lose.
     async function onReportLanguageChange(select) {
         const next = select.value;
         if (!REPORT_LANGUAGES.includes(next) || next === reportLanguage) return;
-        const tpl = reportTemplates[currentAssessmentType];
         if (hasUnsavedChanges || findings.length > 0) {
-            const ok = await showConfirm(t('Write this report in {language}?\n\nThe template\'s sections (headings and default text) are replaced with the {language} version, and the labels the app prints (severities, statuses, tables) change language. Text you wrote in those sections is replaced too. Your findings and sections you added yourself are kept. You can undo this.', { language: t(next === 'sv' ? 'Swedish' : 'English') }));
+            const ok = await showConfirm(t('Start a new report in {language}?\n\nThis clears the current report (findings, section text and the logo) and reloads the page with the template in {language}. Client, company, contact, dates and classification are kept. Export the report first if you want to keep it. This cannot be undone.', { language: t(next === 'sv' ? 'Swedish' : 'English') }));
             if (!ok) { select.value = reportLanguage; return; }
         }
-        recordUndoPoint(t('Change report language'));
-        setReportLanguage(next);
-        markUnsaved();
-        showToast(t('The report is now in {language}.', { language: t(next === 'sv' ? 'Swedish' : 'English') }), { undo: true });
+        try { localStorage.setItem(REPORT_LANGUAGE_KEY, next); } catch (err) { /* storage unavailable: the reload falls back to the interface language */ }
+        hasUnsavedChanges = false;   // already confirmed: don't also trigger the beforeunload prompt
+        await clearAutosave();
+        reloadPage();
     }
 
-    function setReportLanguage(lang) {
-        setReportLanguageSilently(lang);
-        try { localStorage.setItem(REPORT_LANGUAGE_KEY, reportLanguage); } catch (err) { /* this visit only */ }
-        const retestHeading = document.querySelector('#block-retest h2');
-        if (retestHeading) { const next = translateKnownReportText(retestHeading.textContent, reportLanguage); if (next !== null) retestHeading.textContent = next; }
-        if (reportTemplates[currentAssessmentType]) buildReportFromTemplate(currentAssessmentType);
-        else renderAll();
-    }
+    // Its own function so the tests can replace it (a real reload would end the test step).
+    function reloadPage() { location.reload(); }
 
     // In-page modal system: replaces native confirm()/alert() with a styled, non-blocking overlay.
     // showConfirm() resolves true/false; showAlert() resolves once the user dismisses it.
