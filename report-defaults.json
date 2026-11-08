@@ -664,7 +664,7 @@
         {
           "key": "results",
           "title": "Summary of Results",
-          "html": "<table><thead><tr><th>Metric</th><th>Value</th></tr></thead><tbody><tr><td>Hosts in scope</td><td>[insert number]</td></tr><tr><td>Hosts reachable</td><td>[insert number]</td></tr><tr><td>Hosts scanned with credentials</td><td>[insert number]</td></tr><tr><td>Unique vulnerabilities after validation</td><td>[insert number]</td></tr><tr><td>Hosts running unsupported software</td><td>[insert number]</td></tr></tbody></table>\n\n[insert short commentary, e.g., Most findings are concentrated on a small number of legacy servers.]"
+          "html": "<table><thead><tr><th>Metric</th><th>Value</th></tr></thead><tbody><tr><td>Hosts in scope</td><td>[insert number]</td></tr><tr><td>Hosts reachable</td><td>[insert number]</td></tr><tr><td>Hosts scanned with credentials</td><td>[insert number]</td></tr><tr><td>Unique vulnerabilities after validation</td><td>[insert number]</td></tr><tr><td>Hosts running unsupported software</td><td>[insert number]</td></tr></tbody></table>\n[insert short commentary, e.g., Most findings are concentrated on a small number of legacy servers.]"
         },
         {
           "component": "summary",
@@ -734,7 +734,7 @@
         {
           "key": "results",
           "title": "Campaign Results",
-          "html": "<table><thead><tr><th>Measure</th><th>Number</th><th>Share</th></tr></thead><tbody><tr><td>Emails sent</td><td>[insert]</td><td>100%</td></tr><tr><td>Delivered (not stopped by filtering)</td><td>[insert]</td><td>[insert %]</td></tr><tr><td>Clicked the link</td><td>[insert]</td><td>[insert %]</td></tr><tr><td>Submitted credentials</td><td>[insert]</td><td>[insert %]</td></tr><tr><td>Reported the email</td><td>[insert]</td><td>[insert %]</td></tr></tbody></table>\n\n<strong>Time to first click:</strong> [insert]\n<strong>Time to first report:</strong> [insert]\n\n[insert results per department or group, at group level only]"
+          "html": "<table><thead><tr><th>Measure</th><th>Number</th><th>Share</th></tr></thead><tbody><tr><td>Emails sent</td><td>[insert]</td><td>100%</td></tr><tr><td>Delivered (not stopped by filtering)</td><td>[insert]</td><td>[insert %]</td></tr><tr><td>Clicked the link</td><td>[insert]</td><td>[insert %]</td></tr><tr><td>Submitted credentials</td><td>[insert]</td><td>[insert %]</td></tr><tr><td>Reported the email</td><td>[insert]</td><td>[insert %]</td></tr></tbody></table>\n<strong>Time to first click:</strong> [insert]\n<strong>Time to first report:</strong> [insert]\n\n[insert results per department or group, at group level only]"
         },
         {
           "component": "summary",
@@ -804,7 +804,7 @@
         {
           "key": "compliance",
           "title": "Baseline Compliance Overview",
-          "html": "<table><thead><tr><th>System</th><th>Baseline</th><th>Controls checked</th><th>Compliant</th><th>Deviations</th></tr></thead><tbody><tr><td>[insert system]</td><td>[insert baseline]</td><td>[insert]</td><td>[insert]</td><td>[insert]</td></tr><tr><td>[insert system]</td><td>[insert baseline]</td><td>[insert]</td><td>[insert]</td><td>[insert]</td></tr><tr><td>[insert system]</td><td>[insert baseline]</td><td>[insert]</td><td>[insert]</td><td>[insert]</td></tr></tbody></table>\n\n[insert short commentary on where the deviations are concentrated]"
+          "html": "<table><thead><tr><th>System</th><th>Baseline</th><th>Controls checked</th><th>Compliant</th><th>Deviations</th></tr></thead><tbody><tr><td>[insert system]</td><td>[insert baseline]</td><td>[insert]</td><td>[insert]</td><td>[insert]</td></tr><tr><td>[insert system]</td><td>[insert baseline]</td><td>[insert]</td><td>[insert]</td><td>[insert]</td></tr><tr><td>[insert system]</td><td>[insert baseline]</td><td>[insert]</td><td>[insert]</td><td>[insert]</td></tr></tbody></table>\n[insert short commentary on where the deviations are concentrated]"
         },
         {
           "component": "summary",

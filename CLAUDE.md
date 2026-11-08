@@ -26,9 +26,13 @@ that bug is back.
 
 - **State:** one in-memory `findings` array; **rendering:** `renderAll()` rebuilds the risk
   matrix, summaries, pre-export checklist and finding cards from it.
-- **Narrative sections** are `contenteditable` HTML in the DOM, with no separate model.
+- **Narrative sections** are `contenteditable` HTML in the DOM, with no separate model. Blocks built
+  from a template carry `data-template-section`; `buildReportFromTemplate()` replaces only those
+  (and legacy blocks recognised by their section ids) when the template changes.
 - **Data files** next to the HTML, loaded with `fetch()`: `library.json` (~270 vulnerability
-  templates), `report-defaults.json` (`{ defaultTemplate, templates }` per assessment type),
+  templates), `report-defaults.json` (format 2: report templates, each with its own ordered
+  `sections` plus the built-in `summary`/`findings` components, a rating scale from
+  `scoringModels`, and labels; format 1 still loads in the classic layout),
   optional `settings.json` (firm-wide company, contact, logo, branding colours, classifications,
   watermark).
 - **Dynamic tokens** `[COMPANY NAME]`, `[CLIENT NAME]`, `[CONTACT NAME]`, `[CONTACT EMAIL]` are

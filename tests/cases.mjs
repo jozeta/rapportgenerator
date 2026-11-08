@@ -1087,6 +1087,144 @@ export const cases = [
         } }],
     },
 
+    // ---------------------------------------------------------------- report templates
+    {
+        id: 'TPL-001', title: 'Every report template builds its own sections, rating scale and labels', tags: ['templates'],
+        steps: [{ run: async () => {
+            const { assert } = __t;
+            const client = document.getElementById('input-client-name');
+            client.value = 'Acme Corp'; client.dispatchEvent(new Event('input', { bubbles: true }));
+            const keys = Object.keys(reportTemplates);
+            assert(keys.length >= 11, `only ${keys.length} templates`);
+            for (const want of ['code-review', 'general-security-review', 'vulnerability-assessment', 'phishing-social-engineering', 'configuration-review']) {
+                assert(keys.includes(want), `template ${want} missing`);
+            }
+            const select = document.getElementById('input-assessment-type');
+            assert(select.querySelectorAll('optgroup').length >= 2, 'templates are not grouped in the dropdown');
+            const problems = [];
+            for (const key of keys) {
+                const tpl = reportTemplates[key];
+                buildReportFromTemplate(key);
+                const headings = [...document.querySelectorAll('#reportBlocksContainer > .report-block[data-template-section] h2')].map(h => h.innerText.trim());
+                const expected = tpl.sections.map(s => s.title || (s.component === 'summary' ? 'Findings Summary' : 'Detailed Findings'));
+                if (JSON.stringify(headings) !== JSON.stringify(expected)) problems.push(`${key}: headings ${headings.join(' > ')}`);
+                if (document.querySelectorAll('#matrix td').length !== 25) problems.push(`${key}: no risk matrix`);
+                if (!document.getElementById('block-details')) problems.push(`${key}: no findings section`);
+                const model = scoringModels[tpl.scoring];
+                if (!document.querySelector('.matrix-axis-x').innerText.startsWith(model.likelihoodLabel)) problems.push(`${key}: matrix axis not "${model.likelihoodLabel}"`);
+                for (const s of tpl.sections.filter(s => s.key)) {
+                    const el = document.getElementById('section-' + s.key);
+                    if (!el || !el.innerText.trim()) problems.push(`${key}: section ${s.key} empty`);
+                    if (s.scoringTable && !el.closest('.report-block').querySelector('table.table td[contenteditable]')) problems.push(`${key}: no scoring table`);
+                }
+                const text = document.getElementById('reportBlocksContainer').innerText;
+                if (text.includes('">')) problems.push(`${key}: corrupted text`);
+                if (/\[CLIENT NAME\]/.test(text)) problems.push(`${key}: client placeholder not converted to a token`);
+                if (select.value !== key) problems.push(`${key}: dropdown not updated`);
+            }
+            assert(problems.length === 0, problems.slice(0, 6).join(' | '));
+        } }],
+    },
+    {
+        id: 'TPL-002', title: 'Switching template keeps findings, added sections and a retest; asks first; can be undone', tags: ['templates', 'undo'],
+        steps: [
+            { run: async () => {
+                const { assert, sleep, modalOpen } = __t;
+                // an untouched report switches without asking
+                const select = document.getElementById('input-assessment-type');
+                select.value = 'configuration-review'; select.dispatchEvent(new Event('change', { bubbles: true }));
+                await sleep(300);
+                assert(!modalOpen(), 'asked before switching an untouched report');
+                assert(document.getElementById('section-compliance'), 'untouched report did not switch');
+            } },
+            { run: async () => {
+                const { assert, answerModal, cards } = __t;
+                for (const t of ['First', 'Second']) { document.getElementById('vTitle').value = t; await addFinding(); }
+                const ids = findings.map(f => f.id);
+                document.getElementById('newHeadline').value = 'Appendix A'; addNewSection();
+                document.getElementById('newHeadline').value = 'Internal'; addNewDetailsSection();
+                const internal = document.querySelectorAll('.details-block')[1];
+                findings[1].sectionId = internal.id; renderAll();
+                const p = startRetest(); await answerModal(true); await p;
+                const select = document.getElementById('input-assessment-type');
+                select.value = 'code-review'; select.dispatchEvent(new Event('change', { bubbles: true }));
+                const asked = await answerModal(true);
+                assert(asked && asked.includes('Code Review'), 'did not ask before replacing an edited report');
+                const headings = [...document.querySelectorAll('#reportBlocksContainer h2')].map(h => h.innerText.trim());
+                const count = (h) => headings.filter(x => x === h).length;
+                assert(count('Scope: Repositories and Revision') === 1 && count('Engagement and Scope') === 0, 'sections not replaced: ' + headings.join(' > '));
+                assert(count('Executive Summary') === 1 && count('Conclusion') === 1, 'template sections duplicated');
+                assert(count('Appendix A') === 1, 'user-added section lost');
+                assert(count('Internal') === 1 && findings[1].sectionId === internal.id && internal.querySelector('.vuln-card'), 'extra findings section or its finding lost');
+                assert(JSON.stringify(findings.map(f => f.id)) === JSON.stringify(ids), 'findings changed');
+                const order = [...document.querySelectorAll('#reportBlocksContainer > .report-block')].map(b => b.id);
+                assert(order.indexOf('block-retest') === order.indexOf('block-summary') + 1, 'retest section not kept after the Findings Summary');
+                assert(order.indexOf(internal.id) === order.indexOf('block-details') + 1, 'extra findings section not kept after the findings');
+                assert(cards()[0].innerText.includes('Affected Files / Components'), 'template asset label not used');
+                assert(document.querySelector('.matrix-axis-x').innerText.startsWith('Likelihood'), 'rating scale not switched');
+                undoLastChange();
+                const back = [...document.querySelectorAll('#reportBlocksContainer h2')].map(h => h.innerText.trim());
+                assert(back.includes('Engagement and Scope') && !back.includes('Scope: Repositories and Revision'), 'switch not undone');
+                assert(select.value === 'web-application-pentest' && cards()[0].innerText.includes('Affected Assets'), 'template not restored by undo');
+            } },
+        ],
+    },
+    {
+        id: 'TPL-003', title: 'A report saved before templates had structure switches without duplicating sections', tags: ['templates', 'import'],
+        steps: [{ run: async () => {
+            const { assert, pickFile, answerModal } = __t;
+            document.getElementById('vTitle').value = 'Old finding'; await addFinding();
+            const payload = buildReportPayload();
+            const tpl = document.createElement('template'); tpl.innerHTML = payload.blocksHtml;
+            tpl.content.querySelectorAll('[data-template-section]').forEach(el => el.removeAttribute('data-template-section'));
+            tpl.content.querySelectorAll('[id^="block-sec-"]').forEach(el => el.removeAttribute('id')); // as the old version saved them
+            await pickFile('importReportFile', JSON.stringify({ ...payload, schemaVersion: 2, blocksHtml: tpl.innerHTML }));
+            const select = document.getElementById('input-assessment-type');
+            select.value = 'general-security-review'; select.dispatchEvent(new Event('change', { bubbles: true }));
+            await answerModal(true);
+            const headings = [...document.querySelectorAll('#reportBlocksContainer h2')].map(h => h.innerText.trim());
+            for (const h of ['Executive Summary', 'Confidentiality Notice', 'Disclaimer', 'Conclusion']) {
+                assert(headings.filter(x => x === h).length === 1, `"${h}" appears ${headings.filter(x => x === h).length} times: ${headings.join(' > ')}`);
+            }
+            assert(!headings.includes('Methodology') && headings.includes('Control Area Overview'), 'old sections not replaced');
+            assert(findings[0].title === 'Old finding' && __t.cards().length === 1, 'finding lost');
+        } }],
+    },
+    {
+        id: 'TPL-004', title: 'Old-format report-defaults.json files still load in the classic layout', tags: ['templates'],
+        steps: [{ run: async () => {
+            const { assert } = __t;
+            const legacy = normaliseReportDefaults({ defaultTemplate: 'mine', templates: { mine: { label: 'Firm pentest', sections: { 'section-exec': 'Our exec text', 'section-method': 'Our method', 'section-matrix-legend': 'Our legend' } } } });
+            reportTemplates.mine = legacy.mine;
+            assert(buildReportFromTemplate('mine'), 'old-format template did not build');
+            const headings = [...document.querySelectorAll('#reportBlocksContainer > .report-block[data-template-section] h2')].map(h => h.innerText.trim());
+            assert(headings.join(' > ') === 'Executive Summary > Confidentiality Notice > Disclaimer > Purpose > Summary > Engagement and Scope > Methodology > Findings Summary > Detailed Findings > Conclusion', 'layout: ' + headings.join(' > '));
+            assert(document.getElementById('section-exec').innerText === 'Our exec text', 'text not used');
+            assert(document.getElementById('section-matrix-legend').innerText === 'Our legend', 'legend not used');
+            assert(document.getElementById('section-method').closest('.report-block').querySelectorAll('tbody tr').length === 5, 'built-in rating table missing');
+        } }],
+    },
+    {
+        id: 'TPL-005', title: 'A non-pentest report round-trips through export/import with its template', tags: ['templates', 'persistence'],
+        steps: [
+            { run: async () => {
+                buildReportFromTemplate('phishing-social-engineering');
+                document.getElementById('section-results').insertAdjacentText('beforeend', ' MARKER-42');
+                document.getElementById('vTitle').value = 'No report button'; await addFinding();
+                const { text } = await __t.captureDownload(() => exportReportJson());
+                return { exported: text };
+            } },
+            { fresh: true, run: async (ctx) => {
+                const { assert, pickFile, cards } = __t;
+                await pickFile('importReportFile', ctx.exported);
+                assert(document.getElementById('input-assessment-type').value === 'phishing-social-engineering', 'template not restored');
+                assert(document.getElementById('section-results').innerText.includes('MARKER-42'), 'section text lost');
+                assert(document.getElementById('section-results').querySelector('table'), 'results table lost');
+                assert(cards()[0].innerText.includes('Affected Groups / Systems'), 'template asset label not restored');
+            } },
+        ],
+    },
+
     // ---------------------------------------------------------------- TEST-002 round trip
     {
         id: 'TEST-002', title: 'Export → import round-trip preserves the whole report', tags: ['persistence', 'stage1'],

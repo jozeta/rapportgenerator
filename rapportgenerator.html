@@ -4720,6 +4720,8 @@
         actionPlannersGloballyVisible = !!data.actionPlannersGloballyVisible;
         ensureFindingIds();
         retestState = data.retest || null;
+        // Before anything renders: finding cards use the template's labels (e.g. "Affected Files / Components").
+        if (data.assessmentType) setAssessmentTypeSilently(data.assessmentType);
         updateActionPlannerToggleIcon();
         document.getElementById('reportBlocksContainer').innerHTML = data.blocksHtml;
         document.querySelectorAll('#reportBlocksContainer .editable-section').forEach(el => convertLiteralTokensToSpans(el));
@@ -4771,7 +4773,6 @@
         document.getElementById('watermarkCustomText').value = wm.customText || '';
         updateWatermarkPreview();
 
-        if (data.assessmentType) setAssessmentTypeSilently(data.assessmentType);
 
         hasUnsavedChanges = !markSaved;
         if (markSaved) { clearTimeout(autosaveIdleTimer); autosaveIdleTimer = null; } // nothing new to save

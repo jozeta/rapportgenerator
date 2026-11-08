@@ -6,6 +6,7 @@ The project has no tagged releases yet, so changes are grouped by date. Entries 
 
 ## Unreleased
 
+- Report templates with their own structure. Each template defines its sections, headings, order, default text, rating scale (Exploitability for pentests, Likelihood for reviews) and finding labels. New templates: General Security Review, Vulnerability Assessment, Phishing / Social Engineering and Configuration Review. Code Review was reworked (repositories and commit, review approach, secure development recommendations). Switching template keeps findings and user-added sections, asks first and can be undone. The sidebar control is now "Report Template", grouped by kind. `report-defaults.json` moves to format 2; format 1 files still load
 - Animations and transitions respect the system's "Reduce motion" setting
 - ESLint (flat config, with the no-unsanitized rule) as a dev-only tool; CI runs `npm run lint`
 - `npm test` runs the regression suite (`tests/run.mjs`), and CI runs it that way
