@@ -6,6 +6,7 @@ The project has no tagged releases yet, so changes are grouped by date. Entries 
 
 ## Unreleased
 
+- Security (SEC-DOM-2): the Retest Summary block added with Swedish reports is reviewed and marked (escaped text, constant markup).
 - Swedish reports (FEAT-007). Each report has its own language, English or Swedish, saved in the report file and independent of the interface language. All 11 templates have Swedish headings, default text, writing tips, rating scales and legends (`translations.sv` in `report-defaults.json`). Severities, statuses, finding-card labels, the action planner, the retest table, metadata labels, the Table of Contents title and figure captions ("Figur n:") are printed in the report's language. Switching language asks first and can be undone. `[infoga …]` placeholders are flagged by the Pre-Export Checklist. Dates in messages follow the interface language
 - Printed finding scores use the template's rating scale ("Likelihood" in reviews) instead of always "Exploitability"
 - Security (SEC-DOM-2): reviewed all 28 `innerHTML` / `insertAdjacentHTML` sinks and marked each with the reason it is safe. Finding description and remediation are now sanitized every time they are rendered, not only on import: HTML committed from an editable field could otherwise be re-rendered with its event handlers. Rolling back a failed import now goes through the sanitizer too. New regression tests: render-time sanitizing, rollback, and an XSS/mXSS corpus against the sanitizer

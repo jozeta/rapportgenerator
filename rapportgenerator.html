@@ -3586,6 +3586,7 @@
         block.className = 'report-block';
         block.id = 'block-retest';
         block.setAttribute('draggable', 'false');
+        // eslint-disable-next-line no-unsanitized/property -- reviewed: the translated heading and body text are escaped; the rest is constant markup
         block.innerHTML = `<div class="block-controls no-print">
                 <div class="drag-handle" draggable="true"><i class="bi bi-grip-vertical"></i></div>
                 <button class="block-control-btn" onclick="moveSectionUp(this)" data-tooltip="Move section up"><i class="bi bi-chevron-up"></i></button>
