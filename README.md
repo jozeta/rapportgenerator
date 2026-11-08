@@ -34,7 +34,7 @@ Most pentest reporting workflows bounce between a Word template, a spreadsheet o
   Switching template replaces only the template's own sections. Your findings, sections you added, extra findings sections and an ongoing retest are kept. The app asks first, unless the report is untouched, and the switch can be undone. Templates are defined in `report-defaults.json`, so adding one there is enough to make it show up.
 
 **Interface language**
-- The interface (buttons, menus, tooltips, dialogs, messages) is in **English or Swedish**. By default it follows the browser's language; **Settings → Interface Language** picks one, and the choice is remembered in this browser. Switching is instant and doesn't touch the report's text.
+- The interface (buttons, menus, tooltips, dialogs, messages) is in **English or Swedish**. By default it follows the browser's language; **Settings → Interface Language** picks one, and the choice is remembered in this browser. The interface switches at once, and the report follows: changing the interface language also starts a new report in that language, the same way as changing Report Language (it asks first if the report has content; say no to keep the current report). Report Language can then set a different language for the report.
 
 **Report language**
 - Each report is written in **English or Swedish**, chosen under **Report Language** (below Report Template) and saved in the report file. It is independent of the interface language: a Swedish consultant can write an English report and vice versa.

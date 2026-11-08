@@ -586,9 +586,9 @@
                     <div class="mb-3">
                         <label for="uiLanguageSelect" class="form-label small fw-bold text-secondary text-uppercase mb-1" style="font-size:0.65rem;">
                             Interface Language
-                            <span class="info-tip" data-tooltip="The language of the app's buttons, menus and messages. Automatic follows your browser's language. The report's own language is set under Report Language.">ⓘ</span>
+                            <span class="info-tip" data-tooltip="The language of the app's buttons, menus and messages. Automatic follows your browser's language. Changing it also starts a new report in that language (it asks first if the report has content); Report Language can then set a different language for the report.">ⓘ</span>
                         </label>
-                        <select id="uiLanguageSelect" class="form-select form-select-sm mb-3" onchange="setUiLanguage(this.value)">
+                        <select id="uiLanguageSelect" class="form-select form-select-sm mb-3" onchange="onUiLanguageChange(this)">
                             <option value="auto">Automatic (browser language)</option>
                             <option value="en" lang="en" translate="no">English</option>
                             <option value="sv" lang="sv" translate="no">Svenska</option>
@@ -1238,7 +1238,7 @@
     const UI_SV = {
         // Language setting
         'Interface Language': 'Gränssnittsspråk',
-        "The language of the app's buttons, menus and messages. Automatic follows your browser's language. The report's own language is set under Report Language.": 'Språket för appens knappar, menyer och meddelanden. Automatiskt följer webbläsarens språk. Rapportens eget språk väljs under Rapportspråk.',
+        "The language of the app's buttons, menus and messages. Automatic follows your browser's language. Changing it also starts a new report in that language (it asks first if the report has content); Report Language can then set a different language for the report.": 'Språket för appens knappar, menyer och meddelanden. Automatiskt följer webbläsarens språk. Byter du språk startas också en ny rapport på det språket (du får frågan först om rapporten har innehåll). Under Rapportspråk kan du sedan välja ett annat språk för rapporten.',
         'Automatic (browser language)': 'Automatiskt (webbläsarens språk)',
         'Report Language': 'Rapportspråk',
         'The language the report is written in: its headings, default text and the labels in the printed report (severities, statuses, tables). Saved with the report, separately from the interface language. Changing it starts a new, empty report in that language.': 'Språket rapporten skrivs på: rubriker, standardtext och etiketterna i den utskrivna rapporten (allvarlighetsgrader, status, tabeller). Sparas med rapporten, oberoende av gränssnittsspråket. Byter du språk startas en ny, tom rapport på det språket.',
@@ -1923,11 +1923,24 @@
     const NEXT_TEMPLATE_KEY = 'rapportgen:nextReportTemplate';
 
     async function onReportLanguageChange(select) {
-        const next = select.value;
-        if (!REPORT_LANGUAGES.includes(next) || next === reportLanguage) return;
+        if (!(await switchReportLanguage(select.value))) select.value = reportLanguage;
+    }
+
+    // Settings "Interface Language": the interface changes at once, and the report follows it (a new
+    // report in that language, as with Report Language; declining keeps the current report). Report
+    // Language can still pick a different language for the report afterwards.
+    async function onUiLanguageChange(select) {
+        setUiLanguage(select.value);
+        await switchReportLanguage(uiLanguage);
+    }
+
+    // Starts a new report in `next` (see onReportLanguageChange). Returns false if nothing changed
+    // (same language, unsupported, or the user declined).
+    async function switchReportLanguage(next) {
+        if (!REPORT_LANGUAGES.includes(next) || next === reportLanguage) return false;
         if (hasUnsavedChanges || findings.length > 0) {
             const ok = await showConfirm(t('Start a new report in {language}?\n\nThis clears the current report (findings, section text and the logo) and reloads the page with the template in {language}. Client, company, contact, dates and classification are kept. Export the report first if you want to keep it. This cannot be undone.', { language: t(next === 'sv' ? 'Swedish' : 'English') }));
-            if (!ok) { select.value = reportLanguage; return; }
+            if (!ok) return false;
         }
         try {
             localStorage.setItem(REPORT_LANGUAGE_KEY, next);
@@ -1936,6 +1949,7 @@
         hasUnsavedChanges = false;   // already confirmed: don't also trigger the beforeunload prompt
         await clearAutosave();
         reloadPage();
+        return true;
     }
 
     // Its own function so the tests can replace it (a real reload would end the test step).

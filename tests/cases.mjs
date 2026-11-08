@@ -1567,6 +1567,55 @@ export const cases = [
     },
 
     {
+        id: 'RPT-005', title: 'Changing the interface language also starts a new report in that language (asks first; declining keeps the report)', tags: ['report-language', 'i18n'],
+        steps: [
+            { run: async () => { localStorage.setItem('rapportgen:uiLanguage', 'en'); localStorage.setItem('rapportgen:reportLanguage', 'en'); } },
+            { run: async () => {
+                const { assert, answerModal } = __t;
+                let reloads = 0;
+                reloadPage = () => { reloads++; };
+                buildReportFromTemplate('configuration-review');
+                loadTemplate(0); await addFinding();
+                const ui = document.getElementById('uiLanguageSelect');
+
+                // Declined: the interface is Swedish, the report stays English and intact.
+                ui.value = 'sv';
+                let switching = onUiLanguageChange(ui);
+                const question = await answerModal(false); await switching;
+                assert(question && question.includes('svenska'), 'should ask (in the new interface language): ' + question);
+                assert(uiLanguage === 'sv' && reportLanguage === 'en' && findings.length === 1 && reloads === 0, 'declining should keep the English report');
+                assert(document.getElementById('reportLanguageSelect').value === 'en', 'report language select changed');
+
+                // Back to English: same language as the report, so nothing to switch.
+                ui.value = 'en';
+                await onUiLanguageChange(ui);
+                assert(reloads === 0 && !document.getElementById('appModalOverlay').classList.contains('show') && openModalStack.length === 0, 'no switch needed when the report is already in that language');
+
+                // Accepted: new Swedish report, same template, after a reload.
+                ui.value = 'sv';
+                switching = onUiLanguageChange(ui);
+                await answerModal(true); await switching;
+                assert(reloads === 1 && localStorage.getItem('rapportgen:reportLanguage') === 'sv' && localStorage.getItem('rapportgen:uiLanguage') === 'sv', 'not switched');
+            } },
+            { run: async () => {
+                const { assert } = __t;
+                assert(uiLanguage === 'sv' && reportLanguage === 'sv' && findings.length === 0, `after reload: ui ${uiLanguage}, report ${reportLanguage}, ${findings.length} findings`);
+                assert(currentAssessmentType === 'configuration-review', 'template not kept: ' + currentAssessmentType);
+                const first = reportTemplates['configuration-review'].sections.find(x => x.title).title;
+                assert([...document.querySelectorAll('#reportBlocksContainer h2')].some(h => h.innerText === templateTranslations.sv[first]), 'report not built in Swedish');
+
+                // An empty report switches without asking.
+                let reloads = 0;
+                reloadPage = () => { reloads++; };
+                hasUnsavedChanges = false;
+                const ui = document.getElementById('uiLanguageSelect');
+                ui.value = 'en';
+                await onUiLanguageChange(ui);
+                assert(reloads === 1 && localStorage.getItem('rapportgen:reportLanguage') === 'en', 'empty report should switch straight away');
+            } },
+        ],
+    },
+    {
         id: 'LIB-SV-001', title: 'Every library template has a complete Swedish translation that keeps code, markup and line breaks', tags: ['report-language', 'library'],
         steps: [{ run: async () => {
             const { assert } = __t;

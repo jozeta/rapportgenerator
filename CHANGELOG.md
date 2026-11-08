@@ -6,6 +6,7 @@ The project has no tagged releases yet, so changes are grouped by date. Entries 
 
 ## Unreleased
 
+- Changing the interface language also switches the report to that language (a new report, same template; it asks first if the report has content, and declining keeps the current report). Before, the report stayed in its own language, which looked like the Swedish switch didn't work
 - Swedish vulnerability library: all 270 templates have Swedish titles, descriptions and remediation (`library.sv.json`, keyed by English title). In a Swedish report, Add New Finding lists and fills in the Swedish text; search accepts English and Swedish words. Own templates are shown as written
 - Changing the report language keeps the chosen Report Template (it was reset to the default template by the reload)
 - Changing the report language now starts a new, empty report in that language: it asks first, clears the findings, section text, logo and autosaved draft, and reloads the page. Client, company, contact, dates and classification are kept. (Before, it rebuilt the template's sections in place and kept the findings.)

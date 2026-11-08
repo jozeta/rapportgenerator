@@ -49,7 +49,8 @@ that bug is back.
   `UI_SV` entry, or `I18N-001`/`I18N-002` fail.
 - **Report language** (per report, saved as `reportLanguage`): template text goes through `tx()` using
   `report-defaults.json` → `translations.sv` (keyed by the English text); labels the app prints go
-  through `rt()` / `REPORT_SV`. Anything printed uses the report language, never `t()`. Keep
+  through `rt()` / `REPORT_SV`. Anything printed uses the report language, never `t()`. The Settings selector (`onUiLanguageChange`) also
+  switches the report via `switchReportLanguage()` (new report, reload); `setUiLanguage()` alone is interface-only. Keep
   statuses/severities stored in English. Tests `RPT-001…004` fail on a missing translation or English
   left in a Swedish report.
 - Custom Promise-based dialogs `showConfirm()` / `showAlert()`; never native `alert/confirm`.
