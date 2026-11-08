@@ -22,8 +22,8 @@ Work happens on the `audit-fixes` branch. Run `node tests/run.mjs` to check: eve
 | ✅ Done: step 4 (usability) | UI-001, UI-002, UI-003, UI-004, UI-006, UI-008, PERF-008, SEC-004 |
 | ✅ Done: step 5 (undo) | UI-005 |
 | ✅ Done: step 6 (retests) | ARCH-003, FEAT-004, FEAT-008 |
-| ✅ Done: later | UI-010 (found while adding the Swedish interface) |
-| — Not selected | FEAT-001, FEAT-002, FEAT-003, FEAT-006, FEAT-007, FEAT-009, FEAT-010, FEAT-011, FEAT-012, UI-007, PERF-002, PERF-004, SEC-003, SEC-006, ARCH-001, ARCH-002, ARCH-005, ARCH-007, TEST-004–007 |
+| ✅ Done: later | UI-010 (found while adding the Swedish interface), FEAT-007 (report language: English/Swedish per report, with `lang` on the report for the spellchecker) |
+| — Not selected | FEAT-001, FEAT-002, FEAT-003, FEAT-006, FEAT-009, FEAT-010, FEAT-011, FEAT-012, UI-007, PERF-002, PERF-004, SEC-003, SEC-006, ARCH-001, ARCH-002, ARCH-005, ARCH-007, TEST-004–007 |
 
 **Decisions taken during implementation:**
 - **BUG-007:** only *False Positive* is excluded from the matrix and the severity totals. Add `'Remediated'` to `STATUSES_EXCLUDED_FROM_RISK_TOTALS` to report outstanding risk only.

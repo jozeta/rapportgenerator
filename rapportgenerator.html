@@ -170,6 +170,7 @@
         .editable-section figure img { margin: 0 auto 6px; }
         .editable-section figcaption { font-size: 0.82rem; color: #555; text-align: center; }
         .editable-section figcaption::before { content: "Figure " counter(report-figure) ": "; font-weight: 600; color: #333; }
+        #printableReport[lang="sv"] .editable-section figcaption::before { content: "Figur " counter(report-figure) ": "; }
         #imageSelectionOutline { position: absolute; display: none; border: 2px solid var(--accent); border-radius: 9px; pointer-events: none; z-index: 1400; }
         .redact-box { max-width: 900px; }
         .redact-stage { background: #f1f3f5; border-radius: 8px; padding: 8px; text-align: center; margin-bottom: 12px; }
@@ -543,6 +544,16 @@
                 </label>
                 <select id="input-assessment-type" class="form-select form-select-sm" onchange="onAssessmentTypeChange(this)"></select>
             </div>
+            <div class="mb-3">
+                <label for="reportLanguageSelect" class="form-label small fw-bold text-secondary text-uppercase mb-1" style="font-size:0.65rem;">
+                    Report Language
+                    <span class="info-tip" data-tooltip="The language the report is written in: its headings, default text and the labels in the printed report (severities, statuses, tables). Saved with the report, separately from the interface language.">ⓘ</span>
+                </label>
+                <select id="reportLanguageSelect" class="form-select form-select-sm" onchange="onReportLanguageChange(this)">
+                    <option value="en" lang="en" translate="no">English</option>
+                    <option value="sv" lang="sv" translate="no">Svenska</option>
+                </select>
+            </div>
 
             <hr>
 
@@ -575,7 +586,7 @@
                     <div class="mb-3">
                         <label for="uiLanguageSelect" class="form-label small fw-bold text-secondary text-uppercase mb-1" style="font-size:0.65rem;">
                             Interface Language
-                            <span class="info-tip" data-tooltip="The language of the app's buttons, menus and messages. Automatic follows your browser's language. It doesn't change the text in the report.">ⓘ</span>
+                            <span class="info-tip" data-tooltip="The language of the app's buttons, menus and messages. Automatic follows your browser's language. The report's own language is set under Report Language.">ⓘ</span>
                         </label>
                         <select id="uiLanguageSelect" class="form-select form-select-sm mb-3" onchange="setUiLanguage(this.value)">
                             <option value="auto">Automatic (browser language)</option>
@@ -1227,8 +1238,22 @@
     const UI_SV = {
         // Language setting
         'Interface Language': 'Gränssnittsspråk',
-        "The language of the app's buttons, menus and messages. Automatic follows your browser's language. It doesn't change the text in the report.": 'Språket för appens knappar, menyer och meddelanden. Automatiskt följer webbläsarens språk. Texten i rapporten ändras inte.',
+        "The language of the app's buttons, menus and messages. Automatic follows your browser's language. The report's own language is set under Report Language.": 'Språket för appens knappar, menyer och meddelanden. Automatiskt följer webbläsarens språk. Rapportens eget språk väljs under Rapportspråk.',
         'Automatic (browser language)': 'Automatiskt (webbläsarens språk)',
+        'Report Language': 'Rapportspråk',
+        'The language the report is written in: its headings, default text and the labels in the printed report (severities, statuses, tables). Saved with the report, separately from the interface language.': 'Språket rapporten skrivs på: rubriker, standardtext och etiketterna i den utskrivna rapporten (allvarlighetsgrader, status, tabeller). Sparas med rapporten, oberoende av gränssnittsspråket.',
+        'Swedish': 'svenska',
+        'English': 'engelska',
+        'Write this report in {language}?\n\nThe template\'s sections (headings and default text) are replaced with the {language} version, and the labels the app prints (severities, statuses, tables) change language. Text you wrote in those sections is replaced too. Your findings and sections you added yourself are kept. You can undo this.': 'Skriva den här rapporten på {language}?\n\nMallens avsnitt (rubriker och standardtext) ersätts med versionen på {language}, och etiketterna som appen skriver ut (allvarlighetsgrader, status, tabeller) byter språk. Text du har skrivit i de avsnitten ersätts också. Dina fynd och avsnitt du själv har lagt till behålls. Du kan ångra bytet.',
+        'Change report language': 'Byt rapportspråk',
+        'The report is now in {language}.': 'Rapporten är nu på {language}.',
+        'Likelihood:': 'Sannolikhet:',
+        'Host, IP or URL': 'Värd, IP-adress eller URL',
+        'File, function or component, e.g. src/api/auth.ts:42': 'Fil, funktion eller komponent, t.ex. src/api/auth.ts:42',
+        'Area, system or process': 'Område, system eller process',
+        'Host name or IP address': 'Värdnamn eller IP-adress',
+        'Group, department or system': 'Grupp, avdelning eller system',
+        'System or setting': 'System eller inställning',
 
         // Sidebar
         'Reporting Tools': 'Rapportverktyg',
@@ -1482,14 +1507,14 @@
         'Reviews and assessments': 'Granskningar och bedömningar',
         'Web Application Pentest': 'Penetrationstest av webbapplikation',
         'Infrastructure Pentest': 'Penetrationstest av infrastruktur',
-        'Mobile Application Pentest': 'Penetrationstest av mobilapp',
+        'Mobile Application Pentest': 'Penetrationstest av mobilapplikation',
         'API Penetration Test': 'Penetrationstest av API',
         'Cloud Security Assessment': 'Säkerhetsgranskning av molnmiljö',
-        'Red Team / Adversary Simulation': 'Red team / simulerad angripare',
+        'Red Team / Adversary Simulation': 'Red team / simulering av angripare',
         'Code Review': 'Kodgranskning',
         'General Security Review': 'Allmän säkerhetsgranskning',
         'Vulnerability Assessment': 'Sårbarhetsanalys',
-        'Phishing / Social Engineering': 'Phishing och social manipulation',
+        'Phishing / Social Engineering': 'Phishing / social manipulation',
         'Configuration Review': 'Konfigurationsgranskning',
         'Switch to the "{name}" template?\n\nThe report\'s sections (headings, order and default text) are replaced with the {name} layout. Your findings are kept, and so are sections you added yourself. You can undo this.': 'Byta till mallen "{name}"?\n\nRapportens avsnitt (rubriker, ordning och standardtext) ersätts med upplägget för {name}. Dina fynd behålls, liksom avsnitt du själv har lagt till. Du kan ångra bytet.',
         'Switch report template': 'Byt rapportmall',
@@ -1606,6 +1631,7 @@
         'Metadata "{field}" must be text.': 'Uppdragsuppgiften "{field}" måste vara text.',
         'Its watermark settings are invalid.': 'Inställningarna för vattenstämpeln är ogiltiga.',
         'Its retest information is invalid.': 'Uppgifterna om omtestet är ogiltiga.',
+        'Its report language is not one this app supports.': 'Rapportens språk stöds inte av appen.',
     };
 
     const UI_EN_BY_SV = new Map(Object.entries(UI_SV).map(([en, sv]) => [sv, en]));
@@ -1620,6 +1646,9 @@
         if (params) s = s.replace(/\{(\w+)\}/g, (m, k) => (Object.hasOwn(params, k) ? String(params[k]) : m));
         return s;
     }
+
+    // Dates and times in messages: Swedish format in the Swedish interface, the browser's otherwise.
+    function uiLocale() { return uiLanguage === 'sv' ? 'sv-SE' : undefined; }
 
     // Singular/plural pair: tn(n, '1 box', '{n} boxes').
     function tn(n, one, other, params = {}) {
@@ -1738,6 +1767,178 @@
         if (library.length) filterLibrary();
         renderAll();
         localizeUi(document.body);
+    }
+
+    // ---- Report language ---------------------------------------------------------------------------
+    // Each report is written in English or Swedish, independently of the interface language. It is
+    // saved in the report file (reportLanguage) and decides:
+    //   • the template text: report-defaults.json's `translations.sv` maps each English template text
+    //     (heading, default text, writing tip, legend, rating scale, labels) to Swedish (tx());
+    //   • the labels this app prints itself: severities, statuses, finding-card labels, the retest
+    //     table, metadata labels, the Table of Contents title, figure captions (REPORT_SV, rt()).
+    // Statuses and severities are stored in English whatever the report language; only their display
+    // changes. Finding text from the library stays as written (the library is English).
+    const REPORT_LANGUAGE_KEY = 'rapportgen:reportLanguage';
+    const REPORT_LANGUAGES = ['en', 'sv'];
+    let reportLanguage = 'en';
+    let templateTranslations = {};   // language -> { English template text: translation }
+
+    const REPORT_SV = {
+        // Severities and statuses
+        'Critical': 'Kritisk', 'High': 'Hög', 'Medium': 'Medel', 'Low': 'Låg', 'Not Scored': 'Ej bedömd',
+        'Open': 'Öppen', 'Remediated': 'Åtgärdad', 'Partially Remediated': 'Delvis åtgärdad',
+        'Accepted Risk': 'Accepterad risk', 'False Positive': 'Falsk positiv', 'Not Set': 'Ej angiven', 'Not set': 'Ej angiven',
+        // Finding cards
+        'CWE:': 'CWE:',
+        '{impact}: {i} / {likelihood}: {l}': '{impact}: {i} / {likelihood}: {l}',
+        '{impact} / {likelihood}: Not Scored': '{impact} / {likelihood}: Ej bedömd',
+        'CVSS v3.1: {vector}': 'CVSS v3.1: {vector}',
+        ' (Score: {score})': ' (Poäng: {score})',
+        'Retest Date: {date}': 'Omtestdatum: {date}',
+        'General Vulnerability Description': 'Allmän beskrivning av sårbarheten',
+        'Remediation': 'Åtgärd',
+        'Remediation Action Planner': 'Åtgärdsplan',
+        'Remediation Owner:': 'Ansvarig för åtgärd:',
+        'Action Priority:': 'Prioritet:',
+        'Target Resolution Date:': 'Planerat klart:',
+        'Operational Execution Notes': 'Anteckningar om genomförandet',
+        'Original result:': 'Ursprungligt resultat:',
+        'new in this retest': 'nytt i detta omtest',
+        'status not set': 'status ej angiven',
+        // Retest summary
+        'Retest Summary': 'Sammanfattning av omtest',
+        "A retest was performed on [insert retest date or date range] to verify the remediation of the findings reported in the original assessment. The table below compares each finding's original result with its status at retest.":
+            'Ett omtest genomfördes [infoga datum eller datumintervall för omtestet] för att kontrollera att fynden från den ursprungliga granskningen har åtgärdats. Tabellen nedan jämför varje fynds ursprungliga resultat med dess status vid omtestet.',
+        'Finding': 'Fynd', 'Original result': 'Ursprungligt resultat', 'Retest status': 'Status vid omtest', 'Retest date': 'Omtestdatum',
+        'New in retest': 'Nytt i omtestet', 'Removed from this report': 'Borttaget ur rapporten',
+        'Of the 1 original finding: {parts}.': 'Av det ursprungliga fyndet: {parts}.',
+        'Of the {n} original findings: {parts}.': 'Av de {n} ursprungliga fynden: {parts}.',
+        'remediated': 'åtgärdade', 'partially remediated': 'delvis åtgärdade', 'still open': 'fortfarande öppna',
+        'accepted as risk': 'accepterade som risk', 'false positive': 'falskt positiva', 'not yet retested': 'ännu inte omtestade',
+        'None of the original findings are in the report any more.': 'Inga av de ursprungliga fynden finns kvar i rapporten.',
+        // Fixed blocks and defaults
+        'SECURITY ASSESSMENT REPORT': 'RAPPORT FRÅN SÄKERHETSGRANSKNING',
+        'Table of Contents': 'Innehåll',
+        'Section {n}': 'Avsnitt {n}',
+        'Contact Person': 'Kontaktperson',
+        'Email Address': 'E-postadress',
+        'Assessment Window': 'Uppdragsperiod',
+        'Start:': 'Start:',
+        'End:': 'Slut:',
+        'Classification': 'Klassning',
+        'Select classification...': 'Välj klassning...',
+        'Findings Summary': 'Sammanfattning av fynd',
+        'Detailed Findings': 'Detaljerade fynd',
+        'New Section': 'Nytt avsnitt',
+        'Enter content here...': 'Skriv innehållet här...',
+        'New Finding': 'Nytt fynd',
+        'Impact': 'Konsekvens', 'Exploitability': 'Utnyttjbarhet', 'Likelihood': 'Sannolikhet',
+        '[insert figure caption]': '[infoga bildtext]',
+        'Evidence screenshot': 'Skärmbild som bevis',
+    };
+    const REPORT_EN_BY_SV = new Map(Object.entries(REPORT_SV).map(([en, sv]) => [sv, en]));
+
+    // A label the app prints in the report.
+    function rt(en, params) {
+        let s = (reportLanguage === 'sv' && Object.hasOwn(REPORT_SV, en)) ? REPORT_SV[en] : en;
+        if (params) s = s.replace(/\{(\w+)\}/g, (m, k) => (Object.hasOwn(params, k) ? String(params[k]) : m));
+        return s;
+    }
+
+    // Template text (from report-defaults.json) in the report language; English if it has no translation.
+    function tx(en) {
+        if (typeof en !== 'string' || reportLanguage === 'en') return en;
+        const table = templateTranslations[reportLanguage] || {};
+        return Object.hasOwn(table, en) ? table[en] : en;
+    }
+
+    // Any English text this app or a template could have put in a report -> its translation in `lang`
+    // (and back), for texts that sit in the saved report HTML (metadata labels, the title, headings).
+    function translateKnownReportText(text, lang) {
+        const trimmed = text.trim();
+        let en = REPORT_EN_BY_SV.get(trimmed) || trimmed;
+        const svTemplates = templateTranslations.sv || {};
+        if (!Object.hasOwn(REPORT_SV, en)) {
+            const fromTemplate = Object.keys(svTemplates).find(k => svTemplates[k] === trimmed);
+            if (fromTemplate) en = fromTemplate;
+        }
+        const out = lang === 'sv' ? (REPORT_SV[en] ?? svTemplates[en] ?? null) : en;
+        if (out === null || out === trimmed || (lang === 'en' && en === trimmed)) return null;
+        return text.replace(trimmed, out);
+    }
+
+    // The current template's rating scale, in English (for the interface) or the report language.
+    function currentScoringModel() {
+        const tpl = reportTemplates[currentAssessmentType];
+        return (tpl && scoringModels[tpl.scoring]) || scoringModels.builtin || { impactLabel: 'Impact', likelihoodLabel: 'Exploitability', tableHeaders: [], rows: [], legend: '' };
+    }
+
+    function translatedScoringModel(model) {
+        if (!model) return model;
+        return {
+            ...model,
+            impactLabel: tx(model.impactLabel), likelihoodLabel: tx(model.likelihoodLabel),
+            tableHeaders: (model.tableHeaders || []).map(tx), rows: (model.rows || []).map(r => r.map(tx)), legend: tx(model.legend),
+        };
+    }
+
+    // The fixed parts of the report that live in its saved HTML: metadata labels, the classification
+    // placeholder, the Table of Contents title and the default report title.
+    function localizeReportFixedText() {
+        const report = document.getElementById('printableReport');
+        if (!report) return;
+        report.setAttribute('lang', reportLanguage);
+        const nodes = [];
+        const walker = document.createTreeWalker(report, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode())) {
+            const el = node.parentElement;
+            if (!el || !el.closest('#block-metadata, #tocBlock > h2, header h1, #meta-classification option[value=""]')) continue;
+            if (el.closest('.no-print, [data-i18n-skip]') || (el.closest('[contenteditable="true"]') && !el.matches('header h1'))) continue;
+            nodes.push(node);
+        }
+        for (const n of nodes) {
+            const next = translateKnownReportText(n.nodeValue, reportLanguage);
+            if (next !== null) n.nodeValue = next;
+        }
+    }
+
+    function storedReportLanguage() {
+        let stored = null;
+        try { stored = localStorage.getItem(REPORT_LANGUAGE_KEY); } catch (err) { /* storage unavailable */ }
+        return REPORT_LANGUAGES.includes(stored) ? stored : null;
+    }
+
+    function setReportLanguageSilently(lang) {
+        reportLanguage = REPORT_LANGUAGES.includes(lang) ? lang : 'en';
+        const select = document.getElementById('reportLanguageSelect');
+        if (select) select.value = reportLanguage;
+        localizeReportFixedText();
+    }
+
+    // Sidebar "Report Language": rebuilds the template's sections in the new language (like switching
+    // template), translates the fixed labels and re-renders the generated parts. Undoable.
+    async function onReportLanguageChange(select) {
+        const next = select.value;
+        if (!REPORT_LANGUAGES.includes(next) || next === reportLanguage) return;
+        const tpl = reportTemplates[currentAssessmentType];
+        if (hasUnsavedChanges || findings.length > 0) {
+            const ok = await showConfirm(t('Write this report in {language}?\n\nThe template\'s sections (headings and default text) are replaced with the {language} version, and the labels the app prints (severities, statuses, tables) change language. Text you wrote in those sections is replaced too. Your findings and sections you added yourself are kept. You can undo this.', { language: t(next === 'sv' ? 'Swedish' : 'English') }));
+            if (!ok) { select.value = reportLanguage; return; }
+        }
+        recordUndoPoint(t('Change report language'));
+        setReportLanguage(next);
+        markUnsaved();
+        showToast(t('The report is now in {language}.', { language: t(next === 'sv' ? 'Swedish' : 'English') }), { undo: true });
+    }
+
+    function setReportLanguage(lang) {
+        setReportLanguageSilently(lang);
+        try { localStorage.setItem(REPORT_LANGUAGE_KEY, reportLanguage); } catch (err) { /* this visit only */ }
+        const retestHeading = document.querySelector('#block-retest h2');
+        if (retestHeading) { const next = translateKnownReportText(retestHeading.textContent, reportLanguage); if (next !== null) retestHeading.textContent = next; }
+        if (reportTemplates[currentAssessmentType]) buildReportFromTemplate(currentAssessmentType);
+        else renderAll();
     }
 
     // In-page modal system: replaces native confirm()/alert() with a styled, non-blocking overlay.
@@ -1932,6 +2133,12 @@
         if (defaults.formatVersion >= 2) {
             Object.assign(scoringModels, defaults.scoringModels || {});
             templateGroups = defaults.groups || {};
+            // translations: { sv: { "English template text": "Swedish" } }; anything else is ignored.
+            templateTranslations = {};
+            for (const [lang, table] of Object.entries(defaults.translations || {})) {
+                if (!REPORT_LANGUAGES.includes(lang) || !table || typeof table !== 'object') continue;
+                templateTranslations[lang] = Object.fromEntries(Object.entries(table).filter(([k, v]) => isText(k) && isText(v)));
+            }
             for (const [key, t] of Object.entries(defaults.templates || {})) {
                 if (!t || !Array.isArray(t.sections)) continue;
                 templates[key] = {
@@ -2027,24 +2234,24 @@
     }
 
     function buildTemplateBlock(tpl, s) {
-        const model = scoringModels[tpl.scoring] || scoringModels.builtin;
+        const model = translatedScoringModel(scoringModels[tpl.scoring] || scoringModels.builtin);
         if (s.component === 'summary') {
             const block = newTemplateBlock('block-summary', '@summary');
             // eslint-disable-next-line no-unsanitized/property -- reviewed: SECTION_CONTROLS_HTML is a constant
             block.innerHTML = SECTION_CONTROLS_HTML;
-            block.appendChild(headingRow(s.title || 'Findings Summary', s.info));
+            block.appendChild(headingRow(s.title ? tx(s.title) : rt('Findings Summary'), tx(s.info)));
             // eslint-disable-next-line no-unsanitized/method -- reviewed: constant markup; the two axis labels are escaped
             block.insertAdjacentHTML('beforeend', `<div id="summaryList" class="summary-list mt-3"></div>
                 <div class="row align-items-center mt-4">
                     <div class="col-md-6"><div class="matrix-wrapper">
-                        <div class="matrix-axis-y">${escapeHtml(model ? model.impactLabel : 'Impact')} (1-5) →</div>
+                        <div class="matrix-axis-y">${escapeHtml(model ? model.impactLabel : rt('Impact'))} (1-5) →</div>
                         <table class="risk-matrix" id="matrix"></table>
-                        <div class="matrix-axis-x">${escapeHtml(model ? model.likelihoodLabel : 'Exploitability')} (1-5) →</div>
+                        <div class="matrix-axis-x">${escapeHtml(model ? model.likelihoodLabel : rt('Exploitability'))} (1-5) →</div>
                     </div></div>
                     <div class="col-md-6"><div class="editable-section section-edit matrix-legend" contenteditable="true" id="section-matrix-legend"></div></div>
                 </div>`);
             // eslint-disable-next-line no-unsanitized/property -- reviewed: template/scoring-model legend goes through sanitizeHtml()
-            block.querySelector('#section-matrix-legend').innerHTML = sanitizeHtml(tpl.legend || (model ? model.legend : ''));
+            block.querySelector('#section-matrix-legend').innerHTML = sanitizeHtml(tpl.legend ? tx(tpl.legend) : (model ? model.legend : ''));
             return block;
         }
         if (s.component === 'findings') {
@@ -2052,7 +2259,7 @@
             block.classList.add('details-block');
             // eslint-disable-next-line no-unsanitized/property -- reviewed: SECTION_CONTROLS_HTML is a constant
             block.innerHTML = SECTION_CONTROLS_HTML;
-            block.appendChild(headingRow(s.title || 'Detailed Findings', s.info, 'details-title'));
+            block.appendChild(headingRow(s.title ? tx(s.title) : rt('Detailed Findings'), tx(s.info), 'details-title'));
             // eslint-disable-next-line no-unsanitized/method -- reviewed: constant markup
             block.insertAdjacentHTML('beforeend', '<div id="findingsContainer" class="findings-container" style="position: relative; min-height: 50px; padding-left: 20px;"></div>');
             return block;
@@ -2060,13 +2267,13 @@
         const block = newTemplateBlock(blockIdForSection(s.key), s.key);
         // eslint-disable-next-line no-unsanitized/property -- reviewed: SECTION_CONTROLS_HTML is a constant
         block.innerHTML = SECTION_CONTROLS_HTML;
-        block.appendChild(headingRow(s.title || '', s.info));
+        block.appendChild(headingRow(tx(s.title || ''), tx(s.info)));
         const body = document.createElement('div');
         body.className = 'editable-section section-edit' + (s.severityTable ? ' mb-3' : '');
         body.contentEditable = 'true';
         body.id = `section-${s.key}`;
         // eslint-disable-next-line no-unsanitized/property -- reviewed: template section text goes through sanitizeHtml()
-        body.innerHTML = sanitizeHtml(typeof s.html === 'string' ? s.html : '');
+        body.innerHTML = sanitizeHtml(typeof s.html === 'string' ? tx(s.html) : '');
         block.appendChild(body);
         // eslint-disable-next-line no-unsanitized/method -- reviewed: constant markup
         if (s.severityTable) block.insertAdjacentHTML('beforeend', '<div id="execSeverityTableContainer" class="mb-2"></div>');
@@ -2118,6 +2325,7 @@
         }
         fresh.forEach(b => convertLiteralTokensToSpans(b));
         currentAssessmentType = key;
+        localizeReportFixedText();
         const select = document.getElementById('input-assessment-type');
         if (select) select.value = key;
         createMatrix();
@@ -2330,7 +2538,7 @@
     function updateSaveStatus() {
         const el = document.getElementById('saveStatus');
         if (!el) return;
-        const time = ts => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const time = ts => new Date(ts).toLocaleTimeString(uiLocale(), { hour: '2-digit', minute: '2-digit' });
         let text, state;
         if (hasUnsavedChanges && saveStatus.autosaveFailed) {
             text = t('Autosave failed — use Export Report now to keep your changes'); state = 'is-error';
@@ -2352,7 +2560,7 @@
         const snapshot = await loadAutosaveSnapshot();
         if (!snapshot) return;
 
-        const when = new Date(snapshot.savedAt || Date.now()).toLocaleString();
+        const when = new Date(snapshot.savedAt || Date.now()).toLocaleString(uiLocale());
         const restore = await showConfirm(t('Found a draft from {when} that was never exported (it was saved automatically in this browser). Click OK to restore it, or Cancel to discard it and start blank.', { when }));
         if (!restore) { await clearAutosave(); return; }
 
@@ -2482,6 +2690,7 @@
 
     function init() {
         uiLanguage = resolveUiLanguage();
+        setReportLanguageSilently(storedReportLanguage() || uiLanguage);   // a new report: the last one's language, else the interface's
         const summaryBlock = document.getElementById('block-summary');
         if (summaryBlock) PRISTINE_SUMMARY_BLOCK_HTML = summaryBlock.outerHTML;
         captureBuiltInScoringModel();
@@ -2532,7 +2741,7 @@
         const finding = card && findings[parseInt(card.dataset.index, 10)];
         if (!finding) return;
         const field = el.dataset.field;
-        if (field === 'title') finding.title = el.innerText.trim() || 'New Finding';
+        if (field === 'title') finding.title = el.innerText.trim() || rt('New Finding');
         else if (field === 'description' || field === 'remediation') {
             finding[field] = el.innerHTML;
             if (field === 'remediation') finding.remediationIsDefault = false;
@@ -2989,7 +3198,7 @@
         sections.forEach(sec => {
             const opt = document.createElement('option');
             opt.value = sec.id;
-            opt.textContent = (sec.querySelector('.details-title') || {}).innerText?.trim() || 'Detailed Findings';
+            opt.textContent = (sec.querySelector('.details-title') || {}).innerText?.trim() || rt('Detailed Findings');
             select.appendChild(opt);
         });
         const ids = sections.map(s => s.id);
@@ -3384,8 +3593,8 @@
                 <button class="block-control-btn" onclick="insertPageBreakAfter(this)" data-tooltip="Insert page break below this block"><i class="bi bi-scissors"></i></button>
                 <button class="block-control-btn control-danger" onclick="removeSection(this)" data-tooltip="Delete this section (ends the retest)"><i class="bi bi-trash"></i></button>
             </div>
-            <h2 class="editable-section section-edit" contenteditable="true">Retest Summary</h2>
-            <div class="editable-section section-edit mb-2" contenteditable="true">A retest was performed on [insert retest date or date range] to verify the remediation of the findings reported in the original assessment. The table below compares each finding's original result with its status at retest.</div>
+            <h2 class="editable-section section-edit" contenteditable="true">${escapeHtml(rt('Retest Summary'))}</h2>
+            <div class="editable-section section-edit mb-2" contenteditable="true">${escapeHtml(rt("A retest was performed on [insert retest date or date range] to verify the remediation of the findings reported in the original assessment. The table below compares each finding's original result with its status at retest."))}</div>
             <div id="retestSummaryTable" class="retest-summary"></div>`;
         const anchor = document.getElementById('block-summary') || document.querySelector('.details-block');
         const container = document.getElementById('reportBlocksContainer');
@@ -3419,13 +3628,13 @@
     function retestOriginalHtml(f) {
         if (!retestState) return '';
         const b = retestState.baseline[f.id];
-        if (!b) return `<div class="retest-original"><strong>Original result:</strong> <span class="fst-italic">new in this retest</span></div>`;
-        return `<div class="retest-original"><strong>Original result:</strong> ${escapeHtml(b.severity)} · ${escapeHtml(b.status || 'status not set')}</div>`;
+        if (!b) return `<div class="retest-original"><strong>${rt('Original result:')}</strong> <span class="fst-italic">${rt('new in this retest')}</span></div>`;
+        return `<div class="retest-original"><strong>${rt('Original result:')}</strong> ${escapeHtml(rt(b.severity))} · ${escapeHtml(b.status ? rt(b.status) : rt('status not set'))}</div>`;
     }
 
     function statusBadgeHtml(status) {
         const meta = FINDING_STATUSES.find(s => s.value === status);
-        return meta ? `<span class="status-badge ${meta.cls}">${escapeHtml(meta.value)}</span>` : '<span class="status-badge status-unset">Not set</span>';
+        return meta ? `<span class="status-badge ${meta.cls}">${escapeHtml(rt(meta.value))}</span>` : `<span class="status-badge status-unset">${rt('Not set')}</span>`;
     }
 
     function renderRetestSummary() {
@@ -3437,12 +3646,12 @@
         const rows = findings.map((f, i) => {
             const b = base[f.id];
             const original = b
-                ? `<span class="crit-badge ${severityBadgeClass(b.severity)}">${escapeHtml(b.severity)}</span> ${statusBadgeHtml(b.status)}`
-                : '<span class="text-muted fst-italic">New in retest</span>';
-            return `<tr><td>${i + 1}</td><td>${escapeHtml(f.title)}</td><td>${original}</td><td>${statusBadgeHtml(f.status)}</td><td>${escapeHtml(f.retestDate || '—')}</td></tr>`;
+                ? `<span class="crit-badge ${severityBadgeClass(b.severity)}">${escapeHtml(rt(b.severity))}</span> ${statusBadgeHtml(b.status)}`
+                : `<span class="text-muted fst-italic">${rt('New in retest')}</span>`;
+            return `<tr><td>${i + 1}</td><td data-i18n-skip>${escapeHtml(f.title)}</td><td>${original}</td><td>${statusBadgeHtml(f.status)}</td><td>${escapeHtml(f.retestDate || '—')}</td></tr>`;
         });
         Object.entries(base).filter(([id]) => !presentIds.has(id)).forEach(([, b]) => {
-            rows.push(`<tr class="text-muted"><td>—</td><td>${escapeHtml(b.title)}</td><td><span class="crit-badge ${severityBadgeClass(b.severity)}">${escapeHtml(b.severity)}</span> ${statusBadgeHtml(b.status)}</td><td colspan="2" class="fst-italic">Removed from this report</td></tr>`);
+            rows.push(`<tr class="text-muted"><td>—</td><td data-i18n-skip>${escapeHtml(b.title)}</td><td><span class="crit-badge ${severityBadgeClass(b.severity)}">${escapeHtml(rt(b.severity))}</span> ${statusBadgeHtml(b.status)}</td><td colspan="2" class="fst-italic">${rt('Removed from this report')}</td></tr>`);
         });
 
         const originals = findings.filter(f => base[f.id]);
@@ -3451,15 +3660,15 @@
             [count('Remediated'), 'remediated'], [count('Partially Remediated'), 'partially remediated'],
             [count('Open'), 'still open'], [count('Accepted Risk'), 'accepted as risk'],
             [count('False Positive'), 'false positive'], [count(''), 'not yet retested'],
-        ].filter(([n]) => n > 0).map(([n, label]) => `<strong>${n}</strong> ${label}`);
+        ].filter(([n]) => n > 0).map(([n, label]) => `<strong>${n}</strong> ${rt(label)}`);
         const summary = originals.length
-            ? `Of the ${originals.length} original finding${originals.length === 1 ? '' : 's'}: ${parts.join(', ')}.`
-            : 'None of the original findings are in the report any more.';
+            ? rt(originals.length === 1 ? 'Of the 1 original finding: {parts}.' : 'Of the {n} original findings: {parts}.', { n: originals.length, parts: parts.join(', ') })
+            : rt('None of the original findings are in the report any more.');
 
         // eslint-disable-next-line no-unsanitized/property -- reviewed: titles, severities and dates are escaped; badge classes come from constant maps; counts are integers
         target.innerHTML = `<p class="retest-totals">${summary}</p>
             <table class="table table-sm table-bordered retest-table">
-                <thead class="table-light"><tr><th style="width:2.5rem">#</th><th>Finding</th><th>Original result</th><th>Retest status</th><th style="width:7.5rem">Retest date</th></tr></thead>
+                <thead class="table-light"><tr><th style="width:2.5rem">#</th><th>${rt('Finding')}</th><th>${rt('Original result')}</th><th>${rt('Retest status')}</th><th style="width:7.5rem">${rt('Retest date')}</th></tr></thead>
                 <tbody>${rows.join('')}</tbody>
             </table>`;
     }
@@ -3694,7 +3903,7 @@
 
     function evidenceFigureHtml(dataUrl) {
         // The caption starts as an [insert …] placeholder, which the Pre-Export Checklist flags until it's written.
-        return `<figure><img src="${escapeHtml(dataUrl)}" alt="Evidence screenshot"><figcaption>[insert figure caption]</figcaption></figure><p><br></p>`;
+        return `<figure><img src="${escapeHtml(dataUrl)}" alt="${escapeHtml(rt('Evidence screenshot'))}"><figcaption>${escapeHtml(rt('[insert figure caption]'))}</figcaption></figure><p><br></p>`;
     }
 
     // Headings and finding titles are single-line text; images go into body text only.
@@ -3946,7 +4155,7 @@
     }
 
     function addNewDetailsSection() {
-        const headline = document.getElementById('newHeadline').value || "Detailed Findings";
+        const headline = document.getElementById('newHeadline').value || rt('Detailed Findings');
         const container = document.getElementById('reportBlocksContainer');
         const div = document.createElement('div');
         const uniqueId = 'details-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
@@ -3984,7 +4193,7 @@
 
 
     function addNewSection() {
-        const headline = document.getElementById('newHeadline').value || "New Section";
+        const headline = document.getElementById('newHeadline').value || rt('New Section');
         const container = document.getElementById('reportBlocksContainer');
         const div = document.createElement('div');
         div.className = 'report-block';
@@ -4000,7 +4209,7 @@
             <div class="d-flex justify-content-between align-items-center">
                 <h2 class="editable-section section-edit flex-grow-1" contenteditable="true">${escapeHtml(headline)}</h2>
             </div>
-            <div class="editable-section section-edit" contenteditable="true">Enter content here...</div>`;
+            <div class="editable-section section-edit" contenteditable="true">${escapeHtml(rt('Enter content here...'))}</div>`;
         
         const conclusionBlock = document.getElementById('block-conclusion');
         if (conclusionBlock) {
@@ -4384,7 +4593,7 @@
         const exploitRaw = document.getElementById('vExploit').value;
 
         findings.push({
-            title: document.getElementById('vTitle').value || "New Finding",
+            title: document.getElementById('vTitle').value || rt('New Finding'),
             cwe: document.getElementById('vCWE').value || "N/A",
             category: document.getElementById('vCategory').value || "General",
             assets: assetsArr,
@@ -4586,13 +4795,14 @@
         if (!tocList) return;
         const headings = document.querySelectorAll('#reportBlocksContainer h2.section-edit');
         tocList.innerHTML = '';
+        tocList.setAttribute('data-i18n-skip', '');   // section headings: the author's text
         headings.forEach((h, idx) => {
             h.id = `toc-target-${idx}`;
             const entry = document.createElement('div');
             entry.className = 'toc-entry';
             const link = document.createElement('a');
             link.href = `#toc-target-${idx}`;
-            link.innerText = h.innerText.trim() || `Section ${idx + 1}`;
+            link.innerText = h.innerText.trim() || rt('Section {n}', { n: idx + 1 });
             entry.appendChild(link);
             tocList.appendChild(entry);
         });
@@ -4621,8 +4831,8 @@
         if (select) {
             const currentVal = select.value;
             // eslint-disable-next-line no-unsanitized/property -- reviewed: classification names are escaped
-            select.innerHTML = '<option value="" selected>Select classification...</option>' +
-                classifications.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+            select.innerHTML = `<option value="" selected>${escapeHtml(rt('Select classification...'))}</option>` +
+                classifications.map(c => `<option value="${escapeHtml(c)}" data-i18n-skip>${escapeHtml(c)}</option>`).join('');
             if (classifications.includes(currentVal)) { select.value = currentVal; }
         }
 
@@ -4683,7 +4893,7 @@
         // report-defaults.json's boilerplate text is full of "[insert ..., e.g., ...]" scaffolding
         // meant to be replaced with real engagement-specific detail — flag any left behind so a
         // report doesn't ship with template instructions still visible in it.
-        const leftoverPlaceholderPattern = /\[insert[^\]]*\]/gi;
+        const leftoverPlaceholderPattern = /\[(?:insert|infoga)[^\]]*\]/gi;   // English and Swedish templates
         let leftoverPlaceholders = 0;
         document.querySelectorAll('#printableReport [contenteditable="true"]').forEach(el => {
             const matches = el.innerText.match(leftoverPlaceholderPattern);
@@ -4755,9 +4965,10 @@
         const sl = document.getElementById('summaryList');
         if (sl) {
             sl.innerHTML = '';
+            sl.setAttribute('data-i18n-skip', '');   // section headings and finding titles: the author's text
             activeSections.forEach(sec => {
                 const secTitleEl = sec.querySelector('.details-title');
-                const secTitle = secTitleEl ? secTitleEl.innerText.trim() : "Detailed Findings";
+                const secTitle = secTitleEl ? secTitleEl.innerText.trim() : rt('Detailed Findings');
                 
                 const secFindings = findings
                     .map((f, i) => ({ finding: f, globalIndex: i }))
@@ -4813,14 +5024,14 @@
             }
 
             let badgeClass = ''; let badgeText = '';
-            if (!hasScore) { badgeClass = 'badge-unscored'; badgeText = 'Not Scored'; }
+            if (!hasScore) { badgeClass = 'badge-unscored'; badgeText = rt('Not Scored'); }
             else {
                 const score = f.impact * f.exploit;
                 const bump = (key) => { if (countsTowardRisk) counts[key]++; };
-                if (score >= 16) { badgeClass = 'badge-crit'; badgeText = 'Critical'; bump('crit'); }
-                else if (score >= 10) { badgeClass = 'badge-high'; badgeText = 'High'; bump('high'); }
-                else if (score >= 5) { badgeClass = 'badge-med'; badgeText = 'Medium'; bump('med'); }
-                else { badgeClass = 'badge-low'; badgeText = 'Low'; bump('low'); }
+                if (score >= 16) { badgeClass = 'badge-crit'; badgeText = rt('Critical'); bump('crit'); }
+                else if (score >= 10) { badgeClass = 'badge-high'; badgeText = rt('High'); bump('high'); }
+                else if (score >= 5) { badgeClass = 'badge-med'; badgeText = rt('Medium'); bump('med'); }
+                else { badgeClass = 'badge-low'; badgeText = rt('Low'); bump('low'); }
             }
 
             let impactOptions = `<option value="" ${f.impact === null ? 'selected' : ''}>Impact</option>`;
@@ -4831,25 +5042,27 @@
             }
 
             const statusMeta = f.status ? (FINDING_STATUSES.find(s => s.value === f.status) || null) : null;
+            const uiModel = currentScoringModel();           // English; the interface translates it
+            const printModel = translatedScoringModel(uiModel); // the report language
             const statusOptionsHtml = `<option value="" ${!f.status ? 'selected' : ''}>Status</option>` +
                 FINDING_STATUSES.map(s => `<option value="${s.value}" ${f.status === s.value ? 'selected' : ''}>${s.value}</option>`).join('');
 
             const assetsDataList = Array.isArray(f.assets) ? f.assets : [];
             let assetsHtmlString = "";
             
-            assetsHtmlString = `<div class="mt-2${assetsDataList.length === 0 ? ' print-fallback-hidden' : ''}"><strong>${escapeHtml(currentTemplateLabels().assets)}:</strong> `;
+            assetsHtmlString = `<div class="mt-2${assetsDataList.length === 0 ? ' print-fallback-hidden' : ''}"><strong>${escapeHtml(tx(currentTemplateLabels().assets))}:</strong> `;
             // UI-002: handled by the delegated listeners in setupAssetEditing()
             if (assetsDataList.length > 0) {
                 assetsHtmlString += assetsDataList.map((asset, aIdx) => `
                     <span class="asset-badge">
-                        <span data-asset-edit="${aIdx}" title="Double-click to edit">${escapeHtml(asset)}</span>
+                        <span data-asset-edit="${aIdx}" data-i18n-skip title="${escapeHtml(t('Double-click to edit'))}">${escapeHtml(asset)}</span>
                         <button type="button" class="badge-del no-print" data-asset-remove="${aIdx}" aria-label="${escapeHtml(t('Remove asset {name}', { name: asset }))}">×</button>
                     </span>`).join('');
             } else if (!(assetEntry && assetEntry.finding === f)) {
                 assetsHtmlString += `<span class="text-muted small print-fallback-hidden no-print me-2">No specific target assets linked.</span>`;
             }
             assetsHtmlString += (assetEntry && assetEntry.finding === f)
-                ? `<input type="text" class="asset-entry-input form-control form-control-sm d-inline-block no-print" aria-label="Add affected asset" placeholder="${escapeHtml(t('{hint} — Enter to add, or paste a list', { hint: currentTemplateLabels().assetHint }))}">`
+                ? `<input type="text" class="asset-entry-input form-control form-control-sm d-inline-block no-print" aria-label="Add affected asset" placeholder="${escapeHtml(t('{hint} — Enter to add, or paste a list', { hint: t(currentTemplateLabels().assetHint) }))}">`
                 : `<button type="button" class="btn-add-asset-inline no-print" data-asset-add aria-label="Add affected assets" title="Add affected assets">+</button>`;
             assetsHtmlString += `</div>`;
 
@@ -4859,20 +5072,20 @@
             if (plannerIsShown) {
                 plannerHtml = `
                 <div class="client-notes-canvas">
-                    <div class="cn-title">Remediation Action Planner</div>
+                    <div class="cn-title">${rt('Remediation Action Planner')}</div>
                     <div class="row">
                         <div class="col-md-4 col-12">
-                            <div class="cn-field-line"><strong>Remediation Owner:</strong><div class="cn-field-fill"></div></div>
+                            <div class="cn-field-line"><strong>${rt('Remediation Owner:')}</strong><div class="cn-field-fill"></div></div>
                         </div>
                         <div class="col-md-4 col-12">
-                            <div class="cn-field-line"><strong>Action Priority:</strong><div class="cn-field-fill"></div></div>
+                            <div class="cn-field-line"><strong>${rt('Action Priority:')}</strong><div class="cn-field-fill"></div></div>
                         </div>
                         <div class="col-md-4 col-12">
-                            <div class="cn-field-line"><strong>Target Resolution Date:</strong><div class="cn-field-fill"></div></div>
+                            <div class="cn-field-line"><strong>${rt('Target Resolution Date:')}</strong><div class="cn-field-fill"></div></div>
                         </div>
                     </div>
                     <div class="cn-notes-wrapper">
-                        <div class="small text-muted fw-bold text-uppercase mb-1" style="font-size:0.65rem; letter-spacing:0.3px;">Operational Execution Notes</div>
+                        <div class="small text-muted fw-bold text-uppercase mb-1" style="font-size:0.65rem; letter-spacing:0.3px;">${rt('Operational Execution Notes')}</div>
                         <div class="cn-notes-ruled-line"></div>
                         <div class="cn-notes-ruled-line"></div>
                         <div class="cn-notes-ruled-line"></div>
@@ -4917,44 +5130,44 @@
 
                     <div class="d-flex flex-column text-muted small mb-3 bg-light p-2 rounded">
                         <div class="d-flex justify-content-between align-items-center w-100">
-                            <div><span class="no-print"><strong>Category:</strong> <span translate="no">${escapeHtml(f.category || 'General')}</span> | </span><strong>CWE:</strong> ${parseCweLinkBadge(f.cwe)}</div>
+                            <div><span class="no-print"><strong>Category:</strong> <span translate="no">${escapeHtml(f.category || 'General')}</span> | </span><strong>CWE:</strong> <span data-i18n-skip>${parseCweLinkBadge(f.cwe)}</span></div>
                             <div class="d-flex gap-2 align-items-center no-print">
-                                <span class="fw-bold text-secondary">Impact:</span>
+                                <span class="fw-bold text-secondary">${escapeHtml(uiModel.impactLabel)}:</span>
                                 <select class="form-select form-select-sm d-inline-block w-auto" onchange="updateFindingScore(${i}, 'impact', this.value)">${impactOptions}</select>
-                                <span class="fw-bold text-secondary ms-1">Exploitability:</span>
+                                <span class="fw-bold text-secondary ms-1">${escapeHtml(uiModel.likelihoodLabel)}:</span>
                                 <select class="form-select form-select-sm d-inline-block w-auto" onchange="updateFindingScore(${i}, 'exploit', this.value)">${exploitOptions}</select>
                             </div>
-                            <div class="print-score-text">${hasScore ? `Impact: ${f.impact} / Exploitability: ${f.exploit}` : 'Impact / Exploitability: Not Scored'}</div>
+                            <div class="print-score-text">${escapeHtml(hasScore ? rt('{impact}: {i} / {likelihood}: {l}', { impact: printModel.impactLabel, likelihood: printModel.likelihoodLabel, i: f.impact, l: f.exploit }) : rt('{impact} / {likelihood}: Not Scored', { impact: printModel.impactLabel, likelihood: printModel.likelihoodLabel }))}</div>
                         </div>
                         <div class="d-flex align-items-center gap-2 flex-wrap mt-2${hasCvss ? '' : ' print-fallback-hidden'}">
                             <span class="fw-bold text-secondary no-print">CVSS v3.1:</span>
                             <input type="text" class="form-control form-control-sm no-print" style="width:auto; min-width:220px;" placeholder="Vector string" value="${escapeHtml(f.cvssVector || '')}" onchange="updateFindingData(${i}, 'cvssVector', this.value.trim())">
                             <input type="number" class="form-control form-control-sm no-print" style="width:80px;" placeholder="Score" min="0" max="10" step="0.1" value="${escapeHtml(f.cvssScore || '')}" onchange="updateFindingData(${i}, 'cvssScore', this.value.trim())">
                             <a href="https://www.first.org/cvss/calculator/3.1" target="_blank" rel="noopener noreferrer" class="no-print small" data-tooltip="Opens the official FIRST.org CVSS v3.1 calculator in a new tab — this app doesn't calculate CVSS itself">Calculate <i class="bi bi-box-arrow-up-right"></i></a>
-                            <span class="print-score-text">${hasCvss ? `CVSS v3.1: ${escapeHtml(f.cvssVector || '')}${f.cvssScore ? ` (Score: ${escapeHtml(f.cvssScore)})` : ''}` : ''}</span>
+                            <span class="print-score-text" data-i18n-skip>${hasCvss ? escapeHtml(rt('CVSS v3.1: {vector}', { vector: f.cvssVector || '' }) + (f.cvssScore ? rt(' (Score: {score})', { score: f.cvssScore }) : '')) : ''}</span>
                         </div>
                         <div class="d-flex justify-content-between align-items-center w-100 mt-2 flex-wrap gap-2">
                             <div class="d-flex align-items-center gap-2${statusMeta ? '' : ' print-fallback-hidden'}">
-                                <span class="status-badge ${statusMeta ? statusMeta.cls : 'status-unset'}">${statusMeta ? escapeHtml(statusMeta.value) : 'Not Set'}</span>
+                                <span class="status-badge ${statusMeta ? statusMeta.cls : 'status-unset'}">${statusMeta ? escapeHtml(rt(statusMeta.value)) : rt('Not Set')}</span>
                                 <select class="form-select form-select-sm d-inline-block w-auto no-print" onchange="updateFindingStatus(${i}, this.value)">${statusOptionsHtml}</select>
                             </div>
                             <div class="d-flex align-items-center gap-2 no-print">
                                 <span class="fw-bold text-secondary">Retest Date:</span>
                                 <input type="date" class="form-control form-control-sm" style="width:auto;" value="${escapeHtml(f.retestDate || '')}" onchange="updateFindingRetestDate(${i}, this.value)">
                             </div>
-                            <div class="print-score-text">${f.retestDate ? `Retest Date: ${escapeHtml(f.retestDate)}` : ''}</div>
+                            <div class="print-score-text">${f.retestDate ? escapeHtml(rt('Retest Date: {date}', { date: f.retestDate })) : ''}</div>
                         </div>
                         ${assetsHtmlString}
                         ${retestOriginalHtml(f)}
                     </div>
 
                     <div class="mb-3">
-                        <div class="fw-bold small text-secondary text-uppercase">General Vulnerability Description</div>
+                        <div class="fw-bold small text-secondary text-uppercase">${rt('General Vulnerability Description')}</div>
                         <div class="editable-section section-edit" contenteditable="true" data-field="description" onblur="updateFindingData(${i}, 'description', this.innerHTML)">${sanitizeHtml(f.description)}</div>
                     </div>
 
                     <div class="mb-3">
-                        <div class="fw-bold small text-secondary text-uppercase">Remediation</div>
+                        <div class="fw-bold small text-secondary text-uppercase">${rt('Remediation')}</div>
                         <div class="editable-section section-edit" contenteditable="true" data-field="remediation" onblur="updateFindingData(${i}, 'remediation', this.innerHTML)">${sanitizeHtml(f.remediation)}</div>
                     </div>
 
@@ -4996,10 +5209,10 @@
             <table class="table table-sm table-bordered mt-3 text-center border-light-subtle mx-auto" style="font-size: 0.8rem; max-width: 450px;">
                 <thead class="table-light text-uppercase fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px;">
                     <tr>
-                        <th style="color: #721c24; background-color: #f8d7da;">Critical</th>
-                        <th style="color: #a14c06; background-color: #ffe5d0;">High</th>
-                        <th style="color: #856404; background-color: #fff3cd;">Medium</th>
-                        <th style="color: #155724; background-color: #d4edda;">Low</th>
+                        <th style="color: #721c24; background-color: #f8d7da;">${rt('Critical')}</th>
+                        <th style="color: #a14c06; background-color: #ffe5d0;">${rt('High')}</th>
+                        <th style="color: #856404; background-color: #fff3cd;">${rt('Medium')}</th>
+                        <th style="color: #155724; background-color: #d4edda;">${rt('Low')}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -5039,7 +5252,7 @@
         if (field === 'title') {
             // The display number lives in its own non-editable span, so the edited text is the title
             // itself — nothing to strip (stripping /^\d+\./ used to turn "802.1X…" into "1X…", BUG-009).
-            findings[idx][field] = val.trim() || 'New Finding'; renderAll();
+            findings[idx][field] = val.trim() || rt('New Finding'); renderAll();
         } else {
             findings[idx][field] = val;
             if (field === 'remediation') { findings[idx].remediationIsDefault = false; }
@@ -5161,6 +5374,7 @@
             }
         }
         if (data.watermark !== undefined && !isObject(data.watermark)) errors.push(t('Its watermark settings are invalid.'));
+        if (data.reportLanguage !== undefined && !REPORT_LANGUAGES.includes(data.reportLanguage)) errors.push(t('Its report language is not one this app supports.'));
         if (Array.isArray(data.findings)) {
             data.findings.forEach((f, i) => { if (isObject(f) && !isOptionalText(f.id)) errors.push(t('Finding {n}: "{field}" must be text.', { n: i + 1, field: 'id' })); });
         }
@@ -5252,7 +5466,7 @@
             classification: classSelect ? classSelect.value : '',
             showMetaBackground: metaBg ? metaBg.checked : true,
         };
-        return { schemaVersion: REPORT_SCHEMA_VERSION, findings, currentLogo, blocksHtml, tocEnabled, brandPrimary, brandAccent, brandHeadline, companyName, clientName, contactName, contactEmail, classifications, watermark, assessmentType: currentAssessmentType, meta, actionPlannersGloballyVisible, retest: retestState };
+        return { schemaVersion: REPORT_SCHEMA_VERSION, findings, currentLogo, blocksHtml, tocEnabled, brandPrimary, brandAccent, brandHeadline, companyName, clientName, contactName, contactEmail, classifications, watermark, assessmentType: currentAssessmentType, reportLanguage, meta, actionPlannersGloballyVisible, retest: retestState };
     }
 
     // Shared by Import Report (loads a .json file) and autosave restore (loads the localStorage
@@ -5304,9 +5518,11 @@
         retestState = data.retest || null;
         // Before anything renders: finding cards use the template's labels (e.g. "Affected Files / Components").
         if (data.assessmentType) setAssessmentTypeSilently(data.assessmentType);
+        setReportLanguageSilently(data.reportLanguage || 'en');      // files from before report languages are English
         updateActionPlannerToggleIcon();
         // eslint-disable-next-line no-unsanitized/property -- reviewed: blocksHtml always comes from sanitizeReportPayload() (structure policy): import, autosave restore, undo and rollback
         document.getElementById('reportBlocksContainer').innerHTML = data.blocksHtml;
+        localizeReportFixedText();
         document.querySelectorAll('#reportBlocksContainer .editable-section').forEach(el => convertLiteralTokensToSpans(el));
         if (retestState) insertRetestBlock();          // e.g. a file whose Retest Summary block was removed by hand
         updateRetestControls();

@@ -1229,7 +1229,9 @@ export const cases = [
     {
         id: 'I18N-001', title: 'Swedish interface: every interface text is translated, the report text is not', tags: ['i18n'],
         steps: [
-            { run: async () => { localStorage.setItem('rapportgen:uiLanguage', 'sv'); } },
+            // The report stays English here (a new report otherwise starts in the interface language),
+            // so this checks that the interface language alone never changes report text.
+            { run: async () => { localStorage.setItem('rapportgen:uiLanguage', 'sv'); localStorage.setItem('rapportgen:reportLanguage', 'en'); } },
             { run: async () => {
                 const { assert, answerModal, sleep } = __t;
                 assert(document.documentElement.lang === 'sv', 'html lang is ' + document.documentElement.lang);
@@ -1370,6 +1372,175 @@ export const cases = [
             assert(tip.getAttribute('data-tooltip').includes('Fler inställningar'), 'Swedish tooltip: ' + tip.getAttribute('data-tooltip'));
             setUiLanguage('en');
         } }],
+    },
+
+    // ---------------------------------------------------------------- report language (Swedish reports)
+    {
+        id: 'RPT-001', title: 'Every template text has a Swedish translation with the same markup, tokens and placeholders', tags: ['report-language'],
+        steps: [{ run: async () => {
+            const { assert } = __t;
+            const sv = templateTranslations.sv || {};
+            const texts = new Set();
+            const add = v => { if (typeof v === 'string' && v.trim()) texts.add(v); };
+            for (const tpl of Object.values(reportTemplates)) {
+                add(tpl.labels.assets); add(tpl.legend);
+                tpl.sections.forEach(s => { add(s.title); add(s.html); add(s.info); });
+            }
+            for (const m of Object.values(scoringModels)) {
+                if (m === scoringModels.builtin) continue;      // read from the built-in English skeleton
+                add(m.impactLabel); add(m.likelihoodLabel); m.tableHeaders.forEach(add); m.rows.flat().forEach(add); add(m.legend);
+            }
+            const missing = [...texts].filter(x => !Object.hasOwn(sv, x));
+            assert(missing.length === 0, `${missing.length} template texts lack Swedish: ` + missing.map(x => x.slice(0, 60)).join(' | '));
+            const tags = s => (s.match(/<\/?[a-z0-9]+/gi) || []).join(',');
+            const tokens = s => (s.match(/\[(?:CLIENT NAME|COMPANY NAME|CONTACT NAME|CONTACT EMAIL)\]/g) || []).sort().join(',');
+            const problems = [];
+            for (const en of texts) {
+                const s = sv[en];
+                if (tags(en) !== tags(s)) problems.push('markup: ' + en.slice(0, 50));
+                if (tokens(en) !== tokens(s)) problems.push('tokens: ' + en.slice(0, 50));
+                if ((en.match(/\[insert/gi) || []).length !== (s.match(/\[infoga/gi) || []).length || /\[insert/i.test(s)) problems.push('placeholders: ' + en.slice(0, 50));
+            }
+            assert(problems.length === 0, problems.join(' | '));
+            // The app's own report labels: same {placeholders}, and unambiguous both ways.
+            const ph = s => (s.match(/\{\w+\}/g) || []).sort().join(',');
+            assert(Object.entries(REPORT_SV).every(([en, s]) => ph(en) === ph(s) && s.trim()), 'REPORT_SV placeholders differ');
+            assert(REPORT_EN_BY_SV.size === Object.keys(REPORT_SV).length - 1, 'REPORT_SV: only "Not Set"/"Not set" may share a translation');
+        } }],
+    },
+    {
+        id: 'RPT-002', title: 'A report switched to Swedish prints only Swedish labels; findings and own sections kept; undo; export/import', tags: ['report-language'],
+        steps: [
+            { run: async () => { localStorage.setItem('rapportgen:uiLanguage', 'en'); localStorage.setItem('rapportgen:reportLanguage', 'en'); } },
+            { run: async () => {
+                const { assert, answerModal, cards, sleep, captureDownload } = __t;
+                assert(reportLanguage === 'en' && document.getElementById('reportLanguageSelect').value === 'en', 'should start English');
+                loadTemplate(0); document.getElementById('vAssets').value = 'web01'; await addFinding();
+                loadTemplate(3); await addFinding();
+                document.getElementById('vTitle').value = 'Unscored'; await addFinding();
+                updateFindingScore(0, 'impact', 5); updateFindingScore(0, 'exploit', 5);
+                updateFindingScore(1, 'impact', 2); updateFindingScore(1, 'exploit', 2);
+                updateFindingStatus(0, 'Open'); updateFindingStatus(1, 'Remediated');
+                findings[0].cvssVector = 'CVSS:3.1/AV:N'; findings[0].cvssScore = '9.8'; findings[0].retestDate = '2026-11-08';
+                toggleAllActionPlanners();
+                document.getElementById('toggleTOC').click();
+                document.getElementById('newHeadline').value = 'Appendix X'; addNewSection();
+                const retest = startRetest(); await answerModal(true); await retest;
+                updateFindingStatus(0, 'Remediated');
+                const ids = findings.map(f => f.id);
+
+                const select = document.getElementById('reportLanguageSelect');
+                select.value = 'sv';
+                const switching = onReportLanguageChange(select);
+                const question = await answerModal(true); await switching; await sleep(50);
+                assert(question && question.includes('Swedish'), 'should ask first (interface is English): ' + question);
+                assert(reportLanguage === 'sv' && document.getElementById('printableReport').getAttribute('lang') === 'sv', 'report language not applied');
+                assert(document.querySelector('.sidebar h4').innerText.includes('Reporting Tools'), 'interface changed language too');
+                assert(findings.map(f => f.id).join() === ids.join(), 'findings changed');
+                assert([...document.querySelectorAll('#reportBlocksContainer h2')].some(h => h.innerText === 'Appendix X'), 'own section lost');
+                const h2s = [...document.querySelectorAll('#reportBlocksContainer h2')].map(h => h.innerText);
+                for (const h of ['Sammanfattning för ledningen', 'Sammanfattning av fynd', 'Detaljerade fynd', 'Slutsats', 'Innehåll', 'Sammanfattning av omtest']) assert(h2s.includes(h), `missing heading ${h}: ${h2s.join(', ')}`);
+                assert(document.querySelector('header h1').innerText === 'RAPPORT FRÅN SÄKERHETSGRANSKNING', 'report title not translated');
+                assert(cards()[0].querySelector('.crit-badge').textContent === 'Kritisk', 'severity badge');
+                assert(cards()[1].querySelector('.status-badge').textContent === 'Åtgärdad', 'status badge');
+                assert(cards()[2].querySelector('.crit-badge').textContent === 'Ej bedömd', 'unscored badge');
+                assert(document.querySelector('.matrix-axis-y').innerText.startsWith('Konsekvens'), 'matrix axis');
+                assert(document.getElementById('section-exec').innerText.includes('genomförde') || /[åäö]/.test(document.getElementById('section-exec').innerText), 'executive summary text not Swedish');
+
+                // Figure captions are numbered "Figur n:" in a Swedish report.
+                const exec = document.getElementById('section-exec');
+                exec.insertAdjacentHTML('beforeend', evidenceFigureHtml('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='));
+                const cap = exec.querySelector('figcaption');
+                assert(getComputedStyle(cap, '::before').content.includes('Figur '), 'caption prefix: ' + getComputedStyle(cap, '::before').content);
+                assert(cap.innerText === '[infoga bildtext]', 'caption placeholder: ' + cap.innerText);
+                assert(document.getElementById('checklistBody').innerText.includes('Leftover boilerplate'), 'Swedish [infoga …] placeholders not flagged by the checklist');
+
+                // Nothing the app prints (outside text the author writes) is left in English.
+                const svText = new Set([...Object.values(REPORT_SV), ...Object.values(templateTranslations.sv)]);
+                const patterns = Object.values(REPORT_SV).filter(v => /\{\w+\}/.test(v)).map(v => new RegExp('^' + v.split(/\{\w+\}/).map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*') + '$'));
+                const isSv = v => { const n = v.replace(/\s+/g, ' ').trim().replace(/ \(1-5\) →$/, '').replace(/:$/, ''); return !/[A-Za-z]/.test(n) || svText.has(n) || svText.has(n + ':') || patterns.some(re => re.test(n)); };
+                const english = [];
+                const walker = document.createTreeWalker(document.getElementById('printableReport'), NodeFilter.SHOW_TEXT);
+                let node;
+                while ((node = walker.nextNode())) {
+                    const el = node.parentElement;
+                    if (!el || el.closest('.no-print, .page-break-block, [contenteditable="true"], [data-i18n-skip], [translate="no"], .retest-totals, script, style')) continue;
+                    if (getComputedStyle(el).display === 'none' && !el.closest('.print-score-text')) continue;
+                    for (const part of node.nodeValue.split(' · ')) if (!isSv(part)) english.push(`"${part.trim()}" in ${el.className || el.tagName}`);
+                }
+                assert(english.length === 0, 'English left in a Swedish report: ' + english.join(' | '));
+                assert(/^Av de 3 ursprungliga fynden: .+\.$/.test(document.querySelector('.retest-totals').innerText), 'retest totals: ' + document.querySelector('.retest-totals').innerText);
+
+                // Undo goes back to the English report.
+                undoLastChange();
+                assert(reportLanguage === 'en' && document.getElementById('reportLanguageSelect').value === 'en', 'undo did not restore the language');
+                assert(document.querySelector('#block-exec-summary h2').innerText === 'Executive Summary', 'undo did not restore English headings');
+                assert(cards()[0].querySelector('.crit-badge').textContent === 'Critical', 'undo: badge');
+                assert(document.querySelector('#tocBlock h2').innerText === 'Table of Contents', 'undo: TOC title');
+
+                select.value = 'sv';
+                const again = onReportLanguageChange(select); await answerModal(true); await again;
+                const { text } = await captureDownload(() => exportReportJson());
+                assert(JSON.parse(text).reportLanguage === 'sv', 'reportLanguage not exported');
+                return { exported: text };
+            } },
+            { fresh: true, run: async (ctx) => {
+                const { assert, pickFile, cards } = __t;
+                localStorage.setItem('rapportgen:uiLanguage', 'en');
+                setReportLanguageSilently('en');
+                await pickFile('importReportFile', ctx.exported);
+                assert(reportLanguage === 'sv' && document.getElementById('reportLanguageSelect').value === 'sv', 'import did not restore Swedish');
+                assert(document.querySelector('#block-exec-summary h2').innerText === 'Sammanfattning för ledningen', 'headings after import');
+                assert(cards()[0].querySelector('.crit-badge').textContent === 'Kritisk', 'badge after import');
+                assert(document.querySelector('#metaFieldsRow label').textContent === 'Kontaktperson', 'metadata label after import');
+            } },
+        ],
+    },
+    {
+        id: 'RPT-003', title: 'Every template builds in Swedish: headings, rating scale, legend and labels', tags: ['report-language', 'templates'],
+        steps: [{ run: async () => {
+            const { assert } = __t;
+            setReportLanguageSilently('sv');
+            const sv = templateTranslations.sv;
+            for (const [key, tpl] of Object.entries(reportTemplates)) {
+                buildReportFromTemplate(key);
+                const headings = [...document.querySelectorAll('#reportBlocksContainer [data-template-section] h2')].map(h => h.innerText);
+                const expected = tpl.sections.map(s => s.title ? sv[s.title] : (s.component === 'summary' ? 'Sammanfattning av fynd' : 'Detaljerade fynd'));
+                assert(headings.join('|') === expected.join('|'), `${key}: ${headings.join(', ')}`);
+                const model = scoringModels[tpl.scoring];
+                assert(document.querySelector('.matrix-axis-x').innerText.startsWith(sv[model.likelihoodLabel]), `${key}: axis ${document.querySelector('.matrix-axis-x').innerText}`);
+                const th = [...document.querySelectorAll('#reportBlocksContainer .table-responsive thead th')].map(x => x.innerText.toLowerCase());
+                if (tpl.sections.some(s => s.scoringTable)) assert(th.includes(sv[model.tableHeaders[0]].toLowerCase()), `${key}: scoring table headers ${th}`);
+                assert(!/\[insert/i.test(document.getElementById('reportBlocksContainer').innerText), `${key}: English [insert …] placeholder left`);
+                document.getElementById('vTitle').value = 'x'; await addFinding();
+                assert(__t.cards()[0].innerText.includes(sv[tpl.labels.assets]) || !findings[0].assets.length, `${key}: asset label`);
+                findings.length = 0; renderAll();
+            }
+        } }],
+    },
+    {
+        id: 'RPT-004', title: 'A new report starts in the last report language, else the interface language; old files open as English', tags: ['report-language'],
+        steps: [
+            { run: async () => { localStorage.setItem('rapportgen:uiLanguage', 'sv'); } },
+            { run: async () => {
+                const { assert } = __t;
+                assert(reportLanguage === 'sv', 'with no earlier report, a Swedish interface should start a Swedish report');
+                assert(document.querySelector('#block-exec-summary h2').innerText === 'Sammanfattning för ledningen', 'startup report not built in Swedish');
+                setReportLanguage('en');   // remembered for the next new report
+            } },
+            { run: async () => {
+                const { assert, pickFile } = __t;
+                assert(reportLanguage === 'en', 'the last report language should win over the interface language');
+                setReportLanguage('sv');
+                const old = JSON.parse(JSON.stringify(buildReportPayload()));
+                delete old.reportLanguage;
+                await pickFile('importReportFile', JSON.stringify(old));
+                assert(reportLanguage === 'en', 'a file without reportLanguage should open as English');
+                const bad = { ...buildReportPayload(), reportLanguage: 'xx' };
+                const alertText = await pickFile('importReportFile', JSON.stringify(bad));
+                assert(alertText && alertText.includes('språk'), 'unsupported language not rejected: ' + alertText);
+            } },
+        ],
     },
 
     // ---------------------------------------------------------------- TEST-002 round trip

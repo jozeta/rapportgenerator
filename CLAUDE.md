@@ -46,6 +46,11 @@ that bug is back.
   `localizeUi()` translates it (re-run by `renderAll()` for the report's `.no-print` controls). Mark
   data with `translate="no"`. Printed report text is not interface text. New interface text needs a
   `UI_SV` entry, or `I18N-001`/`I18N-002` fail.
+- **Report language** (per report, saved as `reportLanguage`): template text goes through `tx()` using
+  `report-defaults.json` → `translations.sv` (keyed by the English text); labels the app prints go
+  through `rt()` / `REPORT_SV`. Anything printed uses the report language, never `t()`. Keep
+  statuses/severities stored in English. Tests `RPT-001…004` fail on a missing translation or English
+  left in a Swedish report.
 - Custom Promise-based dialogs `showConfirm()` / `showAlert()`; never native `alert/confirm`.
 - Find & Replace edits only `Text` nodes via `TreeWalker`, never raw HTML.
 
