@@ -1525,4 +1525,106 @@ export const cases = [
             assert(!window.__pwned, `script executed ${window.__pwned} time(s) from an imported library`);
         } }],
     },
+    {
+        // SEC-DOM-2: finding cards are rebuilt with innerHTML on every renderAll(). Text committed from
+        // an editable field (typed, pasted or dropped HTML, saved via this.innerHTML) never went
+        // through the import sanitizer, so the renderer must not trust `findings` to be clean.
+        id: 'SEC-DOM-2-render', title: 'Finding text is sanitized each time it is rendered, not only on import', tags: ['security'],
+        steps: [{ run: async () => {
+            const { assert, sleep } = __t;
+            const js = 'window.__pwned=(window.__pwned||0)+1';
+            findings.push(__t.finding({ description: 'x', remediation: 'y' }));
+            renderAll();
+            // What the cards' onblur / debounced commit hand over: the field's innerHTML.
+            updateFindingData(0, 'description', `ok <img src=x onerror="${js}"> <a href="javascript:${js}">l</a>`);
+            updateFindingData(0, 'remediation', `<svg><animate onbegin="${js}" attributeName="x" dur="1s"></animate></svg><details open ontoggle="${js}">d</details>`);
+            window.__pwned = 0;
+            renderAll();
+            await sleep(600);
+            assert(!window.__pwned, `script executed ${window.__pwned} time(s) when finding text was re-rendered`);
+            const [, desc, rem] = __t.cardFields(0);
+            for (const el of [desc, rem]) {
+                assert(![...el.querySelectorAll('*')].some(n => [...n.attributes].some(a => /^on/i.test(a.name))), 'event handler rendered: ' + el.innerHTML);
+                assert(!el.querySelector('a[href^="javascript:"], svg'), 'unsafe markup rendered: ' + el.innerHTML);
+            }
+            assert(desc.innerText.includes('ok'), 'harmless text was lost: ' + desc.innerHTML);
+        } }],
+    },
+    {
+        // Rollback of a failed import re-applies a snapshot of the live report: it goes through the
+        // same sanitizer as import, autosave restore and undo. (Execution isn't counted here: taking
+        // the snapshot clones the live DOM, which re-fires a handler that is already on the page.)
+        id: 'SEC-DOM-2-rollback', title: 'A failed import rolls back through the sanitizer', tags: ['security'],
+        steps: [{ run: async () => {
+            const { assert } = __t;
+            findings.push(__t.finding({ description: 'x' }));
+            renderAll();
+            // A section whose live DOM holds markup the import policy wouldn't keep.
+            document.getElementById('section-exec').insertAdjacentHTML('beforeend', '<img src=x onerror="void 0"><b onclick="void 0">kept</b>');
+            const good = buildReportPayload();
+            const realRender = window.renderLogo;
+            let calls = 0;
+            // Make the first apply fail halfway (after the report container was replaced).
+            window.renderLogo = () => { if (++calls === 1) throw new Error('boom'); return realRender(); };
+            let threw = false;
+            try { applyReportPayload({ ...good, findings: [] }); } catch { threw = true; }
+            window.renderLogo = realRender;
+            assert(threw, 'the forced failure did not happen');
+            const exec = document.getElementById('section-exec');
+            assert(findings.length === 1 && exec && exec.innerText.includes('kept'), 'rollback did not restore the report');
+            assert(!document.querySelector('#reportBlocksContainer [onerror], #section-exec [onclick]'), 'rollback put back unsanitized markup: ' + exec.innerHTML);
+        } }],
+    },
+    {
+        // TEST-003 corpus against the sanitizer itself, in both policies: classic XSS and mXSS
+        // (namespace confusion, noscript/raw-text re-parsing). The output is put into the live page.
+        id: 'SEC-DOM-2-corpus', title: 'sanitizeHtml neutralises an XSS/mXSS corpus in both policies, and is stable', tags: ['security'],
+        steps: [{ run: async () => {
+            const { assert, sleep } = __t;
+            const js = 'window.__pwned=(window.__pwned||0)+1';
+            const corpus = [
+                `<img src=x onerror="${js}">`, `<IMG SRC=x ONERROR="${js}">`, `<image src=x onerror="${js}">`,
+                `<svg onload="${js}"></svg>`, `<svg><script>${js}</script></svg>`, `<svg><foreignObject><img src=x onerror="${js}"></foreignObject></svg>`,
+                `<math><mtext><table><mglyph><style><img src=x onerror="${js}"></style></mglyph></table></mtext></math>`,
+                `<math><annotation-xml encoding="text/html"><img src=x onerror="${js}"></annotation-xml></math>`,
+                `<noscript><p title="</noscript><img src=x onerror=&quot;${js}&quot;>"></p></noscript>`,
+                `<xmp><img src=x onerror="${js}"></xmp>`, `<plaintext><img src=x onerror="${js}">`,
+                `<noembed><img title="</noembed><img src=x onerror=&quot;${js}&quot;>"></noembed>`,
+                `<template><img src=x onerror="${js}"></template>`, `<select><style></style><img src=x onerror="${js}"></select>`,
+                `<form><math><mtext></form><form><mglyph><style></math><img src=x onerror="${js}">`,
+                `<table><td><style><img src=x onerror="${js}"></style></td></table>`,
+                `<iframe srcdoc="<script>parent.${js}<\/script>"></iframe>`, // eslint-disable-line no-useless-escape -- keeps the string safe inside an HTML <script>
+                `<object data="data:text/html,<script>parent.${js}<\/script>"></object>`, // eslint-disable-line no-useless-escape -- as above
+                `<embed src="data:text/html,x">`, `<base href="https://evil.example/">`, `<meta http-equiv="refresh" content="0;url=javascript:${js}">`,
+                `<a href="javascript:${js}">a</a>`, `<a href=" javascript:${js}">a</a>`, `<a href="jav&#x09;ascript:${js}">a</a>`,
+                `<a href="data:text/html,x">a</a>`, `<img src="data:text/html,x">`, `<details open ontoggle="${js}">d</details>`,
+                `<input autofocus onfocus="${js}">`, `<button formaction="javascript:${js}">b</button>`, `<div style="background:url(javascript:${js})">s</div>`,
+                `<style>@import 'x';</style>`, `<div onclick="moveSectionUp(this);${js}">c</div>`, `<span class="token-client" onmouseover="${js}"><b>t</b></span>`,
+                `<!--<img src=x onerror="${js}">-->`, `<a id="x"><img name="getElementById"></a>`,
+            ];
+            const unsafe = el => [...el.querySelectorAll('*')].find(n =>
+                /^(script|style|iframe|object|embed|base|meta|template|noscript|svg|math|form|textarea|xmp|plaintext|noembed)$/i.test(n.localName)
+                || n.namespaceURI !== 'http://www.w3.org/1999/xhtml'
+                || [...n.attributes].some(a => (/^on/i.test(a.name) && !/^(moveSectionUp|moveSectionDown|insertPageBreakAfter|removeSection)\(this\)$/.test(a.value))
+                    || (/^(href|src|action|formaction|data)$/i.test(a.name) && !/^(https?:|mailto:|#|data:image\/)/i.test(a.value.trim()))));
+            window.__pwned = 0;
+            const failures = [];
+            const live = document.createElement('div');
+            document.body.appendChild(live);
+            for (const structure of [false, true]) {
+                for (const p of corpus) {
+                    const once = sanitizeHtml(p, { structure });
+                    const twice = sanitizeHtml(once, { structure });
+                    if (once !== twice) failures.push(`${structure ? 'structure' : 'rich'}: not stable: ${p} → ${once} → ${twice}`);
+                    live.innerHTML = once;
+                    const bad = unsafe(live);
+                    if (bad) failures.push(`${structure ? 'structure' : 'rich'}: ${p} → ${bad.outerHTML}`);
+                }
+            }
+            await sleep(600);
+            live.remove();
+            assert(!window.__pwned, `script executed ${window.__pwned} time(s) from sanitized output`);
+            assert(failures.length === 0, failures.join('\n'));
+        } }],
+    },
 ];
