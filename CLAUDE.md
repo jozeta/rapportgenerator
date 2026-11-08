@@ -66,3 +66,11 @@ npm test                 # the tests CI runs
 ESLint lints the `.js`/`.mjs` files (the tests); the app's own script is inline in
 `rapportgenerator.html`, which ESLint doesn't read, so keep escaping there by hand (`escapeHtml`).
 In tests the DOM-sink rule is off: the XSS regression tests set `innerHTML` to payloads on purpose.
+
+HTML safety in the app (SEC-DOM-2): every `innerHTML` / `insertAdjacentHTML` sink in
+`rapportgenerator.html` has a `// eslint-disable-next-line no-unsanitized/property -- reviewed: <why>`
+line (`/method` for `insertAdjacentHTML`) above it; `claude-check` counts sinks without one. A new
+sink may only take constants, integers, `escapeHtml()`ed text, `sanitizeHtml()` output, or parse into
+an inert `<template>`, and gets the same marker. HTML from files, templates and editable fields goes
+through `sanitizeHtml()` (rich-text or structure policy); finding description/remediation are
+sanitized every time `renderAll()` renders them, so `findings` never has to be trusted.

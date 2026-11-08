@@ -1286,6 +1286,7 @@
         const div = document.createElement('div');
         div.id = id;
         div.className = 'ext-file-warning';
+        // eslint-disable-next-line no-unsanitized/property -- reviewed: message is escaped; the rest is constant markup
         div.innerHTML = `<span>${escapeHtml(message)}</span><button onclick="this.parentElement.remove()" title="Dismiss">×</button>`;
         container.appendChild(div);
     }
@@ -1473,6 +1474,7 @@
         const head = model.tableHeaders.map((h, i) => `<th style="width: ${i === 0 ? 10 : 45}%;">${escapeHtml(h)}</th>`).join('');
         const body = model.rows.map((r, i) => `<tr><td class="fw-bold text-center bg-light">${5 - i}</td>`
             + r.map(cell => `<td contenteditable="true" class="p-2 bg-white rounded-0">${sanitizeHtml(cell)}</td>`).join('') + '</tr>').join('');
+        // eslint-disable-next-line no-unsanitized/property -- reviewed: headers are escaped, cells go through sanitizeHtml(), row numbers are integers
         wrap.innerHTML = `<table class="table table-sm table-bordered border-light-subtle align-middle" style="font-size: 0.8rem;">
             <thead class="table-light fw-bold text-uppercase" style="font-size: 0.65rem; letter-spacing: 0.5px;"><tr>${head}</tr></thead>
             <tbody>${body}</tbody></table>`;
@@ -1483,8 +1485,10 @@
         const model = scoringModels[tpl.scoring] || scoringModels.builtin;
         if (s.component === 'summary') {
             const block = newTemplateBlock('block-summary', '@summary');
+            // eslint-disable-next-line no-unsanitized/property -- reviewed: SECTION_CONTROLS_HTML is a constant
             block.innerHTML = SECTION_CONTROLS_HTML;
             block.appendChild(headingRow(s.title || 'Findings Summary', s.info));
+            // eslint-disable-next-line no-unsanitized/method -- reviewed: constant markup; the two axis labels are escaped
             block.insertAdjacentHTML('beforeend', `<div id="summaryList" class="summary-list mt-3"></div>
                 <div class="row align-items-center mt-4">
                     <div class="col-md-6"><div class="matrix-wrapper">
@@ -1494,26 +1498,32 @@
                     </div></div>
                     <div class="col-md-6"><div class="editable-section section-edit matrix-legend" contenteditable="true" id="section-matrix-legend"></div></div>
                 </div>`);
+            // eslint-disable-next-line no-unsanitized/property -- reviewed: template/scoring-model legend goes through sanitizeHtml()
             block.querySelector('#section-matrix-legend').innerHTML = sanitizeHtml(tpl.legend || (model ? model.legend : ''));
             return block;
         }
         if (s.component === 'findings') {
             const block = newTemplateBlock('block-details', '@findings');
             block.classList.add('details-block');
+            // eslint-disable-next-line no-unsanitized/property -- reviewed: SECTION_CONTROLS_HTML is a constant
             block.innerHTML = SECTION_CONTROLS_HTML;
             block.appendChild(headingRow(s.title || 'Detailed Findings', s.info, 'details-title'));
+            // eslint-disable-next-line no-unsanitized/method -- reviewed: constant markup
             block.insertAdjacentHTML('beforeend', '<div id="findingsContainer" class="findings-container" style="position: relative; min-height: 50px; padding-left: 20px;"></div>');
             return block;
         }
         const block = newTemplateBlock(blockIdForSection(s.key), s.key);
+        // eslint-disable-next-line no-unsanitized/property -- reviewed: SECTION_CONTROLS_HTML is a constant
         block.innerHTML = SECTION_CONTROLS_HTML;
         block.appendChild(headingRow(s.title || '', s.info));
         const body = document.createElement('div');
         body.className = 'editable-section section-edit' + (s.severityTable ? ' mb-3' : '');
         body.contentEditable = 'true';
         body.id = `section-${s.key}`;
+        // eslint-disable-next-line no-unsanitized/property -- reviewed: template section text goes through sanitizeHtml()
         body.innerHTML = sanitizeHtml(typeof s.html === 'string' ? s.html : '');
         block.appendChild(body);
+        // eslint-disable-next-line no-unsanitized/method -- reviewed: constant markup
         if (s.severityTable) block.insertAdjacentHTML('beforeend', '<div id="execSeverityTableContainer" class="mb-2"></div>');
         if (s.scoringTable && model) block.appendChild(scoringTableElement(model));
         return block;
@@ -2188,6 +2198,7 @@
     function normalizeTokensInHtml(html) {
         if (typeof html !== 'string' || html === '') return html;
         const tpl = document.createElement('template');
+        // eslint-disable-next-line no-unsanitized/property -- reviewed: parsed into an inert <template> (no scripts, handlers or loads); the result is sanitized where it is used
         tpl.innerHTML = html;
         convertLiteralTokensToSpans(tpl.content);
         return tpl.innerHTML;
@@ -2334,11 +2345,13 @@
     function sanitizeHtml(html, { structure = false } = {}) {
         if (typeof html !== 'string' || html === '') return '';
         const tpl = document.createElement('template');
+        // eslint-disable-next-line no-unsanitized/property -- reviewed: parsed into an inert <template> (no scripts, handlers or loads); the tree is cleaned before it is serialized
         tpl.innerHTML = html;
-        // ids used by the app outside the report container must not be re-declared by imported content
+        // ids used by the app outside the report container must not be re-declared by imported content.
+        // Only the structure policy keeps ids, so rich text (rendered for every finding) skips the scan.
         const container = document.getElementById('reportBlocksContainer');
-        const reservedIds = new Set([...document.querySelectorAll('[id]')]
-            .filter(el => !container || !container.contains(el)).map(el => el.id));
+        const reservedIds = structure ? new Set([...document.querySelectorAll('[id]')]
+            .filter(el => !container || !container.contains(el)).map(el => el.id)) : new Set();
         sanitizeChildren(tpl.content, structure ? 'app' : 'rich', reservedIds);
         return tpl.innerHTML;
     }
@@ -2352,6 +2365,7 @@
     function repairTokensInHtml(html) {
         if (typeof html !== 'string' || html === '') return html;
         const tpl = document.createElement('template');
+        // eslint-disable-next-line no-unsanitized/property -- reviewed: parsed into an inert <template> (no scripts, handlers or loads); the result goes straight into sanitizeHtml()
         tpl.innerHTML = html;
         repairCorruptedTokens(tpl.content);
         return tpl.innerHTML;
@@ -2603,6 +2617,7 @@
         const replaceHtmlText = (htmlString) => {
             if (typeof htmlString !== 'string' || !htmlString) return htmlString;
             const container = document.createElement('template');
+            // eslint-disable-next-line no-unsanitized/property -- reviewed: parsed into an inert <template>; only text nodes are changed, and renderAll() sanitizes finding text
             container.innerHTML = htmlString;
             replaceTextNodesInElement(container.content, pattern, replaceText, counter, dryRun);
             return dryRun ? htmlString : container.innerHTML;
@@ -2758,6 +2773,8 @@
     }
 
     const SEVERITY_BADGE_CLASS = { Critical: 'badge-crit', High: 'badge-high', Medium: 'badge-med', Low: 'badge-low', 'Not Scored': 'badge-unscored' };
+    // A severity from a file (retest baseline) only ever picks one of the classes above.
+    const severityBadgeClass = (severity) => Object.hasOwn(SEVERITY_BADGE_CLASS, severity) ? SEVERITY_BADGE_CLASS[severity] : 'badge-unscored';
 
     function todayIso() {
         const d = new Date(), pad = n => String(n).padStart(2, '0');
@@ -2838,6 +2855,7 @@
         if (retestState) {
             startBtn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Retest in progress';
             startBtn.setAttribute('data-tooltip', 'Jump to the Retest Summary section');
+            // eslint-disable-next-line no-unsanitized/property -- reviewed: startedAt is escaped; the rest is constant markup
             status.innerHTML = `Started ${escapeHtml(retestState.startedAt || '')} · <button type="button" class="btn btn-link btn-sm p-0 align-baseline" onclick="endRetest()">End retest</button>`;
             status.style.display = '';
         } else {
@@ -2870,12 +2888,12 @@
         const rows = findings.map((f, i) => {
             const b = base[f.id];
             const original = b
-                ? `<span class="crit-badge ${SEVERITY_BADGE_CLASS[b.severity] || 'badge-unscored'}">${escapeHtml(b.severity)}</span> ${statusBadgeHtml(b.status)}`
+                ? `<span class="crit-badge ${severityBadgeClass(b.severity)}">${escapeHtml(b.severity)}</span> ${statusBadgeHtml(b.status)}`
                 : '<span class="text-muted fst-italic">New in retest</span>';
             return `<tr><td>${i + 1}</td><td>${escapeHtml(f.title)}</td><td>${original}</td><td>${statusBadgeHtml(f.status)}</td><td>${escapeHtml(f.retestDate || '—')}</td></tr>`;
         });
         Object.entries(base).filter(([id]) => !presentIds.has(id)).forEach(([, b]) => {
-            rows.push(`<tr class="text-muted"><td>—</td><td>${escapeHtml(b.title)}</td><td><span class="crit-badge ${SEVERITY_BADGE_CLASS[b.severity] || 'badge-unscored'}">${escapeHtml(b.severity)}</span> ${statusBadgeHtml(b.status)}</td><td colspan="2" class="fst-italic">Removed from this report</td></tr>`);
+            rows.push(`<tr class="text-muted"><td>—</td><td>${escapeHtml(b.title)}</td><td><span class="crit-badge ${severityBadgeClass(b.severity)}">${escapeHtml(b.severity)}</span> ${statusBadgeHtml(b.status)}</td><td colspan="2" class="fst-italic">Removed from this report</td></tr>`);
         });
 
         const originals = findings.filter(f => base[f.id]);
@@ -2889,6 +2907,7 @@
             ? `Of the ${originals.length} original finding${originals.length === 1 ? '' : 's'}: ${parts.join(', ')}.`
             : 'None of the original findings are in the report any more.';
 
+        // eslint-disable-next-line no-unsanitized/property -- reviewed: titles, severities and dates are escaped; badge classes come from constant maps; counts are integers
         target.innerHTML = `<p class="retest-totals">${summary}</p>
             <table class="table table-sm table-bordered retest-table">
                 <thead class="table-light"><tr><th style="width:2.5rem">#</th><th>Finding</th><th>Original result</th><th>Retest status</th><th style="width:7.5rem">Retest date</th></tr></thead>
@@ -3386,6 +3405,7 @@
         div.className = 'report-block details-block';
         div.id = uniqueId;
         div.setAttribute('draggable', 'false');
+        // eslint-disable-next-line no-unsanitized/property -- reviewed: headline is escaped; the rest is constant markup
         div.innerHTML = `<div class="block-controls no-print">
                 <div class="drag-handle" draggable="true"><i class="bi bi-grip-vertical"></i></div>
                 <button class="block-control-btn" onclick="moveSectionUp(this)" data-tooltip="Move section up"><i class="bi bi-chevron-up"></i></button>
@@ -3421,6 +3441,7 @@
         const div = document.createElement('div');
         div.className = 'report-block';
         div.setAttribute('draggable', 'false');
+        // eslint-disable-next-line no-unsanitized/property -- reviewed: headline is escaped; the rest is constant markup
         div.innerHTML = `<div class="block-controls no-print">
                 <div class="drag-handle" draggable="true"><i class="bi bi-grip-vertical"></i></div>
                 <button class="block-control-btn" onclick="moveSectionUp(this)" data-tooltip="Move section up"><i class="bi bi-chevron-up"></i></button>
@@ -4049,6 +4070,7 @@
         const select = document.getElementById('meta-classification');
         if (select) {
             const currentVal = select.value;
+            // eslint-disable-next-line no-unsanitized/property -- reviewed: classification names are escaped
             select.innerHTML = '<option value="" selected>Select classification...</option>' +
                 classifications.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
             if (classifications.includes(currentVal)) { select.value = currentVal; }
@@ -4056,6 +4078,7 @@
 
         const manageList = document.getElementById('classificationManageList');
         if (manageList) {
+            // eslint-disable-next-line no-unsanitized/property -- reviewed: classification names are escaped; idx is an integer
             manageList.innerHTML = classifications.length > 0
                 ? classifications.map((c, idx) => `
                     <span class="asset-badge">
@@ -4133,6 +4156,7 @@
             }
         }
 
+        // eslint-disable-next-line no-unsanitized/property -- reviewed: labels are constants and counts are integers
         body.innerHTML = items.map(item => {
             const isWarn = item.warn !== undefined ? item.warn : item.count > 0;
             const label = isWarn ? item.warnLabel : item.okLabel;
@@ -4376,12 +4400,12 @@
 
                     <div class="mb-3">
                         <div class="fw-bold small text-secondary text-uppercase">General Vulnerability Description</div>
-                        <div class="editable-section section-edit" contenteditable="true" data-field="description" onblur="updateFindingData(${i}, 'description', this.innerHTML)">${f.description}</div>
+                        <div class="editable-section section-edit" contenteditable="true" data-field="description" onblur="updateFindingData(${i}, 'description', this.innerHTML)">${sanitizeHtml(f.description)}</div>
                     </div>
 
                     <div class="mb-3">
                         <div class="fw-bold small text-secondary text-uppercase">Remediation</div>
-                        <div class="editable-section section-edit" contenteditable="true" data-field="remediation" onblur="updateFindingData(${i}, 'remediation', this.innerHTML)">${f.remediation}</div>
+                        <div class="editable-section section-edit" contenteditable="true" data-field="remediation" onblur="updateFindingData(${i}, 'remediation', this.innerHTML)">${sanitizeHtml(f.remediation)}</div>
                     </div>
 
                     ${plannerHtml}
@@ -4401,6 +4425,7 @@
             const sortBar = findings.filter(f => f.sectionId === secId).length >= 2
                 ? `<div class="findings-toolbar no-print"><button type="button" class="btn btn-sm btn-outline-secondary" data-sort-section="${escapeHtml(secId)}" data-tooltip="Order this section Critical → Low; unscored next, false positives last"><i class="bi bi-sort-down"></i> Sort by severity</button></div>`
                 : '';
+            // eslint-disable-next-line no-unsanitized/property -- reviewed: every value in the cards is escaped, an integer, a constant, or (description/remediation) passed through sanitizeHtml()
             containersMap[secId].innerHTML = (html && html.trim().length > 0)
                 ? sortBar + html
                 : `<div class="findings-empty-state no-print">No findings in this section yet. <button type="button" class="btn btn-sm btn-outline-secondary ms-1" data-add-finding-to="${escapeHtml(secId)}"><i class="bi bi-plus-lg"></i> Add a finding here</button></div>`;
@@ -4416,6 +4441,7 @@
 
         const execTableTarget = document.getElementById('execSeverityTableContainer');
         if (execTableTarget) {
+            // eslint-disable-next-line no-unsanitized/property -- reviewed: constant markup; the counts are integers
             execTableTarget.innerHTML = `
             <table class="table table-sm table-bordered mt-3 text-center border-light-subtle mx-auto" style="font-size: 0.8rem; max-width: 450px;">
                 <thead class="table-light text-uppercase fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px;">
@@ -4515,6 +4541,7 @@
     }
     function renderLogo() {
         const lc = document.getElementById('logoContainer');
+        // eslint-disable-next-line no-unsanitized/property -- reviewed: currentLogo is escaped inside a quoted src (and validated with SAFE_LOGO_RE on import); the rest is constant
         if(lc) lc.innerHTML = currentLogo ? `<img src="${escapeHtml(currentLogo)}" class="report-logo mx-auto">` : `<div class="logo-placeholder no-print">Click to Upload Company Logo
                 <span class="info-tip" onclick="event.stopPropagation()" data-tooltip="Best practice: PNG or SVG with a transparent background. Displays at up to 160px tall / 80% of the page width, so a wide logo (roughly 3:1 to 4:1 aspect ratio) fits best. Keep the file small (under ~500KB) for fast loading and PDF export.">ⓘ</span>
             </div>`;
@@ -4564,6 +4591,7 @@
             errors.push('Its report sections are missing.');
         } else {
             const tpl = document.createElement('template');
+            // eslint-disable-next-line no-unsanitized/property -- reviewed: parsed into an inert <template> only to validate its structure; nothing from it reaches the page
             tpl.innerHTML = data.blocksHtml;
             if (!tpl.content.querySelector('.details-block .findings-container')) errors.push('Its report sections contain no Detailed Findings section.');
         }
@@ -4600,6 +4628,7 @@
     function migrateReportPayload(data) {
         const d = { ...data };
         const tpl = document.createElement('template');
+        // eslint-disable-next-line no-unsanitized/property -- reviewed: parsed into an inert <template>; blocksHtml is sanitized after migration (sanitizeReportPayload)
         tpl.innerHTML = d.blocksHtml;
 
         if (!d.schemaVersion || d.schemaVersion < 2) {
@@ -4630,6 +4659,7 @@
         // fixed) have no risk matrix; put the standard block back in front of the first findings section.
         if (!tpl.content.querySelector('#matrix') && PRISTINE_SUMMARY_BLOCK_HTML) {
             const firstDetails = tpl.content.querySelector('.details-block');
+            // eslint-disable-next-line no-unsanitized/method -- reviewed: inserted into an inert <template>; the app's own startup markup, and the whole blocksHtml is sanitized after migration
             firstDetails.insertAdjacentHTML('beforebegin', PRISTINE_SUMMARY_BLOCK_HTML);
             d.blocksHtml = tpl.innerHTML;
         }
@@ -4692,7 +4722,7 @@
             applyValidatedReportPayload(migrated, { markSaved });
         } catch (err) {
             try {
-                applyValidatedReportPayload(backup, { markSaved: !backupHadUnsavedChanges });
+                applyValidatedReportPayload(sanitizeReportPayload(backup), { markSaved: !backupHadUnsavedChanges });
             } catch (rollbackErr) {
                 console.error('Rolling back a failed import also failed', rollbackErr);
             }
@@ -4723,6 +4753,7 @@
         // Before anything renders: finding cards use the template's labels (e.g. "Affected Files / Components").
         if (data.assessmentType) setAssessmentTypeSilently(data.assessmentType);
         updateActionPlannerToggleIcon();
+        // eslint-disable-next-line no-unsanitized/property -- reviewed: blocksHtml always comes from sanitizeReportPayload() (structure policy): import, autosave restore, undo and rollback
         document.getElementById('reportBlocksContainer').innerHTML = data.blocksHtml;
         document.querySelectorAll('#reportBlocksContainer .editable-section').forEach(el => convertLiteralTokensToSpans(el));
         if (retestState) insertRetestBlock();          // e.g. a file whose Retest Summary block was removed by hand

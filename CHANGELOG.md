@@ -6,6 +6,7 @@ The project has no tagged releases yet, so changes are grouped by date. Entries 
 
 ## Unreleased
 
+- Security (SEC-DOM-2): reviewed all 28 `innerHTML` / `insertAdjacentHTML` sinks and marked each with the reason it is safe. Finding description and remediation are now sanitized every time they are rendered, not only on import: HTML committed from an editable field could otherwise be re-rendered with its event handlers. Rolling back a failed import now goes through the sanitizer too. New regression tests: render-time sanitizing, rollback, and an XSS/mXSS corpus against the sanitizer
 - Report templates with their own structure. Each template defines its sections, headings, order, default text, rating scale (Exploitability for pentests, Likelihood for reviews) and finding labels. New templates: General Security Review, Vulnerability Assessment, Phishing / Social Engineering and Configuration Review. Code Review was reworked (repositories and commit, review approach, secure development recommendations). Switching template keeps findings and user-added sections, asks first and can be undone. The sidebar control is now "Report Template", grouped by kind. `report-defaults.json` moves to format 2; format 1 files still load
 - Animations and transitions respect the system's "Reduce motion" setting
 - ESLint (flat config, with the no-unsanitized rule) as a dev-only tool; CI runs `npm run lint`
