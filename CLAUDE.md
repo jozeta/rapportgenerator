@@ -61,7 +61,7 @@ that bug is back.
 - Keep it a single self-contained HTML file with no external runtime dependencies (vendored
   assets only, CDN only as the `file://` fallback).
 - For every bug fix, add a case to `tests/cases.mjs` and an entry in `AUDIT.md`.
-- `1z.nu` hosts a copy of `rapportgenerator.html`; after releasing a change, update that copy.
+- 1z.nu no longer hosts a copy (removed 9 November 2026); don't copy releases there unless asked.
 - Imported report JSON is rendered as HTML by design (documented limitation). Don't widen what
   imports can execute (no inline scripts or event handlers).
 
