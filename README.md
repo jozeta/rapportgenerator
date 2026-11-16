@@ -6,9 +6,27 @@ A client-side report builder for writing and exporting professional security / p
 
 The app itself — the editor, the risk matrix, the PDF export — is a single HTML file, `rapportgenerator.html`, with no separate CSS/JS files and no build step. Three optional JSON files sitting next to it — `library.json` (the vulnerability template library), `report-defaults.json` (the report's default boilerplate text), and `settings.json` (firm-wide defaults) — extend it further — see [How it works](#how-it-works) and [Firm-wide settings](#firm-wide-settings) below — but the app runs and remains useful with just the HTML file on its own.
 
+Version: **1.0.0** (shown at the bottom of the sidebar's Settings; kept in `package.json`)
+
+## What's new in 1.0.0
+
+- The app now has a version number, shown in the sidebar and kept in one place (`package.json`).
+- Changing the interface language also switches the report to that language (a new report in the same template; it asks first).
+- Swedish vulnerability library: all 270 templates have Swedish text, used in Swedish reports.
+- Swedish reports and a Swedish interface, report templates with their own structure, and a stricter, reviewed DOM-safety layer.
+
+Older changes are listed in [CHANGELOG.md](CHANGELOG.md).
+
 ## Screenshot
 
-![The report editor: logo drop zone, report title, assessment metadata and the Executive Summary with dynamic tokens](docs/screenshots/editor.png)
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/editor.png" alt="The report editor with logo drop zone, assessment metadata and Executive Summary" width="100%">
+      <br><sub>The report editor: logo drop zone, report title, assessment metadata and the Executive Summary with dynamic tokens.</sub>
+    </td>
+  </tr>
+</table>
 
 ## Why
 

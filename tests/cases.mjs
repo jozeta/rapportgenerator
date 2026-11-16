@@ -26,6 +26,18 @@ export const cases = [
         } }],
     },
 
+    {
+        id: 'VER-001', title: 'The sidebar shows the version from package.json', tags: ['smoke'],
+        steps: [{ run: async () => {
+            const { assert, waitFor } = __t;
+            const expected = (await (await fetch('package.json')).json()).version;
+            assert(/^\d+\.\d+\.\d+$/.test(expected), `package.json version is "${expected}"`);
+            await waitFor(() => document.getElementById('appVersion').textContent !== '', 3000, 'version shown');
+            assert(document.getElementById('appVersion').textContent === expected, 'shown version differs from package.json');
+            assert(!document.getElementById('appVersionRow').hidden, 'version row is hidden');
+        } }],
+    },
+
     // ---------------------------------------------------------------- tokens
     {
         id: 'BUG-001-section', title: 'Placeholder typed into a section survives repeated focusout', tags: ['tokens', 'stage1'],

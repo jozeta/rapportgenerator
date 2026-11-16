@@ -675,6 +675,7 @@
                         <input type="file" id="importLibraryFile" class="d-none" onchange="importLibraryJson(this)">
 
                         <button class="btn btn-outline-dark btn-sm w-100" onclick="saveSettingsJson()" data-tooltip="Save Assessing Company, Contact info, Branding, Classifications, and Watermark settings to a settings.json file"><i class="bi bi-save"></i> Save Settings</button>
+                        <div class="small text-muted text-center mt-3 no-print" translate="no" id="appVersionRow" hidden>Version <span id="appVersion"></span></div>
                     </div>
                 </div>
             </div>
@@ -2605,6 +2606,19 @@
         location.reload();
     }
 
+    // Shows the app version, read from package.json (the one place the version is kept).
+    // Optional like the other data files: a failed fetch (file://) just leaves the row hidden.
+    async function loadAppVersion() {
+        try {
+            const res = await fetch('package.json');
+            if (!res.ok) return;
+            const v = (await res.json()).version;
+            if (typeof v !== 'string' || !/^\d+\.\d+\.\d+$/.test(v)) return;
+            document.getElementById('appVersion').textContent = v;
+            document.getElementById('appVersionRow').hidden = false;
+        } catch (err) { /* optional */ }
+    }
+
     async function loadSettings() {
         let cfg;
         try {
@@ -2833,6 +2847,7 @@
     async function loadExternalDefaults() {
         await loadReportDefaults();
         await loadSettings();
+        loadAppVersion();
         loadPersistedFields();
         syncTokens();
         renderChecklist();

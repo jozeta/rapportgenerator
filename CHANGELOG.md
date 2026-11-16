@@ -2,10 +2,13 @@
 
 All notable changes to rapportgenerator are listed here, newest first.
 
-The project has no tagged releases yet, so changes are grouped by date. Entries before November 2026 were reconstructed from the commit history.
+The project has no tagged releases yet; version numbering starts at 1.0.0 (2026-11-12), and earlier changes are grouped by date. Entries before November 2026 were reconstructed from the commit history.
 
 ## Unreleased
 
+## 1.0.0 - 2026-11-12
+
+- Versioning: the app now has a version number, kept in `package.json` and shown at the bottom of the sidebar's Settings (test `VER-001`). The README shows it and has a "What's new" section and a screenshot grid with captions. 1.0.0 is the first numbered version and contains everything listed below under 2026-11 and earlier
 - Changing the interface language also switches the report to that language (a new report, same template; it asks first if the report has content, and declining keeps the current report). Before, the report stayed in its own language, which looked like the Swedish switch didn't work
 - Swedish vulnerability library: all 270 templates have Swedish titles, descriptions and remediation (`library.sv.json`, keyed by English title). In a Swedish report, Add New Finding lists and fills in the Swedish text; search accepts English and Swedish words. Own templates are shown as written
 - Changing the report language keeps the chosen Report Template (it was reset to the default template by the reload)
